@@ -25,3 +25,4 @@ DerivedData/
 storage/private/
 dados-reais/
 comprovantes/
+!infra/postgres/init/*.sql
