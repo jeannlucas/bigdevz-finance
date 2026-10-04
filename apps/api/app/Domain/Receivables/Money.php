@@ -8,11 +8,11 @@ use InvalidArgumentException;
 
 final class Money
 {
-    private const MAX_CENTS = 99999999999999;
+    public const MAX_CENTS = 99999999999999;
 
     public static function toCents(string $decimal): int
     {
-        if (!preg_match('/\A(0|[1-9][0-9]{0,11})\.([0-9]{2})\z/', $decimal, $parts)) {
+        if (! preg_match('/\A(0|[1-9][0-9]{0,11})\.([0-9]{2})\z/', $decimal, $parts)) {
             throw new InvalidArgumentException('Informe um valor decimal com duas casas dentro do limite permitido.');
         }
 

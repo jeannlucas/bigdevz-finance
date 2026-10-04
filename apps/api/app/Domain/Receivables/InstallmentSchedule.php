@@ -44,7 +44,7 @@ final class InstallmentSchedule
 
     private static function parseDate(string $value): DateTimeImmutable
     {
-        if (!preg_match('/\A[0-9]{4}-[0-9]{2}-[0-9]{2}\z/', $value) || substr($value, 0, 4) === '0000') {
+        if (! preg_match('/\A[0-9]{4}-[0-9]{2}-[0-9]{2}\z/', $value) || substr($value, 0, 4) === '0000') {
             throw new InvalidArgumentException('Informe uma data válida no formato AAAA-MM-DD.');
         }
         $date = DateTimeImmutable::createFromFormat('!Y-m-d', $value, new DateTimeZone('UTC'));
