@@ -38,6 +38,18 @@ void main() {
         await settle();
       }
 
+      // O banco de dev acumula contas de execuções anteriores e as listas são
+      // preguiçosas: rola a lista (ou o menu aberto) até o item ser construído.
+      Future<void> reveal(String text) async {
+        await tester.scrollUntilVisible(
+          find.text(text),
+          200,
+          scrollable: find.byType(Scrollable).last,
+          maxScrolls: 200,
+        );
+        await settle();
+      }
+
       await tester.pumpWidget(buildApp(baseUrl: apiBaseUrl, storage: storage));
       await settle();
 
@@ -66,6 +78,7 @@ void main() {
         '100000',
       );
       await tapText('Salvar conta');
+      await reveal('Conta IT $stamp');
       expect(find.text('Conta IT $stamp'), findsOneWidget);
 
       // 3. Acordo de R$ 24.000,00 em 12 parcelas.
@@ -89,6 +102,7 @@ void main() {
       await tapText('Registrar recebimento');
       await tester.tap(find.byType(DropdownButtonFormField<int>));
       await settle();
+      await reveal('Conta IT $stamp');
       await tapText('Conta IT $stamp');
       await tester.enterText(
         find.widgetWithText(TextFormField, 'Valor recebido'),
@@ -111,6 +125,7 @@ void main() {
         await settle();
       }
       await tapText('Contas');
+      await reveal('Conta IT $stamp');
       expect(find.text('Conta IT $stamp'), findsOneWidget);
       await tapText('PJ');
       expect(find.text('Conta IT $stamp'), findsNothing);
@@ -123,6 +138,7 @@ void main() {
       expect(find.text('Empresa (PJ)'), findsWidgets);
       await tapText('PF');
       await tapText('Contas');
+      await reveal('Conta IT $stamp');
       final card = find.ancestor(
         of: find.text('Conta IT $stamp'),
         matching: find.byType(ListTile),
