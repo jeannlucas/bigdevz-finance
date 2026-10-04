@@ -19,6 +19,7 @@ services:
       retries: 20
 
   api:
+    image: bigdevz/finance-api:dev
     build: ./apps/api
     depends_on:
       postgres:

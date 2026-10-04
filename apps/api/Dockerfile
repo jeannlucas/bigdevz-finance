@@ -1,4 +1,5 @@
 FROM php:8.3-cli-alpine
+LABEL com.bigdevz.project="finance" com.bigdevz.service="api"
 
 RUN apk add --no-cache postgresql-dev icu-dev \
     && docker-php-ext-install pdo_pgsql intl bcmath
