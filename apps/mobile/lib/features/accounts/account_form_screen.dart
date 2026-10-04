@@ -41,11 +41,16 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
       _error = null;
     });
     try {
-      await context.read<AccountsRepository>().create(widget.space.id,
-          name: _name.text.trim(), openingBalance: Money.fromInput(_balance.text)!, date: toApiDate(_date));
+      await context.read<AccountsRepository>().create(
+        widget.space.id,
+        name: _name.text.trim(),
+        openingBalance: Money.fromInput(_balance.text)!,
+        date: toApiDate(_date),
+      );
       if (!mounted) return;
       context.read<SessionController>().dataChanged();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Conta cadastrada.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Conta cadastrada.')));
       Navigator.of(context).pop();
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error);
@@ -61,41 +66,66 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
       appBar: AppBar(title: const Text('Nova conta')),
       body: Form(
         key: _form,
-        child: ListView(padding: const EdgeInsets.all(16), children: [
-          SpaceBadge(widget.space, prefix: 'Conta do espaço'),
-          const SizedBox(height: 20),
-          if (_error != null && fieldErrors.isEmpty) ...[FormErrorBanner(_error!.message), const SizedBox(height: 16)],
-          TextFormField(
-            controller: _name,
-            decoration: InputDecoration(labelText: 'Nome da conta', hintText: 'Ex.: Banco PF', errorText: fieldErrors['name']),
-            textCapitalization: TextCapitalization.sentences,
-            maxLength: 80,
-            validator: (value) => (value ?? '').trim().isEmpty ? 'Informe um nome.' : null,
-          ),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _balance,
-            decoration: InputDecoration(labelText: 'Saldo inicial', prefixText: r'R$ ', errorText: fieldErrors['opening_balance']),
-            keyboardType: TextInputType.number,
-            inputFormatters: [MoneyInputFormatter()],
-            validator: (value) => Money.fromInput(value ?? '') == null ? 'Informe o saldo inicial.' : null,
-          ),
-          const SizedBox(height: 16),
-          DateField(
-            label: 'Data do saldo inicial',
-            value: _date,
-            lastDate: DateTime(2100),
-            errorText: fieldErrors['opening_balance_date'],
-            onChanged: (date) => setState(() => _date = date),
-          ),
-          const SizedBox(height: 8),
-          Text('Recebimentos anteriores a esta data não são aceitos nesta conta.', style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: 24),
-          FilledButton(
-            onPressed: _saving ? null : _save,
-            child: _saving ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.5)) : const Text('Salvar conta'),
-          ),
-        ]),
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            SpaceBadge(widget.space, prefix: 'Conta do espaço'),
+            const SizedBox(height: 20),
+            if (_error != null && fieldErrors.isEmpty) ...[
+              FormErrorBanner(_error!.message),
+              const SizedBox(height: 16),
+            ],
+            TextFormField(
+              controller: _name,
+              decoration: InputDecoration(
+                labelText: 'Nome da conta',
+                hintText: 'Ex.: Banco PF',
+                errorText: fieldErrors['name'],
+              ),
+              textCapitalization: TextCapitalization.sentences,
+              maxLength: 80,
+              validator: (value) =>
+                  (value ?? '').trim().isEmpty ? 'Informe um nome.' : null,
+            ),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _balance,
+              decoration: InputDecoration(
+                labelText: 'Saldo inicial',
+                prefixText: r'R$ ',
+                errorText: fieldErrors['opening_balance'],
+              ),
+              keyboardType: TextInputType.number,
+              inputFormatters: [MoneyInputFormatter()],
+              validator: (value) => Money.fromInput(value ?? '') == null
+                  ? 'Informe o saldo inicial.'
+                  : null,
+            ),
+            const SizedBox(height: 16),
+            DateField(
+              label: 'Data do saldo inicial',
+              value: _date,
+              lastDate: DateTime(2100),
+              errorText: fieldErrors['opening_balance_date'],
+              onChanged: (date) => setState(() => _date = date),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Recebimentos anteriores a esta data não são aceitos nesta conta.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: _saving ? null : _save,
+              child: _saving
+                  ? const SizedBox.square(
+                      dimension: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                    )
+                  : const Text('Salvar conta'),
+            ),
+          ],
+        ),
       ),
     );
   }

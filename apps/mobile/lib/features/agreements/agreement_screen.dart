@@ -11,7 +11,11 @@ import 'agreements_tab.dart';
 import 'installment_screen.dart';
 
 class AgreementScreen extends StatelessWidget {
-  const AgreementScreen({super.key, required this.space, required this.agreementId});
+  const AgreementScreen({
+    super.key,
+    required this.space,
+    required this.agreementId,
+  });
 
   final Space space;
   final int agreementId;
@@ -21,28 +25,38 @@ class AgreementScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Acordo')),
       body: LoadView<Agreement>(
-        load: () => context.read<AgreementsRepository>().find(space.id, agreementId),
+        load: () =>
+            context.read<AgreementsRepository>().find(space.id, agreementId),
         builder: (context, agreement, refresh) => RefreshIndicator(
           onRefresh: refresh,
-          child: ListView(padding: const EdgeInsets.all(16), children: [
-            SpaceBadge(space),
-            const SizedBox(height: 16),
-            AgreementCard(agreement: agreement),
-            const SizedBox(height: 16),
-            Text('Parcelas', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            for (final installment in agreement.installments)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: InstallmentTile(
-                  installment: installment,
-                  count: agreement.installmentCount,
-                  onTap: () => Navigator.of(context).push(
-                    spaceRoute(isPf: space.isPf, child: InstallmentScreen(space: space, installmentId: installment.id)),
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              SpaceBadge(space),
+              const SizedBox(height: 16),
+              AgreementCard(agreement: agreement),
+              const SizedBox(height: 16),
+              Text('Parcelas', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              for (final installment in agreement.installments)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: InstallmentTile(
+                    installment: installment,
+                    count: agreement.installmentCount,
+                    onTap: () => Navigator.of(context).push(
+                      spaceRoute(
+                        isPf: space.isPf,
+                        child: InstallmentScreen(
+                          space: space,
+                          installmentId: installment.id,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-          ]),
+            ],
+          ),
         ),
       ),
     );
@@ -50,7 +64,12 @@ class AgreementScreen extends StatelessWidget {
 }
 
 class InstallmentTile extends StatelessWidget {
-  const InstallmentTile({super.key, required this.installment, required this.count, this.onTap});
+  const InstallmentTile({
+    super.key,
+    required this.installment,
+    required this.count,
+    this.onTap,
+  });
 
   final Installment installment;
   final int count;
@@ -67,11 +86,15 @@ class InstallmentTile extends StatelessWidget {
           'Vence em ${formatDateBr(installment.dueDate)}'
           '${installment.status == InstallmentStatus.partial ? ' · falta ${installment.remaining.brl}' : ''}',
         ),
-        trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-          MoneyText(installment.amount, style: theme.textTheme.titleSmall),
-          const SizedBox(height: 4),
-          installmentStatusChip(installment),
-        ]),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            MoneyText(installment.amount, style: theme.textTheme.titleSmall),
+            const SizedBox(height: 4),
+            installmentStatusChip(installment),
+          ],
+        ),
       ),
     );
   }
@@ -79,7 +102,12 @@ class InstallmentTile extends StatelessWidget {
 
 Widget installmentStatusChip(Installment installment) {
   if (installment.overdue) {
-    return StatusChip(label: installment.status == InstallmentStatus.partial ? 'Parcial · vencida' : 'Vencida', tone: StatusTone.danger);
+    return StatusChip(
+      label: installment.status == InstallmentStatus.partial
+          ? 'Parcial · vencida'
+          : 'Vencida',
+      tone: StatusTone.danger,
+    );
   }
   return StatusChip(
     label: installment.status.label,

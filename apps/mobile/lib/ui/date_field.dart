@@ -35,7 +35,11 @@ class DateField extends StatelessWidget {
         if (picked != null) onChanged(DateUtils.dateOnly(picked));
       },
       child: InputDecorator(
-        decoration: InputDecoration(labelText: label, prefixIcon: const Icon(Icons.event_outlined), errorText: errorText),
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: const Icon(Icons.event_outlined),
+          errorText: errorText,
+        ),
         child: Text(formatDateBr(toApiDate(value))),
       ),
     );

@@ -33,7 +33,13 @@ class AgreementsTab extends StatelessWidget {
           itemBuilder: (context, index) => AgreementCard(
             agreement: agreements[index],
             onTap: () => Navigator.of(context).push(
-              spaceRoute(isPf: space.isPf, child: AgreementScreen(space: space, agreementId: agreements[index].id)),
+              spaceRoute(
+                isPf: space.isPf,
+                child: AgreementScreen(
+                  space: space,
+                  agreementId: agreements[index].id,
+                ),
+              ),
             ),
           ),
         ),
@@ -51,39 +57,82 @@ class AgreementCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final progress = agreement.total.cents == 0 ? 0.0 : agreement.received.cents / agreement.total.cents;
+    final progress = agreement.total.cents == 0
+        ? 0.0
+        : agreement.received.cents / agreement.total.cents;
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Expanded(child: Text(agreement.description, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600))),
-              if (agreement.overdueInstallments > 0)
-                StatusChip(label: '${agreement.overdueInstallments} vencida(s)', tone: StatusTone.danger)
-              else if (agreement.remaining.isZero)
-                const StatusChip(label: 'Quitado', tone: StatusTone.success),
-            ]),
-            const SizedBox(height: 12),
-            // Proporção só para a barra visual; valores exibidos vêm da API.
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(value: progress, minHeight: 8, semanticsLabel: 'Recebido do acordo'),
-            ),
-            const SizedBox(height: 12),
-            Row(children: [
-              Expanded(child: _Labeled(label: 'Falta receber', child: MoneyText(agreement.remaining, style: theme.textTheme.titleMedium))),
-              _Labeled(label: 'Total', alignEnd: true, child: MoneyText(agreement.total, style: theme.textTheme.bodyLarge)),
-            ]),
-            const SizedBox(height: 8),
-            Text(
-              '${agreement.paidInstallments} de ${agreement.installmentCount} parcelas quitadas'
-              '${agreement.nextDueDate != null ? ' · próximo vencimento ${formatDateBr(agreement.nextDueDate!)}' : ''}',
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-            ),
-          ]),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      agreement.description,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (agreement.overdueInstallments > 0)
+                    StatusChip(
+                      label: '${agreement.overdueInstallments} vencida(s)',
+                      tone: StatusTone.danger,
+                    )
+                  else if (agreement.remaining.isZero)
+                    const StatusChip(
+                      label: 'Quitado',
+                      tone: StatusTone.success,
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Proporção só para a barra visual; valores exibidos vêm da API.
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 8,
+                  semanticsLabel: 'Recebido do acordo',
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _Labeled(
+                      label: 'Falta receber',
+                      child: MoneyText(
+                        agreement.remaining,
+                        style: theme.textTheme.titleMedium,
+                      ),
+                    ),
+                  ),
+                  _Labeled(
+                    label: 'Total',
+                    alignEnd: true,
+                    child: MoneyText(
+                      agreement.total,
+                      style: theme.textTheme.bodyLarge,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${agreement.paidInstallments} de ${agreement.installmentCount} parcelas quitadas'
+                '${agreement.nextDueDate != null ? ' · próximo vencimento ${formatDateBr(agreement.nextDueDate!)}' : ''}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -91,7 +140,11 @@ class AgreementCard extends StatelessWidget {
 }
 
 class _Labeled extends StatelessWidget {
-  const _Labeled({required this.label, required this.child, this.alignEnd = false});
+  const _Labeled({
+    required this.label,
+    required this.child,
+    this.alignEnd = false,
+  });
 
   final String label;
   final Widget child;
@@ -99,7 +152,13 @@ class _Labeled extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(
-        crossAxisAlignment: alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: [Text(label, style: Theme.of(context).textTheme.labelSmall), const SizedBox(height: 2), child],
-      );
+    crossAxisAlignment: alignEnd
+        ? CrossAxisAlignment.end
+        : CrossAxisAlignment.start,
+    children: [
+      Text(label, style: Theme.of(context).textTheme.labelSmall),
+      const SizedBox(height: 2),
+      child,
+    ],
+  );
 }

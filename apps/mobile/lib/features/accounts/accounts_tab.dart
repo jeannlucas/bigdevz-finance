@@ -35,11 +35,21 @@ class AccountsTab extends StatelessWidget {
               child: ListTile(
                 leading: CircleAvatar(
                   backgroundColor: theme.colorScheme.primaryContainer,
-                  child: Icon(Icons.account_balance, color: theme.colorScheme.onPrimaryContainer),
+                  child: Icon(
+                    Icons.account_balance,
+                    color: theme.colorScheme.onPrimaryContainer,
+                  ),
                 ),
                 title: Text(account.name),
-                subtitle: Text('Saldo inicial ${account.openingBalance.brl} em ${formatDateBr(account.openingBalanceDate)}'),
-                trailing: MoneyText(account.balance, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                subtitle: Text(
+                  'Saldo inicial ${account.openingBalance.brl} em ${formatDateBr(account.openingBalanceDate)}',
+                ),
+                trailing: MoneyText(
+                  account.balance,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             );
           },

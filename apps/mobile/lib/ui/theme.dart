@@ -11,7 +11,11 @@ ThemeData buildTheme(Brightness brightness, {Color seed = brandSeed}) {
     colorScheme: scheme,
     useMaterial3: true,
     scaffoldBackgroundColor: scheme.surface,
-    appBarTheme: AppBarTheme(backgroundColor: scheme.surface, scrolledUnderElevation: 1, centerTitle: false),
+    appBarTheme: AppBarTheme(
+      backgroundColor: scheme.surface,
+      scrolledUnderElevation: 1,
+      centerTitle: false,
+    ),
     cardTheme: CardThemeData(
       elevation: 0,
       color: scheme.surfaceContainerLow,
@@ -30,13 +34,22 @@ ThemeData buildTheme(Brightness brightness, {Color seed = brandSeed}) {
         textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
       ),
     ),
-    listTileTheme: const ListTileThemeData(contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4)),
+    listTileTheme: const ListTileThemeData(
+      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    ),
   );
 }
 
 Color seedForSpace(bool isPf) => isPf ? pfSeed : pjSeed;
 
 /// Rota que mantém a cor do espaço ativo nas telas empilhadas.
-Route<T> spaceRoute<T>({required bool isPf, required Widget child}) => MaterialPageRoute<T>(
-      builder: (context) => Theme(data: buildTheme(Theme.of(context).brightness, seed: seedForSpace(isPf)), child: child),
+Route<T> spaceRoute<T>({required bool isPf, required Widget child}) =>
+    MaterialPageRoute<T>(
+      builder: (context) => Theme(
+        data: buildTheme(
+          Theme.of(context).brightness,
+          seed: seedForSpace(isPf),
+        ),
+        child: child,
+      ),
     );

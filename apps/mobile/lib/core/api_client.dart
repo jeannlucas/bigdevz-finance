@@ -21,8 +21,11 @@ class ApiException implements Exception {
 
 /// Cliente JSON da API Laravel. Única porta do app para dados financeiros.
 class ApiClient {
-  ApiClient({required this.baseUrl, http.Client? client, this.timeout = const Duration(seconds: 15)})
-      : _client = client ?? http.Client();
+  ApiClient({
+    required this.baseUrl,
+    http.Client? client,
+    this.timeout = const Duration(seconds: 15),
+  }) : _client = client ?? http.Client();
 
   final String baseUrl;
   final Duration timeout;
@@ -35,11 +38,18 @@ class ApiClient {
 
   Future<Map<String, dynamic>> get(String path) => _send('GET', path);
 
-  Future<Map<String, dynamic>> post(String path, Map<String, Object?> body, {String? idempotencyKey}) =>
-      _send('POST', path, body: body, idempotencyKey: idempotencyKey);
+  Future<Map<String, dynamic>> post(
+    String path,
+    Map<String, Object?> body, {
+    String? idempotencyKey,
+  }) => _send('POST', path, body: body, idempotencyKey: idempotencyKey);
 
-  Future<Map<String, dynamic>> _send(String method, String path,
-      {Map<String, Object?>? body, String? idempotencyKey}) async {
+  Future<Map<String, dynamic>> _send(
+    String method,
+    String path, {
+    Map<String, Object?>? body,
+    String? idempotencyKey,
+  }) async {
     final request = http.Request(method, Uri.parse('$baseUrl$path'))
       ..headers.addAll({
         'Accept': 'application/json',
@@ -51,16 +61,26 @@ class ApiClient {
 
     final http.Response response;
     try {
-      response = await http.Response.fromStream(await _client.send(request).timeout(timeout));
+      response = await http.Response.fromStream(
+        await _client.send(request).timeout(timeout),
+      );
     } on TimeoutException {
-      throw const ApiException('A API demorou para responder. Tente novamente.');
+      throw const ApiException(
+        'A API demorou para responder. Tente novamente.',
+      );
     } on SocketException {
-      throw const ApiException('Sem conexão com a API. Verifique a rede e o endereço configurado.');
+      throw const ApiException(
+        'Sem conexão com a API. Verifique a rede e o endereço configurado.',
+      );
     } on http.ClientException {
-      throw const ApiException('Sem conexão com a API. Verifique a rede e o endereço configurado.');
+      throw const ApiException(
+        'Sem conexão com a API. Verifique a rede e o endereço configurado.',
+      );
     }
 
-    final decoded = response.body.isEmpty ? <String, dynamic>{} : _decode(response.body);
+    final decoded = response.body.isEmpty
+        ? <String, dynamic>{}
+        : _decode(response.body);
     if (response.statusCode >= 200 && response.statusCode < 300) return decoded;
 
     if (response.statusCode == 401) onUnauthorized?.call();
@@ -68,13 +88,21 @@ class ApiClient {
     final raw = decoded['errors'];
     if (raw is Map) {
       raw.forEach((key, value) {
-        if (value is List && value.isNotEmpty) errors['$key'] = '${value.first}';
+        if (value is List && value.isNotEmpty) {
+          errors['$key'] = '${value.first}';
+        }
       });
     }
-    final message = decoded['message'] is String && (decoded['message'] as String).isNotEmpty
+    final message =
+        decoded['message'] is String &&
+            (decoded['message'] as String).isNotEmpty
         ? errors.values.firstOrNull ?? decoded['message'] as String
         : 'Não foi possível concluir a operação (${response.statusCode}).';
-    throw ApiException(message, status: response.statusCode, fieldErrors: errors);
+    throw ApiException(
+      message,
+      status: response.statusCode,
+      fieldErrors: errors,
+    );
   }
 
   Map<String, dynamic> _decode(String body) {

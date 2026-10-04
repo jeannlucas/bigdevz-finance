@@ -47,16 +47,22 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
     });
     try {
       final agreement = await context.read<AgreementsRepository>().create(
-            widget.space.id,
-            description: _description.text.trim(),
-            total: Money.fromInput(_total.text)!,
-            installmentCount: int.parse(_count.text),
-            firstDueDate: toApiDate(_firstDue),
-          );
+        widget.space.id,
+        description: _description.text.trim(),
+        total: Money.fromInput(_total.text)!,
+        installmentCount: int.parse(_count.text),
+        firstDueDate: toApiDate(_firstDue),
+      );
       if (!mounted) return;
       context.read<SessionController>().dataChanged();
       Navigator.of(context).pushReplacement(
-        spaceRoute(isPf: widget.space.isPf, child: AgreementScreen(space: widget.space, agreementId: agreement.id)),
+        spaceRoute(
+          isPf: widget.space.isPf,
+          child: AgreementScreen(
+            space: widget.space,
+            agreementId: agreement.id,
+          ),
+        ),
       );
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error);
@@ -72,55 +78,86 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
       appBar: AppBar(title: const Text('Novo acordo a receber')),
       body: Form(
         key: _form,
-        child: ListView(padding: const EdgeInsets.all(16), children: [
-          SpaceBadge(widget.space, prefix: 'Acordo do espaço'),
-          const SizedBox(height: 20),
-          if (_error != null && fieldErrors.isEmpty) ...[FormErrorBanner(_error!.message), const SizedBox(height: 16)],
-          TextFormField(
-            controller: _description,
-            decoration: InputDecoration(labelText: 'Descrição', hintText: 'Ex.: Venda de veículo', errorText: fieldErrors['description']),
-            textCapitalization: TextCapitalization.sentences,
-            maxLength: 120,
-            validator: (value) => (value ?? '').trim().isEmpty ? 'Descreva o acordo.' : null,
-          ),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _total,
-            decoration: InputDecoration(labelText: 'Valor total', prefixText: r'R$ ', errorText: fieldErrors['total']),
-            keyboardType: TextInputType.number,
-            inputFormatters: [MoneyInputFormatter()],
-            validator: (value) => (Money.fromInput(value ?? '')?.cents ?? 0) > 0 ? null : 'Informe o valor total.',
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _count,
-            decoration: InputDecoration(labelText: 'Quantidade de parcelas', errorText: fieldErrors['installment_count']),
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(4)],
-            validator: (value) {
-              final count = int.tryParse(value ?? '');
-              return count == null || count < 1 || count > 1200 ? 'Informe de 1 a 1200 parcelas.' : null;
-            },
-          ),
-          const SizedBox(height: 16),
-          DateField(
-            label: 'Primeiro vencimento',
-            value: _firstDue,
-            errorText: fieldErrors['first_due_date'],
-            onChanged: (date) => setState(() => _firstDue = date),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'As parcelas são calculadas pela API: centavos restantes vão para as primeiras, e o dia do primeiro '
-            'vencimento é mantido (no mês sem esse dia, usa o último dia do mês).',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: 24),
-          FilledButton(
-            onPressed: _saving ? null : _save,
-            child: _saving ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.5)) : const Text('Gerar parcelas'),
-          ),
-        ]),
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            SpaceBadge(widget.space, prefix: 'Acordo do espaço'),
+            const SizedBox(height: 20),
+            if (_error != null && fieldErrors.isEmpty) ...[
+              FormErrorBanner(_error!.message),
+              const SizedBox(height: 16),
+            ],
+            TextFormField(
+              controller: _description,
+              decoration: InputDecoration(
+                labelText: 'Descrição',
+                hintText: 'Ex.: Venda de veículo',
+                errorText: fieldErrors['description'],
+              ),
+              textCapitalization: TextCapitalization.sentences,
+              maxLength: 120,
+              validator: (value) =>
+                  (value ?? '').trim().isEmpty ? 'Descreva o acordo.' : null,
+            ),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _total,
+              decoration: InputDecoration(
+                labelText: 'Valor total',
+                prefixText: r'R$ ',
+                errorText: fieldErrors['total'],
+              ),
+              keyboardType: TextInputType.number,
+              inputFormatters: [MoneyInputFormatter()],
+              validator: (value) =>
+                  (Money.fromInput(value ?? '')?.cents ?? 0) > 0
+                  ? null
+                  : 'Informe o valor total.',
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _count,
+              decoration: InputDecoration(
+                labelText: 'Quantidade de parcelas',
+                errorText: fieldErrors['installment_count'],
+              ),
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(4),
+              ],
+              validator: (value) {
+                final count = int.tryParse(value ?? '');
+                return count == null || count < 1 || count > 1200
+                    ? 'Informe de 1 a 1200 parcelas.'
+                    : null;
+              },
+            ),
+            const SizedBox(height: 16),
+            DateField(
+              label: 'Primeiro vencimento',
+              value: _firstDue,
+              errorText: fieldErrors['first_due_date'],
+              onChanged: (date) => setState(() => _firstDue = date),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'As parcelas são calculadas pela API: centavos restantes vão para as primeiras, e o dia do primeiro '
+              'vencimento é mantido (no mês sem esse dia, usa o último dia do mês).',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: _saving ? null : _save,
+              child: _saving
+                  ? const SizedBox.square(
+                      dimension: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                    )
+                  : const Text('Gerar parcelas'),
+            ),
+          ],
+        ),
       ),
     );
   }

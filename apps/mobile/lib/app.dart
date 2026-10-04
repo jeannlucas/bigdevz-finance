@@ -33,10 +33,17 @@ class _SessionGate extends StatelessWidget {
   Widget build(BuildContext context) {
     final session = context.watch<SessionController>();
     return switch (session.status) {
-      SessionStatus.restoring => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      SessionStatus.restoring => const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      ),
       SessionStatus.unreachable => Scaffold(
-          body: SafeArea(child: ErrorState(message: session.message ?? 'API indisponível.', onRetry: session.restore)),
+        body: SafeArea(
+          child: ErrorState(
+            message: session.message ?? 'API indisponível.',
+            onRetry: session.restore,
+          ),
         ),
+      ),
       SessionStatus.signedOut => const LoginScreen(),
       SessionStatus.signedIn => const HomeShell(),
     };

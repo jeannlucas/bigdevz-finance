@@ -10,12 +10,12 @@ class Account {
   });
 
   factory Account.fromJson(Map<String, dynamic> json) => Account(
-        id: json['id'] as int,
-        name: json['name'] as String,
-        openingBalance: Money.parse(json['opening_balance'] as String),
-        openingBalanceDate: json['opening_balance_date'] as String,
-        balance: Money.parse(json['balance'] as String),
-      );
+    id: json['id'] as int,
+    name: json['name'] as String,
+    openingBalance: Money.parse(json['opening_balance'] as String),
+    openingBalanceDate: json['opening_balance_date'] as String,
+    balance: Money.parse(json['balance'] as String),
+  );
 
   final int id;
   final String name;

@@ -29,55 +29,85 @@ class _HomeShellState extends State<HomeShell> {
     // Cor e conteúdo vinculados ao espaço: a chave descarta todo estado do anterior.
     return Theme(
       data: buildTheme(brightness, seed: seedForSpace(space.isPf)),
-      child: Builder(builder: (context) {
-        return Scaffold(
-          appBar: AppBar(
-            titleSpacing: 16,
-            title: _SpaceSwitcher(spaces: session.spaces, active: space),
-            actions: [
-              PopupMenuButton<String>(
-                tooltip: 'Conta',
-                icon: const Icon(Icons.account_circle_outlined),
-                onSelected: (_) => session.logout(),
-                itemBuilder: (_) => [
-                  PopupMenuItem(enabled: false, child: Text(session.user?.email ?? '')),
-                  const PopupMenuItem(value: 'logout', child: Text('Sair')),
-                ],
-              ),
-            ],
-          ),
-          body: KeyedSubtree(
-            key: ValueKey('space-${space.id}-tab-$_tab'),
-            child: switch (_tab) {
-              0 => SummaryTab(space: space, onOpenTab: (tab) => setState(() => _tab = tab)),
-              1 => AgreementsTab(space: space),
-              _ => AccountsTab(space: space),
-            },
-          ),
-          floatingActionButton: switch (_tab) {
-            1 => FloatingActionButton.extended(
-                onPressed: () => Navigator.of(context).push(spaceRoute(isPf: space.isPf, child: AgreementFormScreen(space: space))),
+      child: Builder(
+        builder: (context) {
+          return Scaffold(
+            appBar: AppBar(
+              titleSpacing: 16,
+              title: _SpaceSwitcher(spaces: session.spaces, active: space),
+              actions: [
+                PopupMenuButton<String>(
+                  tooltip: 'Conta',
+                  icon: const Icon(Icons.account_circle_outlined),
+                  onSelected: (_) => session.logout(),
+                  itemBuilder: (_) => [
+                    PopupMenuItem(
+                      enabled: false,
+                      child: Text(session.user?.email ?? ''),
+                    ),
+                    const PopupMenuItem(value: 'logout', child: Text('Sair')),
+                  ],
+                ),
+              ],
+            ),
+            body: KeyedSubtree(
+              key: ValueKey('space-${space.id}-tab-$_tab'),
+              child: switch (_tab) {
+                0 => SummaryTab(
+                  space: space,
+                  onOpenTab: (tab) => setState(() => _tab = tab),
+                ),
+                1 => AgreementsTab(space: space),
+                _ => AccountsTab(space: space),
+              },
+            ),
+            floatingActionButton: switch (_tab) {
+              1 => FloatingActionButton.extended(
+                onPressed: () => Navigator.of(context).push(
+                  spaceRoute(
+                    isPf: space.isPf,
+                    child: AgreementFormScreen(space: space),
+                  ),
+                ),
                 icon: const Icon(Icons.add),
                 label: const Text('Novo acordo'),
               ),
-            2 => FloatingActionButton.extended(
-                onPressed: () => Navigator.of(context).push(spaceRoute(isPf: space.isPf, child: AccountFormScreen(space: space))),
+              2 => FloatingActionButton.extended(
+                onPressed: () => Navigator.of(context).push(
+                  spaceRoute(
+                    isPf: space.isPf,
+                    child: AccountFormScreen(space: space),
+                  ),
+                ),
                 icon: const Icon(Icons.add),
                 label: const Text('Nova conta'),
               ),
-            _ => null,
-          },
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: _tab,
-            onDestinationSelected: (tab) => setState(() => _tab = tab),
-            destinations: const [
-              NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'Resumo'),
-              NavigationDestination(icon: Icon(Icons.handshake_outlined), selectedIcon: Icon(Icons.handshake), label: 'A receber'),
-              NavigationDestination(icon: Icon(Icons.account_balance_outlined), selectedIcon: Icon(Icons.account_balance), label: 'Contas'),
-            ],
-          ),
-        );
-      }),
+              _ => null,
+            },
+            bottomNavigationBar: NavigationBar(
+              selectedIndex: _tab,
+              onDestinationSelected: (tab) => setState(() => _tab = tab),
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.dashboard_outlined),
+                  selectedIcon: Icon(Icons.dashboard),
+                  label: 'Resumo',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.handshake_outlined),
+                  selectedIcon: Icon(Icons.handshake),
+                  label: 'A receber',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.account_balance_outlined),
+                  selectedIcon: Icon(Icons.account_balance),
+                  label: 'Contas',
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -97,13 +127,17 @@ class _SpaceSwitcher extends StatelessWidget {
         for (final space in spaces)
           ButtonSegment(
             value: space.id,
-            icon: Icon(space.isPf ? Icons.person_outline : Icons.business_outlined),
+            icon: Icon(
+              space.isPf ? Icons.person_outline : Icons.business_outlined,
+            ),
             label: Text(space.kind, semanticsLabel: space.label),
           ),
       ],
       selected: {active.id},
       onSelectionChanged: (selection) =>
-          context.read<SessionController>().selectSpace(spaces.firstWhere((space) => space.id == selection.first)),
+          context.read<SessionController>().selectSpace(
+            spaces.firstWhere((space) => space.id == selection.first),
+          ),
     );
   }
 }

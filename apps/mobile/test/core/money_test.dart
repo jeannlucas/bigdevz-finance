@@ -11,7 +11,15 @@ void main() {
     });
 
     test('recusa formatos ambíguos', () {
-      for (final value in ['1,00', '1.001', '-1.00', '01.00', '1', '', '1000000000000.00']) {
+      for (final value in [
+        '1,00',
+        '1.001',
+        '-1.00',
+        '01.00',
+        '1',
+        '',
+        '1000000000000.00',
+      ]) {
         expect(() => Money.parse(value), throwsFormatException, reason: value);
       }
     });

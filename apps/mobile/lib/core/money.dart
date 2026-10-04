@@ -24,7 +24,8 @@ class Money {
     return cents > maxCents ? null : Money(cents);
   }
 
-  String toApi() => '${cents ~/ 100}.${(cents % 100).toString().padLeft(2, '0')}';
+  String toApi() =>
+      '${cents ~/ 100}.${(cents % 100).toString().padLeft(2, '0')}';
 
   /// Sem o prefixo "R$", para campos de edição.
   String get plain {
@@ -45,13 +46,19 @@ class Money {
 /// Máscara de moeda: os dígitos entram pela direita, como em apps bancários.
 class MoneyInputFormatter extends TextInputFormatter {
   @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
     var digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
     if (digits.isEmpty) return TextEditingValue.empty;
     if (digits.length > 14) digits = digits.substring(digits.length - 14);
     var cents = int.parse(digits);
     if (cents > Money.maxCents) cents = Money.maxCents;
     final text = Money(cents).plain;
-    return TextEditingValue(text: text, selection: TextSelection.collapsed(offset: text.length));
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
   }
 }

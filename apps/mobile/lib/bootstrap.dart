@@ -12,7 +12,11 @@ import 'features/auth/session_controller.dart';
 import 'features/summary/summary.dart';
 
 /// Monta as dependências do app; os testes trocam cliente HTTP e armazenamento.
-Widget buildApp({required String baseUrl, required SessionStorage storage, http.Client? client}) {
+Widget buildApp({
+  required String baseUrl,
+  required SessionStorage storage,
+  http.Client? client,
+}) {
   final api = ApiClient(baseUrl: baseUrl, client: client);
   return MultiProvider(
     providers: [
@@ -21,7 +25,11 @@ Widget buildApp({required String baseUrl, required SessionStorage storage, http.
       Provider(create: (_) => AgreementsRepository(api)),
       Provider(create: (_) => SummaryRepository(api)),
       ChangeNotifierProvider(
-        create: (_) => SessionController(api: api, auth: AuthRepository(api), storage: storage)..restore(),
+        create: (_) => SessionController(
+          api: api,
+          auth: AuthRepository(api),
+          storage: storage,
+        )..restore(),
       ),
     ],
     child: const FinanceApp(),

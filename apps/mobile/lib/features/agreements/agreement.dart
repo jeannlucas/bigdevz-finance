@@ -15,19 +15,19 @@ class Agreement {
   });
 
   factory Agreement.fromJson(Map<String, dynamic> json) => Agreement(
-        id: json['id'] as int,
-        description: json['description'] as String,
-        total: Money.parse(json['total'] as String),
-        installmentCount: json['installment_count'] as int,
-        received: Money.parse(json['received'] as String),
-        remaining: Money.parse(json['remaining'] as String),
-        paidInstallments: json['paid_installments'] as int,
-        overdueInstallments: json['overdue_installments'] as int,
-        nextDueDate: json['next_due_date'] as String?,
-        installments: (json['installments'] as List? ?? const [])
-            .map((item) => Installment.fromJson(item as Map<String, dynamic>))
-            .toList(),
-      );
+    id: json['id'] as int,
+    description: json['description'] as String,
+    total: Money.parse(json['total'] as String),
+    installmentCount: json['installment_count'] as int,
+    received: Money.parse(json['received'] as String),
+    remaining: Money.parse(json['remaining'] as String),
+    paidInstallments: json['paid_installments'] as int,
+    overdueInstallments: json['overdue_installments'] as int,
+    nextDueDate: json['next_due_date'] as String?,
+    installments: (json['installments'] as List? ?? const [])
+        .map((item) => Installment.fromJson(item as Map<String, dynamic>))
+        .toList(),
+  );
 
   final int id;
   final String description;
@@ -51,10 +51,10 @@ enum InstallmentStatus {
   final String label;
 
   static InstallmentStatus parse(String value) => switch (value) {
-        'paid' => paid,
-        'partial' => partial,
-        _ => pending,
-      };
+    'paid' => paid,
+    'partial' => partial,
+    _ => pending,
+  };
 }
 
 class Installment {
@@ -108,14 +108,19 @@ class Installment {
 }
 
 class Receipt {
-  const Receipt({required this.id, required this.accountId, required this.amount, required this.receivedOn});
+  const Receipt({
+    required this.id,
+    required this.accountId,
+    required this.amount,
+    required this.receivedOn,
+  });
 
   factory Receipt.fromJson(Map<String, dynamic> json) => Receipt(
-        id: json['id'] as int,
-        accountId: json['account_id'] as int,
-        amount: Money.parse(json['amount'] as String),
-        receivedOn: json['received_on'] as String,
-      );
+    id: json['id'] as int,
+    accountId: json['account_id'] as int,
+    amount: Money.parse(json['amount'] as String),
+    receivedOn: json['received_on'] as String,
+  );
 
   final int id;
   final int accountId;
@@ -125,7 +130,13 @@ class Receipt {
 
 /// Resposta do registro de recebimento, já com os valores recalculados.
 class ReceiptResult {
-  const ReceiptResult({required this.receipt, required this.installment, required this.agreementRemaining, required this.accountBalance, required this.replayed});
+  const ReceiptResult({
+    required this.receipt,
+    required this.installment,
+    required this.agreementRemaining,
+    required this.accountBalance,
+    required this.replayed,
+  });
 
   final Receipt receipt;
   final Installment installment;
