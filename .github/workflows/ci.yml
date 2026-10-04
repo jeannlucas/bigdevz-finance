@@ -1,0 +1,62 @@
+name: CI
+
+# Linux apenas: valida núcleo, API em PostgreSQL real e o código Dart.
+# Não comprova build nem execução em iOS ou Android.
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  api:
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        # Banco descartável do job, sem senha (trust): nenhum segredo na CI.
+        env:
+          POSTGRES_USER: bigdevz
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: bigdevz_finance_test
+        ports: ["5440:5432"]
+        options: >-
+          --health-cmd "pg_isready -U bigdevz -d bigdevz_finance_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: pdo_pgsql, intl, bcmath
+          coverage: none
+      # composer.lock fixa as versões; a suíte aplica as migrations pendentes
+      # e recusa qualquer banco que não termine em _test.
+      - run: composer install --no-interaction --prefer-dist
+      - run: php tests/domain.php
+      - run: vendor/bin/pint --test
+      - run: php artisan test
+
+  mobile:
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.6"
+          channel: stable
+      - run: flutter pub get --enforce-lockfile
+      - run: dart format --output=none --set-exit-if-changed lib test integration_test
+      - run: flutter analyze
+      - run: flutter test
