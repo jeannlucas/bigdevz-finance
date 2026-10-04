@@ -18,8 +18,11 @@ check 'Git' git --version
 check 'GitHub CLI' gh --version
 check 'PHP' php --version
 check 'Composer' composer --version
-check 'Flutter no PATH' command -v flutter
-check 'Dart no PATH' command -v dart
+# Aceita o SDK no PATH ou em ~/development/flutter (mesma regra do Makefile).
+flutter_bin() { command -v flutter >/dev/null || test -x "$HOME/development/flutter/bin/flutter"; }
+dart_bin() { command -v dart >/dev/null || test -x "$HOME/development/flutter/bin/dart"; }
+check 'Flutter (PATH ou ~/development/flutter)' flutter_bin
+check 'Dart (PATH ou ~/development/flutter)' dart_bin
 check 'Android adb no PATH' command -v adb
 check 'Android sdkmanager no PATH' command -v sdkmanager
 check 'Docker CLI' docker --version
