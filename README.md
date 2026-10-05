@@ -3,9 +3,9 @@
 Controle financeiro pessoal e empresarial, com espaços PF e PJ separados.
 Repositório público em desenvolvimento; **licença em definição**.
 
-## Estado real em 04/10/2026
+## Estado real em 05/10/2026
 
-Checkpoint 1 implementado: login, espaços PF/PJ, contas com saldo inicial,
+Checkpoint 1 concluído: login, espaços PF/PJ, contas com saldo inicial,
 acordo a receber parcelado, recebimentos totais e parciais persistidos no
 PostgreSQL e app Flutter integrado à API Laravel.
 
@@ -16,8 +16,8 @@ PostgreSQL e app Flutter integrado à API Laravel.
 | Roteiro HTTP contra a API no Docker | `make smoke-api` |
 | App Flutter | 19 testes Dart (`make test-mobile`), `flutter analyze` sem avisos |
 | iOS | Build e teste de integração no **Simulador** iPhone 17 Pro (iOS 26.5) contra a API real |
-| iPhone físico | **Não testado** |
-| Android | **Não testado**: SDK em preparação |
+| iPhone físico | Teste de integração e roteiro manual no iPhone 17 Pro Max (iOS 27.0.1) contra a API real |
+| Android | Build debug e teste de integração no **emulador** Android 16 (API 36, arm64) contra a API real; aparelho Android não testado |
 
 Detalhes, evidências e pendências: `HANDOFF.md`. Escopo completo:
 `financeiro-pf-pj-escopo-e-prompt-inicial.md`.
@@ -84,19 +84,44 @@ cd apps/mobile && flutter test integration_test -d "iPhone 17 Pro" \
   --dart-define=API_BASE_URL=http://127.0.0.1:8000/api
 ```
 
-### iPhone físico (preparado, não executado)
+### iPhone físico (validado; usar só quando o simulador não bastar)
 
-Abra `apps/mobile/ios/Runner.xcworkspace` no Xcode, selecione seu time em
-*Signing & Capabilities* (bundle `com.bigdevz.finance`; troque se não estiver
-disponível na sua conta), conecte o iPhone e rode
-`flutter run -d <iphone> --dart-define=API_BASE_URL=http://IP-do-Mac:8000/api`.
-O iOS pedirá permissão de rede local.
+1. No Xcode, *Settings → Apple Accounts*: entre com seu Apple ID. Em
+   `apps/mobile/ios/Runner.xcworkspace`, alvo Runner, *Signing &
+   Capabilities*, filtro **All**: escolha o time. Não commite o
+   `DEVELOPMENT_TEAM` gravado no `project.pbxproj`.
+2. No iPhone: Modo de Desenvolvedor ativo e, após a primeira instalação,
+   *Ajustes → Geral → VPN e Gerenciamento de Dispositivo → Confiar*.
+3. API na rede local: `BIGDEVZ_API_BIND=0.0.0.0 make up`; ao terminar, `make up`
+   volta para `127.0.0.1`.
+4. Instale e abra o app uma vez e **permita a rede local**:
+   `flutter build ios --release --dart-define=API_BASE_URL=http://IP-do-Mac:8000/api`
+   e `xcrun devicectl device install app --device <id> build/ios/iphoneos/Runner.app`.
+5. Só então rode o teste de integração com `-d <id>` e a mesma URL. O
+   `flutter test` desinstala o app ao final; numa instalação nova o iOS pede
+   a permissão de novo e o primeiro login falha enquanto o pedido está na tela.
+   Mantenha o aparelho desbloqueado: bloqueado, o app não abre.
 
-### Android (preparado, não executado)
+### Android (validado em emulador)
 
-Abra o Android Studio uma vez para instalar o SDK, aceite as licenças com
-`flutter doctor --android-licenses`, crie um emulador e rode
-`flutter run -d <emulador> --dart-define=API_BASE_URL=http://10.0.2.2:8000/api`.
+SDK em `~/Library/Android/sdk`, que o Flutter detecta sozinho. Com as
+command-line tools oficiais e o Java do Android Studio (`JAVA_HOME` apontando
+para o `jbr` do app):
+
+```bash
+sdkmanager --licenses   # aceite interativo, feito por você
+sdkmanager "platform-tools" "emulator" "platforms;android-36" \
+  "build-tools;36.0.0" "ndk;28.2.13676358" \
+  "system-images;android-36;google_apis;arm64-v8a"
+avdmanager create avd -n bigdevz_api36 \
+  -k "system-images;android-36;google_apis;arm64-v8a" -d pixel_8
+emulator -avd bigdevz_api36 &
+cd apps/mobile && flutter test integration_test -d emulator-5554 \
+  --dart-define=API_BASE_URL=http://10.0.2.2:8000/api
+```
+
+No emulador, `10.0.2.2` é o `127.0.0.1` do Mac: a API não precisa sair do
+loopback. A primeira compilação baixa o Gradle e o CMake e leva cerca de 12 min.
 
 ## Roteiro manual
 
@@ -118,6 +143,6 @@ Abra o Android Studio uma vez para instalar o SDK, aceite as licenças com
 
 ## Pendências
 
-Licença (nenhuma concessão criada), identidade visual e ícone, validação em
-iPhone e Android, hospedagem/HTTPS, estornos. Dados reais nunca entram no
+Licença (nenhuma concessão criada), identidade visual e ícone, aparelho
+Android físico, hospedagem/HTTPS, estornos. Dados reais nunca entram no
 repositório: seeds, testes e exemplos são fictícios.
