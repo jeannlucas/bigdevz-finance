@@ -53,6 +53,16 @@ Licença continua em definição.
 - `bigdevz-finance-prompt-retomada-claude-cli.md` (já no histórico) cita o
   caminho local do Mac; não é segredo, mantido.
 
+## Retomada após reinício (05/10/2026)
+
+- Containers voltaram sozinhos; `make up` sem recriar, `/up` 200, contagens
+  do banco de dev iguais antes e depois (nenhum dado apagado).
+- Simulador iPhone 17 Pro ligado, aberto pelo Device Hub, `make run-ios`
+  até a tela de login. README: abrir o simulador pelo Device Hub (Xcode 27
+  não tem `Simulator.app`, conferido).
+- Android: só o AVD `bigdevz_api36`, nenhum emulador ativo; `emulator-5554`
+  não é garantido.
+
 ## Ambiente
 
 Docker 29.8.1; Compose `bigdevz-finance`, sub-rede `10.88.231.0/24` sem

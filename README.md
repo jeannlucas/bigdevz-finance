@@ -62,9 +62,14 @@ Variáveis opcionais do Compose (porta, senha local, sub-rede): `.env.example`.
 ## Abrir o app
 
 ```bash
-open -a Simulator
+xcrun simctl boot "iPhone 17 Pro"   # ignora o erro se já estiver ligado
 make run-ios DEVICE="iPhone 17 Pro"
 ```
+
+No Xcode 27 não existe mais `Simulator.app`: a janela do simulador fica no
+**Device Hub** (`open -a DeviceHub`). Para focar um aparelho:
+`open "devices://manage/select?id=<UDID>"` (UDID em
+`xcrun simctl list devices booted`).
 
 Endereço da API (`--dart-define=API_BASE_URL=...`):
 
