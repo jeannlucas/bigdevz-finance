@@ -19,6 +19,14 @@ class AccountResource extends JsonResource
             'opening_balance' => Money::fromCents($this->opening_balance_cents),
             'opening_balance_date' => $this->opening_balance_date->toDateString(),
             'balance' => Money::fromCents($this->balanceCents()),
+            'archived_at' => $this->archived_at?->toIso8601String(),
+            // Limite para a data de abertura: nenhuma movimentação antes dela.
+            'first_movement_date' => $this->when(
+                array_key_exists('movements_min_effective_date', $this->resource->getAttributes()),
+                fn () => $this->resource->getAttributes()['movements_min_effective_date'] === null
+                    ? null : substr((string) $this->resource->getAttributes()['movements_min_effective_date'], 0, 10),
+            ),
+            'opening_adjustments' => AccountOpeningAdjustmentResource::collection($this->whenLoaded('openingAdjustments')),
         ];
     }
 }

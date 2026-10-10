@@ -15,6 +15,7 @@ class Account extends Model
         return [
             'opening_balance_cents' => 'integer',
             'opening_balance_date' => 'date:Y-m-d',
+            'archived_at' => 'datetime',
         ];
     }
 
@@ -28,6 +29,18 @@ class Account extends Model
     public function movements(): HasMany
     {
         return $this->hasMany(AccountMovement::class);
+    }
+
+    /** @return HasMany<AccountOpeningAdjustment, $this> */
+    public function openingAdjustments(): HasMany
+    {
+        return $this->hasMany(AccountOpeningAdjustment::class)->orderByDesc('id');
+    }
+
+    /** Arquivada: fica no histórico e nos totais, mas não recebe operações novas. */
+    public function isArchived(): bool
+    {
+        return $this->archived_at !== null;
     }
 
     /**

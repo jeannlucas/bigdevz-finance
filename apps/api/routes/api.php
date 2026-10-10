@@ -28,6 +28,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/accounts', [AccountController::class, 'index']);
         Route::post('/accounts', [AccountController::class, 'store']);
         Route::get('/accounts/{account}', [AccountController::class, 'show']);
+        Route::patch('/accounts/{account}', [AccountController::class, 'update']);
+        Route::post('/accounts/{account}/archive', [AccountController::class, 'archive']);
+        Route::post('/accounts/{account}/unarchive', [AccountController::class, 'unarchive']);
+        Route::post('/accounts/{account}/opening-adjustment', [AccountController::class, 'adjustOpening']);
         Route::get('/agreements', [AgreementController::class, 'index']);
         Route::post('/agreements', [AgreementController::class, 'store']);
         Route::get('/agreements/{agreement}', [AgreementController::class, 'show']);
