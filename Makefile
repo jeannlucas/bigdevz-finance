@@ -1,4 +1,4 @@
-.PHONY: check-environment test-domain up down migrate seed test-api lint-api smoke-api test mobile-deps test-mobile analyze-mobile run-ios
+.PHONY: check-environment test-domain up down migrate seed test-api lint-api smoke-api test mobile-deps test-mobile analyze-mobile run-ios run-android build-android-debug
 
 FLUTTER ?= $(shell command -v flutter 2>/dev/null || echo $(HOME)/development/flutter/bin/flutter)
 COMPOSE = docker compose
@@ -46,3 +46,9 @@ test-mobile:
 
 run-ios:
 	cd apps/mobile && $(FLUTTER) run -d "$${DEVICE:-iPhone}" --dart-define=API_BASE_URL=$${API_BASE_URL:-http://127.0.0.1:8000/api}
+
+run-android:
+	cd apps/mobile && $(FLUTTER) run -d "$${DEVICE:-android}" --dart-define=API_BASE_URL=$${API_BASE_URL:-http://10.0.2.2:8000/api}
+
+build-android-debug:
+	cd apps/mobile && $(FLUTTER) build apk --debug

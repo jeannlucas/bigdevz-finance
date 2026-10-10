@@ -23,8 +23,12 @@ flutter_bin() { command -v flutter >/dev/null || test -x "$HOME/development/flut
 dart_bin() { command -v dart >/dev/null || test -x "$HOME/development/flutter/bin/dart"; }
 check 'Flutter (PATH ou ~/development/flutter)' flutter_bin
 check 'Dart (PATH ou ~/development/flutter)' dart_bin
-check 'Android adb no PATH' command -v adb
-check 'Android sdkmanager no PATH' command -v sdkmanager
+# Aceita adb e sdkmanager no PATH ou no diretório padrão do Android SDK.
+android_sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}"
+adb_bin() { command -v adb >/dev/null || test -x "$android_sdk/platform-tools/adb"; }
+sdkmanager_bin() { command -v sdkmanager >/dev/null || test -x "$android_sdk/cmdline-tools/latest/bin/sdkmanager"; }
+check 'Android adb (PATH ou Android SDK)' adb_bin
+check 'Android sdkmanager (PATH ou Android SDK)' sdkmanager_bin
 check 'Docker CLI' docker --version
 check 'Docker Compose' docker compose version
 check 'Acesso ao daemon Docker' docker info --format '{{.ServerVersion}}'

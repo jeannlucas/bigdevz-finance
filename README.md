@@ -198,17 +198,31 @@ make lint-api
 make mobile-deps && make analyze-mobile && make test-mobile
 ```
 
-### 3. Abrir o Aplicativo no Simulador iOS
+### 3. Execução no Simulador iOS ou Emulador Android
 
+#### No Simulador iOS:
 ```bash
-# Inicializar o simulador iPhone 17 Pro
+# Inicializar o simulador iPhone
 xcrun simctl boot "iPhone 17 Pro"
 
 # Compilar e executar o app apontando para a API local
 make run-ios DEVICE="iPhone 17 Pro"
 ```
-
 No macOS, visualize a janela do simulador pelo **Device Hub** (`open -a DeviceHub`).
+
+#### No Emulador Android:
+```bash
+# Inicializar o emulador Android cadastrado (ex.: bigdevz_api36)
+flutter emulators --launch bigdevz_api36
+
+# Compilar e executar o app apontando para a API local (10.0.2.2:8000)
+make run-android
+
+# Ou verificar a compilação nativa gerando o APK de depuração
+make build-android-debug
+```
+
+Para guia passo a passo, permissões nativas, depuração e conectividade via `adb reverse`, consulte o [Guia de Desenvolvimento Multiplataforma](docs/mobile-development.md).
 
 ### Endereço da API por Ambiente (`--dart-define=API_BASE_URL=...`):
 

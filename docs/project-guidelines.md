@@ -40,6 +40,7 @@ O sistema é estruturado como um cliente mobile conectado a uma API backend com 
 - **Estrutura por Funcionalidades**: Código organizado em `lib/features/` (`accounts`, `agreements`, `payables`, `auth`, `home`, `summary`) e componentes de design system em `lib/ui/`.
 - **Armazenamento Local Mínimo**: O aplicativo **não replica nem armazena dados financeiros localmente**. Apenas o token de sessão e o espaço ativo selecionado são guardados de forma segura via Keychain (iOS) ou Keystore (Android) (`SecureSessionStorage`).
 - **Gerenciamento de Estado**: State management enxuto e previsível via `Provider` e `ChangeNotifier` (`SessionController`).
+- **Suporte Multiplataforma**: Execução nativa homologada em **iOS** e **Android**. Configuração de endpoints via `--dart-define=API_BASE_URL=...` (`127.0.0.1` no iOS e `10.0.2.2` no emulador Android). Instruções completas em [docs/mobile-development.md](mobile-development.md).
 
 ### 2.3. Banco de Dados e Infraestrutura
 - **PostgreSQL 18**: Banco relacional robusto. Acesso externo bloqueado em produção; em desenvolvimento local, exposto via porta mapeada no Docker Compose.

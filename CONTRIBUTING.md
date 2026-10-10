@@ -22,7 +22,8 @@ make analyze-mobile && make test-mobile
 
 A CI (`.github/workflows/ci.yml`) roda o mesmo conjunto em Linux. Ela não
 comprova build nem execução em iOS ou Android: mudanças no app exigem o teste
-de integração em simulador/emulador contra a API real (comando no `README.md`).
+de integração em simulador/emulador contra a API real (detalhes no `README.md` e
+em `docs/mobile-development.md`).
 
 Comportamento alterado exige teste que falhe antes e passe depois. Não remova
 proteções (transação, lock, constraint) para obter teste verde.

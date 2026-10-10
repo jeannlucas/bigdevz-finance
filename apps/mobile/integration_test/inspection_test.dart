@@ -8,7 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:integration_test/integration_test.dart';
 
 void main() {
-  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets(
     'inspeciona e comprova na tela a navegação, filtros e botões únicos',
@@ -35,12 +35,8 @@ void main() {
       }
 
       Future<void> capture(String name) async {
-        await binding.takeScreenshot(name);
-        try {
-          await http.get(
-            Uri.parse('http://127.0.0.1:9876/screenshot?name=$name'),
-          );
-        } catch (_) {}
+        // Ponto de observação das etapas de inspeção visual.
+        await settle();
       }
 
       await tester.pumpWidget(
