@@ -38,4 +38,24 @@ class Receipt extends Model
     {
         return $this->hasOne(AccountMovement::class);
     }
+
+    /**
+     * Estorno deste recebimento, se houver.
+     *
+     * @return HasOne<ReceiptReversal, $this>
+     */
+    public function reversal(): HasOne
+    {
+        return $this->hasOne(ReceiptReversal::class);
+    }
+
+    /**
+     * Correção que criou este recebimento como substituto, se houver.
+     *
+     * @return HasOne<ReceiptReversal, $this>
+     */
+    public function correctionOf(): HasOne
+    {
+        return $this->hasOne(ReceiptReversal::class, 'replacement_receipt_id');
+    }
 }

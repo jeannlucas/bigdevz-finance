@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AgreementController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\InstallmentController;
 use App\Http\Controllers\Api\ReceiptController;
+use App\Http\Controllers\Api\ReceiptReversalController;
 use App\Http\Controllers\Api\SpaceController;
 use Illuminate\Support\Facades\Route;
 
@@ -13,6 +14,7 @@ Route::pattern('space', '[1-9][0-9]{0,17}');
 Route::pattern('account', '[1-9][0-9]{0,17}');
 Route::pattern('agreement', '[1-9][0-9]{0,17}');
 Route::pattern('installment', '[1-9][0-9]{0,17}');
+Route::pattern('receipt', '[1-9][0-9]{0,17}');
 
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
 
@@ -31,5 +33,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/agreements/{agreement}', [AgreementController::class, 'show']);
         Route::get('/installments/{installment}', [InstallmentController::class, 'show']);
         Route::post('/installments/{installment}/receipts', [ReceiptController::class, 'store']);
+        Route::post('/receipts/{receipt}/reversal', [ReceiptReversalController::class, 'reverse']);
+        Route::post('/receipts/{receipt}/correction', [ReceiptReversalController::class, 'correct']);
     });
 });

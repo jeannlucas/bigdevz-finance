@@ -5,12 +5,21 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class ApiException implements Exception {
-  const ApiException(this.message, {this.status, this.fieldErrors = const {}});
+  const ApiException(
+    this.message, {
+    this.status,
+    this.fieldErrors = const {},
+    this.rejectionRecorded = false,
+  });
 
   /// Nulo quando a API não respondeu (rede, tempo esgotado).
   final int? status;
   final String message;
   final Map<String, String> fieldErrors;
+
+  /// A API informou que a recusa ficou registrada para a mesma chave
+  /// idempotente do pedido: aquela chave nunca produzirá efeito.
+  final bool rejectionRecorded;
 
   bool get isNetwork => status == null;
   bool get isUnauthorized => status == 401;
@@ -43,6 +52,9 @@ class ApiClient {
     Map<String, Object?> body, {
     String? idempotencyKey,
   }) => _send('POST', path, body: body, idempotencyKey: idempotencyKey);
+
+  Future<Map<String, dynamic>> patch(String path, Map<String, Object?> body) =>
+      _send('PATCH', path, body: body);
 
   Future<Map<String, dynamic>> _send(
     String method,
@@ -98,10 +110,16 @@ class ApiClient {
             (decoded['message'] as String).isNotEmpty
         ? errors.values.firstOrNull ?? decoded['message'] as String
         : 'Não foi possível concluir a operação (${response.statusCode}).';
+    final decision = decoded['idempotency'];
     throw ApiException(
       message,
       status: response.statusCode,
       fieldErrors: errors,
+      rejectionRecorded:
+          idempotencyKey != null &&
+          decision is Map &&
+          decision['status'] == 'rejected' &&
+          decision['key'] == idempotencyKey,
     );
   }
 
