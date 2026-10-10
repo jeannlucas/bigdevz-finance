@@ -23,7 +23,7 @@ class AgreementScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Acordo')),
+      appBar: AppBar(title: const Text('Conta a receber')),
       body: LoadView<Agreement>(
         load: () =>
             context.read<AgreementsRepository>().find(space.id, agreementId),

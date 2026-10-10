@@ -5,6 +5,8 @@ import '../core/api_client.dart';
 import '../core/money.dart';
 import '../features/auth/auth_models.dart';
 import '../features/auth/session_controller.dart';
+import 'app_icons.dart';
+import 'app_tokens.dart';
 
 /// Carrega dados da API com estados de carregamento, erro e vazio.
 /// Recarrega quando a sessão sinaliza mudança e descarta respostas antigas.
@@ -15,6 +17,7 @@ class LoadView<T> extends StatefulWidget {
     required this.builder,
     this.isEmpty,
     this.empty,
+    this.emptyWithData,
   });
 
   final Future<T> Function() load;
@@ -27,6 +30,12 @@ class LoadView<T> extends StatefulWidget {
   final bool Function(T data)? isEmpty;
   final Widget Function(BuildContext context, Future<void> Function() refresh)?
   empty;
+  final Widget Function(
+    BuildContext context,
+    T data,
+    Future<void> Function() refresh,
+  )?
+  emptyWithData;
 
   @override
   State<LoadView<T>> createState() => _LoadViewState<T>();
@@ -84,10 +93,18 @@ class _LoadViewState<T> extends State<LoadView<T>> {
         onRetry: _reload,
       );
     }
-    if (data == null) return const Center(child: CircularProgressIndicator());
-    final content = widget.isEmpty?.call(data) == true && widget.empty != null
-        ? widget.empty!(context, _reload)
-        : widget.builder(context, data, _reload);
+    if (data == null) {
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2.5));
+    }
+    final isDataEmpty = widget.isEmpty?.call(data) == true;
+    final Widget content;
+    if (isDataEmpty && widget.emptyWithData != null) {
+      content = widget.emptyWithData!(context, data, _reload);
+    } else if (isDataEmpty && widget.empty != null) {
+      content = widget.empty!(context, _reload);
+    } else {
+      content = widget.builder(context, data, _reload);
+    }
     return Stack(
       children: [
         content,
@@ -96,19 +113,19 @@ class _LoadViewState<T> extends State<LoadView<T>> {
             top: 0,
             left: 0,
             right: 0,
-            child: LinearProgressIndicator(minHeight: 2),
+            child: LinearProgressIndicator(minHeight: 2.5),
           ),
-        // Dados anteriores continuam visíveis, mas sinalizados como desatualizados.
         if (_error != null)
           Positioned(
             left: 16,
             right: 16,
             bottom: 16,
             child: Material(
-              elevation: 2,
-              borderRadius: BorderRadius.circular(12),
+              elevation: 3,
+              borderRadius: BorderRadius.circular(AppTokens.r12),
               color: Theme.of(context).colorScheme.errorContainer,
               child: ListTile(
+                leading: const AppIcon(AppIcons.alert),
                 title: const Text('Dados possivelmente desatualizados'),
                 subtitle: Text('$_error'),
                 trailing: TextButton(
@@ -151,26 +168,28 @@ class SpaceBadge extends StatelessWidget {
       label: '${prefix ?? 'Espaço'}: ${space.label}',
       excludeSemantics: true,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: scheme.primaryContainer,
-          borderRadius: BorderRadius.circular(12),
+          color: scheme.primaryContainer.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(AppTokens.r8),
+          border: Border.all(color: scheme.primary.withValues(alpha: 0.15)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              space.isPf ? Icons.person_outline : Icons.business_outlined,
-              size: 18,
+            AppIcon(
+              space.isPf ? AppIcons.user : AppIcons.business,
+              size: 15,
               color: scheme.onPrimaryContainer,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Flexible(
               child: Text(
                 '${prefix != null ? '$prefix ' : ''}${space.label}',
                 style: TextStyle(
                   color: scheme.onPrimaryContainer,
                   fontWeight: FontWeight.w600,
+                  fontSize: 12,
                 ),
               ),
             ),
@@ -189,12 +208,12 @@ class ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _CenteredMessage(
-    icon: Icons.cloud_off_outlined,
+    icon: AppIcons.error,
     title: 'Algo deu errado',
     message: message,
     action: OutlinedButton.icon(
       onPressed: onRetry,
-      icon: const Icon(Icons.refresh),
+      icon: const AppIcon(AppIcons.refresh, size: 18),
       label: const Text('Tentar novamente'),
     ),
   );
@@ -209,7 +228,7 @@ class EmptyState extends StatelessWidget {
     this.action,
   });
 
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String title;
   final String message;
   final Widget? action;
@@ -231,7 +250,7 @@ class _CenteredMessage extends StatelessWidget {
     this.action,
   });
 
-  final IconData icon;
+  final List<List<dynamic>> icon;
   final String title;
   final String message;
   final Widget? action;
@@ -244,12 +263,25 @@ class _CenteredMessage extends StatelessWidget {
       padding: const EdgeInsets.all(32),
       children: [
         const SizedBox(height: 48),
-        Icon(icon, size: 48, color: theme.colorScheme.outline),
-        const SizedBox(height: 16),
+        Center(
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.5,
+              ),
+              shape: BoxShape.circle,
+            ),
+            child: AppIcon(icon, size: 40, color: theme.colorScheme.primary),
+          ),
+        ),
+        const SizedBox(height: 20),
         Text(
           title,
           textAlign: TextAlign.center,
-          style: theme.textTheme.titleMedium,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
         ),
         const SizedBox(height: 8),
         Text(
@@ -276,34 +308,37 @@ class StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final (background, foreground) = switch (tone) {
       StatusTone.success => (
-        scheme.secondaryContainer,
-        scheme.onSecondaryContainer,
+        AppTokens.income.withValues(alpha: isDark ? 0.25 : 0.12),
+        isDark ? const Color(0xFF4ADE80) : AppTokens.income,
       ),
       StatusTone.warning => (
-        scheme.tertiaryContainer,
-        scheme.onTertiaryContainer,
+        AppTokens.warning.withValues(alpha: isDark ? 0.25 : 0.12),
+        isDark ? const Color(0xFFFBBF24) : AppTokens.warning,
       ),
-      StatusTone.danger => (scheme.errorContainer, scheme.onErrorContainer),
+      StatusTone.danger => (
+        AppTokens.expense.withValues(alpha: isDark ? 0.25 : 0.12),
+        isDark ? const Color(0xFFF87171) : AppTokens.expense,
+      ),
       StatusTone.neutral => (
-        scheme.surfaceContainerHighest,
-        scheme.onSurfaceVariant,
+        Theme.of(context).colorScheme.surfaceContainerHighest,
+        Theme.of(context).colorScheme.onSurfaceVariant,
       ),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(AppTokens.r8),
       ),
       child: Text(
         label,
         style: TextStyle(
           color: foreground,
           fontSize: 12,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -324,23 +359,78 @@ class FormErrorBanner extends StatelessWidget {
     return Semantics(
       liveRegion: true,
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: scheme.errorContainer,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppTokens.r12),
+          border: Border.all(color: scheme.error.withValues(alpha: 0.3)),
         ),
         child: Row(
           children: [
-            Icon(Icons.error_outline, color: scheme.onErrorContainer),
+            AppIcon(AppIcons.alert, color: scheme.onErrorContainer, size: 20),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 message,
-                style: TextStyle(color: scheme.onErrorContainer),
+                style: TextStyle(
+                  color: scheme.onErrorContainer,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Envoltório acessível para campos de formulário.
+/// Em escalas padrão, mantém a decoração interna nativa do campo.
+/// Quando o texto é ampliado (>= 1.25x), apresenta o rótulo acima do campo
+/// permitindo múltiplas linhas completas sem truncamento, reticências ou
+/// overflow, preservando indicação de opcional e associação acessível.
+class AccessibleFieldWrapper extends StatelessWidget {
+  const AccessibleFieldWrapper({
+    super.key,
+    required this.label,
+    required this.child,
+    this.isOptional = false,
+  });
+
+  final String label;
+  final Widget child;
+  final bool isOptional;
+
+  @override
+  Widget build(BuildContext context) {
+    final textScaler = MediaQuery.textScalerOf(context);
+    final isTextEnlarged = textScaler.scale(1.0) > 1.2;
+
+    if (!isTextEnlarged) {
+      return child;
+    }
+
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Semantics(
+            header: true,
+            child: Text(
+              label,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          child,
+        ],
       ),
     );
   }

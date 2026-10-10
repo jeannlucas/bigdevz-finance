@@ -113,6 +113,8 @@ class Receipt {
     required this.accountId,
     required this.amount,
     required this.receivedOn,
+    this.reversal,
+    this.replacesReceiptId,
   });
 
   factory Receipt.fromJson(Map<String, dynamic> json) => Receipt(
@@ -120,12 +122,52 @@ class Receipt {
     accountId: json['account_id'] as int,
     amount: Money.parse(json['amount'] as String),
     receivedOn: json['received_on'] as String,
+    reversal: json['reversal'] == null
+        ? null
+        : ReceiptReversal.fromJson(json['reversal'] as Map<String, dynamic>),
+    replacesReceiptId: json['replaces_receipt_id'] as int?,
   );
 
   final int id;
   final int accountId;
   final Money amount;
   final String receivedOn;
+
+  /// Estorno deste recebimento; o original continua no histórico.
+  final ReceiptReversal? reversal;
+
+  /// Recebimento que este substituiu numa correção.
+  final int? replacesReceiptId;
+
+  bool get isReversed => reversal != null;
+}
+
+/// Estorno (sem substituto) ou correção (com substituto) de um recebimento.
+class ReceiptReversal {
+  const ReceiptReversal({
+    required this.id,
+    required this.receiptId,
+    required this.reason,
+    required this.reversedAt,
+    this.replacementReceiptId,
+  });
+
+  factory ReceiptReversal.fromJson(Map<String, dynamic> json) =>
+      ReceiptReversal(
+        id: json['id'] as int,
+        receiptId: json['receipt_id'] as int,
+        reason: json['reason'] as String,
+        reversedAt: json['reversed_at'] as String?,
+        replacementReceiptId: json['replacement_receipt_id'] as int?,
+      );
+
+  final int id;
+  final int receiptId;
+  final String reason;
+  final String? reversedAt;
+  final int? replacementReceiptId;
+
+  bool get isCorrection => replacementReceiptId != null;
 }
 
 /// Resposta do registro de recebimento, já com os valores recalculados.
@@ -142,5 +184,26 @@ class ReceiptResult {
   final Installment installment;
   final Money agreementRemaining;
   final Money accountBalance;
+  final bool replayed;
+}
+
+/// Resposta de estorno ou correção, já com os valores recalculados.
+class ReceiptFixResult {
+  const ReceiptFixResult({
+    required this.reversal,
+    required this.original,
+    required this.installment,
+    required this.accountBalances,
+    required this.replayed,
+    this.replacement,
+  });
+
+  final ReceiptReversal reversal;
+  final Receipt original;
+  final Receipt? replacement;
+  final Installment installment;
+
+  /// Saldos das contas afetadas, por id.
+  final Map<int, Money> accountBalances;
   final bool replayed;
 }

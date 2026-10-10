@@ -75,13 +75,13 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
   Widget build(BuildContext context) {
     final fieldErrors = _error?.fieldErrors ?? const {};
     return Scaffold(
-      appBar: AppBar(title: const Text('Novo acordo a receber')),
+      appBar: AppBar(title: const Text('Nova conta a receber')),
       body: Form(
         key: _form,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            SpaceBadge(widget.space, prefix: 'Acordo do espaço'),
+            SpaceBadge(widget.space, prefix: 'Conta a receber do espaço'),
             const SizedBox(height: 20),
             if (_error != null && fieldErrors.isEmpty) ...[
               FormErrorBanner(_error!.message),
@@ -96,8 +96,9 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
               ),
               textCapitalization: TextCapitalization.sentences,
               maxLength: 120,
-              validator: (value) =>
-                  (value ?? '').trim().isEmpty ? 'Descreva o acordo.' : null,
+              validator: (value) => (value ?? '').trim().isEmpty
+                  ? 'Descreva a conta a receber.'
+                  : null,
             ),
             const SizedBox(height: 8),
             TextFormField(
@@ -142,9 +143,10 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'As parcelas são calculadas pela API: centavos restantes vão para as primeiras, e o dia do primeiro '
-              'vencimento é mantido (no mês sem esse dia, usa o último dia do mês).',
-              style: Theme.of(context).textTheme.bodySmall,
+              'As parcelas somam o valor total. Nos meses sem o dia escolhido, o vencimento será no último dia do mês.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 24),
             FilledButton(

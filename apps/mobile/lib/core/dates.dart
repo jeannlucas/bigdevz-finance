@@ -1,7 +1,10 @@
 /// Datas de calendário (vencimento, recebimento) trafegam como AAAA-MM-DD,
-/// sem horário nem conversão de fuso.
+/// ou ISO-8601 (com hora/fuso em timestamps de auditoria como adjusted_at).
 DateTime parseApiDate(String value) {
-  final parts = value.split('-').map(int.parse).toList();
+  final datePart = value.contains('T')
+      ? value.split('T')[0]
+      : (value.contains(' ') ? value.split(' ')[0] : value);
+  final parts = datePart.split('-').map(int.parse).toList();
   return DateTime(parts[0], parts[1], parts[2]);
 }
 

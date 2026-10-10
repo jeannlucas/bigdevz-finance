@@ -14,7 +14,10 @@ void main() {
       for (final value in [
         '1,00',
         '1.001',
-        '-1.00',
+        // Saldo negativo é aceito ("-1.00"); sinal mal formado não.
+        '--1.00',
+        '-01.00',
+        '+1.00',
         '01.00',
         '1',
         '',
@@ -51,5 +54,18 @@ void main() {
     test('limita ao teto suportado', () {
       expect(type('9999999999999999').text, '999.999.999.999,99');
     });
+  });
+
+  test('saldo negativo da API: lê e formata com sinal', () {
+    final balance = Money.parse('-250.05');
+    expect(balance.cents, -25005);
+    expect(balance.brl, r'-R$ 250,05');
+    expect(balance.toApi(), '-250.05');
+    expect(Money.parse('-0.05').brl, r'-R$ 0,05');
+    expect(
+      Money.fromInput('-1,00')?.cents,
+      100,
+      reason: 'entrada nunca negativa',
+    );
   });
 }
