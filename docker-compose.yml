@@ -24,7 +24,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    environment:
+    environment: &api-environment
       APP_ENV: local
       APP_DEBUG: "true"
       APP_URL: http://localhost:${BIGDEVZ_API_PORT:-8000}
@@ -34,6 +34,7 @@ services:
       DB_DATABASE: bigdevz_finance
       DB_USERNAME: bigdevz
       DB_PASSWORD: ${BIGDEVZ_DB_PASSWORD:-bigdevz_local_dev}
+      LOG_CHANNEL: stderr
     ports:
       - "${BIGDEVZ_API_BIND:-127.0.0.1}:${BIGDEVZ_API_PORT:-8000}:8000"
     volumes:
@@ -43,6 +44,20 @@ services:
       interval: 5s
       timeout: 5s
       retries: 30
+
+  # A pagar: gera ocorrências recorrentes e faturas até o horizonte (mês atual
+  # + 12) a cada hora, com `payables:generate`. Execuções:
+  #   docker compose logs scheduler
+  # Contagens por execução: apps/api/storage/logs/payables-generate.log
+  scheduler:
+    image: bigdevz/finance-api:dev
+    depends_on:
+      api:
+        condition: service_healthy
+    environment: *api-environment
+    volumes:
+      - ./apps/api:/app
+    command: ["php", "artisan", "schedule:work"]
 
 volumes:
   postgres-data:
