@@ -24,14 +24,15 @@ flutter_secure_storage 11.2.0. Lockfiles: `apps/api/composer.lock`,
 - Integridade no banco: FKs compostas `(id, space_id)` impedem parcela,
   recebimento e conta de espaços diferentes; `CHECK received_cents <=
   amount_cents`; `UNIQUE (space_id, idempotency_key)`; movimentação 1:1 com
-  recebimento.
+  recebimento ou com estorno (decisão 0004).
 - Recebimento: transação única; `SELECT … FOR UPDATE` na parcela e depois na
-  conta (ordem fixa); idempotência conferida depois do lock; incremento
-  `received_cents = received_cents + ?` no SQL.
-- Restrições deliberadas: saldo inicial não negativo; movimentações só de
-  entrada (recebimentos); recebimento anterior ao marco inicial da conta é
-  recusado até existir regra de conciliação; idempotência apenas no
-  recebimento (criação de conta/acordo depende do bloqueio de duplo toque no app).
+  conta (ordem fixa), precedidas pelo lock da chave idempotente (decisão
+  0004); incremento `received_cents = received_cents + ?` no SQL.
+- Restrições deliberadas: saldo inicial não negativo; movimentações de
+  entrada (recebimentos) e de saída só por estorno (decisão 0004); recebimento
+  anterior ao marco inicial da conta é recusado até existir regra de
+  conciliação; idempotência em recebimento, estorno e correção (criação de
+  conta/acordo depende do bloqueio de duplo toque no app).
 
 ## Ambiente e testes
 
@@ -54,13 +55,18 @@ flutter_secure_storage 11.2.0. Lockfiles: `apps/api/composer.lock`,
 - Troca PF/PJ: subárvore da tela recriada por chave do espaço e respostas
   antigas descartadas por ticket; cor do tema muda com o espaço.
 - Dinheiro como centavos `int`, nunca `double`; máscara BRL própria.
-- Chave idempotente gerada por conteúdo do formulário: nova tentativa do mesmo
-  conteúdo reaproveita a chave.
+- Recebimento como tentativa explícita (pronta, enviando, incerta,
+  confirmada, recusada): chave e conteúdo exatos guardados no Keychain/Keystore
+  antes do primeiro envio, por usuário, espaço e parcela. Resposta incerta
+  (rede, tempo esgotado, 5xx, 401, 403/404, 409, corpo ilegível) trava a
+  tentativa e a parcela: só é possível verificá-la com a mesma chave e o mesmo
+  conteúdo. Só `422` com recusa registrada para a mesma chave
+  (`idempotency.status = rejected`) libera correção e nova chave; estorno e
+  correção usam o mesmo protocolo (decisão 0004, `docs/api.md`).
 - URL da API por `--dart-define=API_BASE_URL`. HTTP liberado só para rede local
   (iOS `NSAllowsLocalNetworking`; Android cleartext apenas no build debug).
 
 ## Pendentes
 
 Licença; identidade visual definitiva e ícone; política de produção (HTTPS,
-hospedagem); estorno de recebimento; idempotência genérica para outras
-operações.
+hospedagem); idempotência para as demais operações (contas, acordos).

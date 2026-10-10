@@ -8,7 +8,6 @@ use App\Actions\Receivables\ReceiveInstallment;
 use App\Models\Space;
 use App\Models\User;
 use Illuminate\Contracts\Console\Kernel;
-use Illuminate\Validation\ValidationException;
 
 require __DIR__.'/../../vendor/autoload.php';
 $app = require __DIR__.'/../../bootstrap/app.php';
@@ -21,9 +20,11 @@ try {
         User::query()->findOrFail($userId), Space::query()->findOrFail($spaceId),
         (int) $installmentId, (int) $accountId, (int) $cents, $date, $key,
     );
-    $result = ['result' => $outcome->created ? 'created' : 'replayed', 'receipt' => $outcome->receipt->id];
-} catch (ValidationException $error) {
-    $result = ['result' => 'rejected', 'errors' => $error->errors()];
+    $result = match (true) {
+        $outcome->rejected() => ['result' => 'rejected', 'errors' => $outcome->errors],
+        $outcome->replayed => ['result' => 'replayed', 'receipt' => $outcome->receiptId],
+        default => ['result' => 'created', 'receipt' => $outcome->receiptId],
+    };
 } catch (IdempotencyConflict) {
     $result = ['result' => 'conflict'];
 }

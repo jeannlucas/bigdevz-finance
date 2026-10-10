@@ -1,7 +1,7 @@
 # Contribuição
 
-Projeto em desenvolvimento ativo; licença em definição. Antes de alterar,
-leia `AGENTS.md`, `HANDOFF.md`, o documento de escopo e as decisões em
+Projeto em desenvolvimento ativo; distribuído sob a licença MIT ([LICENSE](LICENSE)). Antes de alterar,
+leia `AGENTS.md`, `HANDOFF.md`, `docs/project-guidelines.md` e as decisões em
 `docs/decisions/`.
 
 ## Ambiente

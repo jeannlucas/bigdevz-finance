@@ -28,14 +28,10 @@ final class InstallmentSchedule
         $remainder = $cents % $count;
         $schedule = [];
         for ($index = 0; $index < $count; $index++) {
-            $year = intdiv($monthIndex + $index, 12);
-            $month = ($monthIndex + $index) % 12 + 1;
-            $monthStart = $date->setDate($year, $month, 1);
-            $day = min($referenceDay, (int) $monthStart->format('t'));
             $schedule[] = [
                 'number' => $index + 1,
                 'amount' => Money::fromCents($base + ($index < $remainder ? 1 : 0)),
-                'due_date' => $monthStart->setDate($year, $month, $day)->format('Y-m-d'),
+                'due_date' => MonthlyDate::in(intdiv($monthIndex + $index, 12), ($monthIndex + $index) % 12 + 1, $referenceDay),
             ];
         }
 

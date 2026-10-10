@@ -19,12 +19,17 @@ final class Money
         return ((int) $parts[1]) * 100 + (int) $parts[2];
     }
 
+    /**
+     * Valores sempre positivos na entrada (toCents). Na saída, saldos podem
+     * ser negativos depois de pagamentos (decisão 0006): "-250.00".
+     */
     public static function fromCents(int $cents): string
     {
-        if ($cents < 0 || $cents > self::MAX_CENTS) {
+        if ($cents < -self::MAX_CENTS || $cents > self::MAX_CENTS) {
             throw new InvalidArgumentException('Valor fora do limite permitido.');
         }
+        $abs = abs($cents);
 
-        return intdiv($cents, 100).'.'.str_pad((string) ($cents % 100), 2, '0', STR_PAD_LEFT);
+        return ($cents < 0 ? '-' : '').intdiv($abs, 100).'.'.str_pad((string) ($abs % 100), 2, '0', STR_PAD_LEFT);
     }
 }

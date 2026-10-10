@@ -1,6 +1,6 @@
 # Plano incremental do checkpoint 1
 
-Especificação: `financeiro-pf-pj-escopo-e-prompt-inicial.md`, seção 7.
+Especificação: `docs/project-guidelines.md` e decisões em `docs/decisions/`.
 Estado de cada passo em 05/10/2026; evidências em `HANDOFF.md`.
 
 1. **Feito.** Ferramentas, Git, rede, Docker e identidade GitHub revalidados.

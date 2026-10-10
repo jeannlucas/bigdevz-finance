@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Domain\Receivables\InstallmentSchedule;
 use App\Domain\Receivables\Money;
+use App\Domain\Receivables\MonthlyDate;
 
 foreach (glob(__DIR__.'/../app/Domain/Receivables/*.php') ?: [] as $file) {
     require_once $file;
@@ -38,7 +39,7 @@ $tests = [
         foreach (['1,00', '1.001', '-1.00', '1e3', '01.00', ' 1.00', '1', '1000000000000.00', ''] as $value) {
             invalid(static fn () => Money::toCents($value));
         }
-        invalid(static fn () => Money::fromCents(-1));
+        // Saída aceita saldo negativo (decisão 0006); o teste de sinal está abaixo.
         invalid(static fn () => Money::fromCents(100000000000000));
     },
     'vinte e quatro mil gera doze parcelas de dois mil' => static function (): void {
@@ -78,6 +79,30 @@ $tests = [
             invalid(static fn () => InstallmentSchedule::generate('100.00', 1, $date));
         }
         invalid(static fn () => InstallmentSchedule::generate('100.00', 2, '9999-12-31'));
+    },
+    'data mensal preserva o dia de referencia em meses curtos e bissextos' => static function (): void {
+        same('2026-02-28', MonthlyDate::in(2026, 2, 31));
+        same('2028-02-29', MonthlyDate::in(2028, 2, 31));
+        same('2028-02-29', MonthlyDate::in(2028, 2, 29));
+        same('2026-04-30', MonthlyDate::in(2026, 4, 31));
+        same(['2026-01-31', '2026-02-28', '2026-03-31', '2027-01-31'], [
+            MonthlyDate::shift('2026-01-31', 0, 31), MonthlyDate::shift('2026-01-31', 1, 31),
+            MonthlyDate::shift('2026-01-31', 2, 31), MonthlyDate::shift('2026-01-31', 12, 31),
+        ]);
+        same('2026-12-15', MonthlyDate::shift('2027-01-15', -1, 15));
+        same('2026-02-01', MonthlyDate::cycle('2026-02-28'));
+        invalid(static fn () => MonthlyDate::in(2026, 13, 1));
+        invalid(static fn () => MonthlyDate::in(2026, 1, 32));
+    },
+    'saldo negativo sai com sinal; entrada continua sem sinal' => static function (): void {
+        same('-250.00', Money::fromCents(-25000));
+        same('-0.05', Money::fromCents(-5));
+        same('-999999999999.99', Money::fromCents(-99999999999999));
+        invalid(static fn () => Money::fromCents(-100000000000000));
+        invalid(static fn () => Money::toCents('-1.00'));
+    },
+    'cronograma de 2028 usa 29 de fevereiro' => static function (): void {
+        same(['2028-01-31', '2028-02-29', '2028-03-31'], array_column(InstallmentSchedule::generate('90.00', 3, '2028-01-31'), 'due_date'));
     },
 ];
 

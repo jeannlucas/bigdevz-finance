@@ -6,6 +6,8 @@ ao PostgreSQL e ao app na mesma data (decisão 0003).
 O contrato escolhido para dinheiro é string decimal canônica, com ponto e duas
 casas, como `"2000.00"`. O núcleo converte para centavos inteiros, calcula sem
 float e retorna strings. Limite por valor: `999999999999.99`; PHP de 64 bits.
+Saldos podem sair negativos depois de pagamentos (`"-250.00"`, decisão 0006);
+valores informados continuam sempre positivos.
 O limite é menor que a capacidade proposta de NUMERIC(19,2), para manter
 cálculos inteiros seguros e permitir representação futura no app. Validações
 da API e banco adotam o mesmo limite: regra `MoneyAmount` na API e colunas

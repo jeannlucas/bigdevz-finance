@@ -6,6 +6,7 @@ use App\Models\AccountMovement;
 use App\Models\Receipt;
 use App\Models\Space;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
@@ -127,6 +128,51 @@ class ReceivablesFlowTest extends TestCase
         $this->assertSame(1, Receipt::query()->where('space_id', $this->pf->id)->count());
     }
 
+    /**
+     * Resposta perdida após a gravação: o app resolve reenviando a mesma chave
+     * e o mesmo conteúdo. Parcela de R$ 2.000,00 e R$ 500,00, para que um
+     * segundo recebimento coubesse e o limite não mascarasse a duplicação.
+     */
+    public function test_lost_response_resend_with_same_key_records_partial_once(): void
+    {
+        $account = $this->createAccount($this->pf, '1000.00', '2026-01-01');
+        $ids = $this->installmentIds($this->createAgreement($this->pf, '24000.00', 12, '2026-02-10'));
+
+        $original = $this->receive($ids[0], $account, '500.00', '2026-02-10', 'perdida')->assertCreated();
+        // A resposta acima "se perdeu"; a verificação repete a mesma tentativa.
+        $this->receive($ids[0], $account, '500.00', '2026-02-10', 'perdida')
+            ->assertOk()
+            ->assertJsonPath('data.replayed', true)
+            ->assertJsonPath('data.receipt.id', $original->json('data.receipt.id'))
+            ->assertJsonPath('data.installment.remaining', '1500.00')
+            ->assertJsonPath('data.account.balance', '1500.00');
+
+        $this->assertSame(1, Receipt::query()->where('installment_id', $ids[0])->count());
+        $this->assertSame(1, AccountMovement::query()->where('account_id', $account)->count());
+        $this->assertBalance($account, '1500.00');
+
+        // Uma chave nova com outros dados SERIA aceita: é isso que o app impede
+        // enquanto a tentativa original não for resolvida.
+        $this->receive($ids[0], $account, '400.00', '2026-02-10', 'outra')->assertCreated();
+        $this->assertSame(2, Receipt::query()->where('installment_id', $ids[0])->count());
+    }
+
+    /** 422 com a mesma chave: nada gravado, nem no reenvio. */
+    public function test_rejected_attempt_records_nothing_and_resend_is_rejected_again(): void
+    {
+        $account = $this->createAccount($this->pf, '1000.00', '2026-01-01');
+        $ids = $this->installmentIds($this->createAgreement($this->pf, '24000.00', 12, '2026-02-10'));
+
+        foreach (range(1, 2) as $_) {
+            $this->receive($ids[0], $account, '2000.01', '2026-02-10', 'recusada')
+                ->assertStatus(422)
+                ->assertJsonValidationErrors('amount');
+        }
+        $this->assertSame(0, Receipt::query()->where('idempotency_key', 'recusada')->count());
+        $this->assertSame(0, AccountMovement::query()->where('account_id', $account)->count());
+        $this->assertBalance($account, '1000.00');
+    }
+
     public function test_receipt_cannot_exceed_installment_remaining(): void
     {
         $account = $this->createAccount($this->pf, '0.00', '2026-01-01');
@@ -147,7 +193,8 @@ class ReceivablesFlowTest extends TestCase
         $ids = $this->installmentIds($this->createAgreement($this->pf, '300.00', 3, '2026-02-10'));
 
         foreach (['100,00', '100', '-1.00', '0.00', '1.001', 100.5, 100] as $amount) {
-            $this->receive($ids[0], $account, $amount, '2026-02-10', 'k-'.md5((string) $amount))
+            // Chave distinta por conteúdo: '100' e 100 são pedidos diferentes.
+            $this->receive($ids[0], $account, $amount, '2026-02-10', 'k-'.md5(var_export($amount, true)))
                 ->assertStatus(422)
                 ->assertJsonValidationErrors('amount');
         }
@@ -250,5 +297,60 @@ class ReceivablesFlowTest extends TestCase
     protected function assertBalance(int $account, string $expected): void
     {
         $this->api('GET', "/api/spaces/{$this->pf->id}/accounts/{$account}")->assertOk()->assertJsonPath('data.balance', $expected);
+    }
+
+    public function test_agreements_status_filters(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-03-15 12:00:00', 'America/Sao_Paulo'));
+        try {
+            $account = $this->createAccount($this->pf, '1000.00', '2026-01-01');
+
+            // 1. Acordo A: Vencido (vencimento 2026-03-01)
+            $agrA = $this->createAgreement($this->pf, '100.00', 1, '2026-03-01');
+
+            // 2. Acordo B: Vence Hoje (vencimento 2026-03-15)
+            $agrB = $this->createAgreement($this->pf, '200.00', 1, '2026-03-15');
+
+            // 3. Acordo C: Vence em 10 dias (vencimento 2026-03-25, dentro dos 30 dias)
+            $agrC = $this->createAgreement($this->pf, '300.00', 1, '2026-03-25');
+
+            // 4. Acordo D: Quitado
+            $agrD = $this->createAgreement($this->pf, '400.00', 1, '2026-03-01');
+            $instD = $this->installmentIds($agrD)[0];
+            $this->receive($instD, $account, '400.00', '2026-03-01', 'rec-d')->assertCreated();
+
+            // 5. Acordo E: Misto (parcela 1 vencida em 2026-03-01, parcela 2 em 2026-03-25 próxima 30 dias)
+            $agrE = $this->createAgreement($this->pf, '500.00', 2, '2026-03-01');
+
+            $base = "/api/spaces/{$this->pf->id}/agreements";
+
+            // Default / open: A, B, C, E (todos com saldo em aberto)
+            $open = $this->api('GET', "{$base}?status=open")->assertOk()->json('data');
+            $this->assertEqualsCanonicalizing([$agrA, $agrB, $agrC, $agrE], array_column($open, 'id'));
+
+            // overdue: A e E
+            $overdue = $this->api('GET', "{$base}?status=overdue")->assertOk()->json('data');
+            $this->assertEqualsCanonicalizing([$agrA, $agrE], array_column($overdue, 'id'));
+
+            // today: B
+            $today = $this->api('GET', "{$base}?status=today")->assertOk()->json('data');
+            $this->assertEqualsCanonicalizing([$agrB], array_column($today, 'id'));
+
+            // next_30_days: C e E
+            $next30 = $this->api('GET', "{$base}?status=next_30_days")->assertOk()->json('data');
+            $this->assertEqualsCanonicalizing([$agrC, $agrE], array_column($next30, 'id'));
+
+            // paid: D
+            $paid = $this->api('GET', "{$base}?status=paid")->assertOk()->json('data');
+            $this->assertEqualsCanonicalizing([$agrD], array_column($paid, 'id'));
+
+            // all: A, B, C, D, E
+            $allRes = $this->api('GET', "{$base}?status=all")->assertOk();
+            $all = $allRes->json('data');
+            $this->assertEqualsCanonicalizing([$agrA, $agrB, $agrC, $agrD, $agrE], array_column($all, 'id'));
+            $allRes->assertJsonPath('meta.total_count', 5);
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 }

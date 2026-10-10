@@ -11,7 +11,7 @@ class InstallmentController extends Controller
     public function show(Request $request, string $space, string $installment): InstallmentResource
     {
         return new InstallmentResource(
-            $this->space($request, $space)->installments()->with(['agreement', 'receipts'])->findOrFail($installment),
+            $this->space($request, $space)->installments()->with(['agreement', 'receipts.reversal', 'receipts.correctionOf'])->findOrFail($installment),
         );
     }
 }

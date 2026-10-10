@@ -37,4 +37,34 @@ class Space extends Model
     {
         return $this->hasMany(Installment::class);
     }
+
+    /** @return HasMany<Receipt, $this> */
+    public function receipts(): HasMany
+    {
+        return $this->hasMany(Receipt::class);
+    }
+
+    /** @return HasMany<Payable, $this> */
+    public function payables(): HasMany
+    {
+        return $this->hasMany(Payable::class);
+    }
+
+    /** @return HasMany<Recurrence, $this> */
+    public function recurrences(): HasMany
+    {
+        return $this->hasMany(Recurrence::class);
+    }
+
+    /** @return HasMany<Card, $this> */
+    public function cards(): HasMany
+    {
+        return $this->hasMany(Card::class);
+    }
+
+    /** @return HasMany<Payment, $this> */
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
 }

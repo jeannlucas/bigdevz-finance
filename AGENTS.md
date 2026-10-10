@@ -2,16 +2,17 @@
 
 ## Estado e modo
 
-DESENVOLVIMENTO ATIVO, checkpoint 1 bloqueado na preparação do ambiente.
-Leia `HANDOFF.md` e o documento original antes de retomar. Não trate o escopo
-como implementação. Respostas, documentação e mensagens de commit em pt-BR.
+DESENVOLVIMENTO ATIVO. Diretrizes permanentes, regras de negócio e convenções
+estão consolidadas em `docs/project-guidelines.md`. Leia `HANDOFF.md` e
+`docs/project-guidelines.md` antes de intervir. Não trate escopo planejado
+como implementado. Respostas, documentação e mensagens de commit em pt-BR.
+Sem co-autores (não adicionar linhas Co-Authored-By).
 
-## Arquitetura prevista
+## Arquitetura
 
 Flutter/Dart por funcionalidades em `apps/mobile`; API Laravel como monólito
-modular em `apps/api`; PostgreSQL acessível somente pelo backend. Estes
-diretórios ainda não contêm aplicações. Escolher versões depois de conferir
-compatibilidade real e documentação oficial. Não fabricar lockfiles.
+modular em `apps/api`; PostgreSQL acessível somente pelo backend. Detalhes em
+`docs/project-guidelines.md` e `docs/architecture.md`. Não fabricar lockfiles.
 
 ## Regras financeiras
 
@@ -40,11 +41,21 @@ Licença pendente; não criar LICENSE sem escolha do usuário. Nenhum deploy.
 
 - `sh scripts/check-environment.sh`: ferramentas/rede/Docker, somente diagnóstico.
 - `sh -n scripts/check-environment.sh`: sintaxe do script.
-- `make test-domain`: oito testes do núcleo PHP, sem banco ou framework.
-- Não há suíte de integração API/Flutter, análise estática ou CI implementadas.
-- Não há schema, migrations, endpoints, banco ou logs de aplicação.
-- Builds iOS/Android, isolamento PF/PJ, concorrência, persistência e saldos ainda
-  não são verificáveis a partir deste projeto.
+- `make test-domain`: testes do núcleo PHP (dinheiro, cronograma, datas mensais), sem banco ou framework.
+- `make test-api`: API em PostgreSQL real (`bigdevz_finance_test`, recusa outro
+  banco), inclui concorrência com processos; `make lint-api`: Pint.
+- `make analyze-mobile` e `make test-mobile`: análise e testes Dart (API
+  simulada; não comprovam persistência nem concorrência).
+- `flutter test integration_test -d <simulador>` em `apps/mobile`, contra a API
+  local real (README); perdas de resposta só pelo cliente de `integration_test/`.
+- Schema: `apps/api/database/migrations`; banco de dev no Compose (porta 5440).
+  Logs: `docker compose logs api` e `scheduler`;
+  `apps/api/storage/logs/payables-generate.log`.
+- CI (`.github/workflows/ci.yml`): domínio, Pint, `php artisan test` com
+  PostgreSQL, `dart format`, `flutter analyze` e `flutter test`. Não roda
+  integração no simulador.
+- Não verificável daqui: iPhone físico (depende do usuário), aparelho Android
+  físico, produção (não existe).
 - Verificar tudo novamente ao retomar; o diagnóstico atual é específico desta sessão.
 
 ## Continuidade

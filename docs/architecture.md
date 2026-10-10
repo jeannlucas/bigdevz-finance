@@ -14,21 +14,20 @@ apenas o token e o espaço ativo, no Keychain/Keystore.
 
 | Camada | Local | Papel |
 | --- | --- | --- |
-| Núcleo puro | `app/Domain/Receivables` | `Money` (centavos/strings) e `InstallmentSchedule` (parcelas e datas). Sem framework. |
-| Casos de uso | `app/Actions/Receivables` | `CreateAgreement` e `ReceiveInstallment` (transação, locks, idempotência). |
+| Núcleo puro | `app/Domain/Receivables` | `Money` (centavos/strings), `InstallmentSchedule` e `MonthlyDate` (datas e parcelas). Sem framework. |
+| Casos de uso | `app/Actions/Receivables`, `app/Actions/Payables`, `app/Actions/Accounts` | Criação de acordos, recebimentos, estornos, pagamentos, arquivamento e ajustes de abertura (transação, locks, idempotência). |
 | HTTP | `app/Http/Controllers/Api`, `app/Http/Resources`, `app/Rules` | Validação, escopo por usuário/espaço, serialização com dinheiro em string. |
 | Dados | `app/Models`, `database/migrations` | Eloquent; invariantes repetidas no banco (FKs compostas, CHECKs, UNIQUE). |
 
 Separação PF/PJ: todo recurso tem `space_id`; os controllers resolvem o espaço
 a partir do usuário autenticado (`Controller::space`) e buscam o recurso
 dentro dele. O banco impede, por FK composta `(id, space_id)`, que um
-recebimento ligue parcela e conta de espaços diferentes.
+recebimento ou pagamento ligue obrigações e contas de espaços diferentes.
 
-Fluxo do recebimento (`ReceiveInstallment`): trava a parcela, confere a chave
-idempotente, trava a conta, valida espaço/data/restante/limite, grava
-recebimento + movimentação + incremento da parcela na mesma transação. O saldo
-da conta é o saldo inicial mais as movimentações; acordos e parcelas
-pendentes nunca entram no saldo.
+Fluxo do recebimento (`ReceiveInstallment`) e pagamento (`PayPayable`): trava o recurso,
+confere a chave idempotente, trava a conta, valida espaço/data/restante/limite, grava
+operação + movimentação na mesma transação. O saldo da conta é o saldo inicial mais
+as movimentações; acordos e parcelas pendentes nunca entram no saldo disponível.
 
 ## App (`apps/mobile/lib`)
 
@@ -36,8 +35,10 @@ pendentes nunca entram no saldo.
 | --- | --- |
 | `core/` | `ApiClient`, `Money`, datas, configuração da URL, armazenamento seguro. |
 | `features/auth` | Login, `SessionController` (sessão, espaço ativo, versão dos dados). |
-| `features/summary`, `accounts`, `agreements`, `home` | Repositório + telas por funcionalidade. |
-| `ui/` | Tema (cor por espaço), estados de carregamento/erro/vazio, componentes. |
+| `features/summary`, `accounts`, `agreements`, `payables`, `home` | Repositórios, modelos e telas por funcionalidade financeira. |
+| `ui/` | Design system da marca (`app_brand`, `app_tokens`, `app_icons`), temas (`theme.dart`), acessibilidade (`widgets.dart`, `date_field.dart`). |
+
+Diretrizes detalhadas de arquitetura e regras financeiras consolidadas: `docs/project-guidelines.md`.
 
 Ao trocar PF/PJ, o `SessionController` incrementa a versão dos dados e a
 subárvore da tela é recriada com chave do espaço; respostas atrasadas do
