@@ -15,7 +15,7 @@ Estado de cada passo em 05/10/2026; evidências em `HANDOFF.md`.
    recebimento). Validado contra a API real no Simulador iOS, no iPhone
    físico e no emulador Android, cada um com teste de integração próprio.
 5. **Feito.** Lockfiles, CI verde no GitHub, documentação e publicação no
-   repositório público. Licença permanece pendente.
+   repositório público. Licença MIT formalizada ([LICENSE](../LICENSE)).
 
 Testes do núcleo e da CI não comprovam os cenários que dependem de
 dispositivo. Simulador não substitui aparelho físico; build não substitui

@@ -1,4 +1,4 @@
-# API do checkpoint 1 (com estorno e correção)
+# Contrato da API (BigDev.Z Finance)
 
 Base local: `http://127.0.0.1:8000/api`. JSON em todas as respostas. Rotas em
 `apps/api/routes/api.php`; testes de contrato em `apps/api/tests/Feature`.

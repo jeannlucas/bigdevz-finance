@@ -35,7 +35,7 @@ Criar Git com `main` conforme o prompt; desenvolver em `dev` após a preparaçã
 Antes de trabalho em um Git existente, conferir branch/status e executar fetch.
 Publicação inicial está autorizada pelo prompt específico; revisar arquivos,
 diff preparado e verificações antes de commit/push. Não usar force push.
-Licença pendente; não criar LICENSE sem escolha do usuário. Nenhum deploy.
+Licença MIT formalizada ([LICENSE](LICENSE)). Nenhum deploy.
 
 ## Onde verificar neste projeto
 

@@ -52,24 +52,24 @@ O sistema é estruturado como um cliente mobile conectado a uma API backend com 
 
 ## 3. Regras Financeiras Fundamentais
 
-Todas as implementações financeiras devem obedecer estritamente aos princípios consolidados nas decisões de arquitetura ([`docs/decisions/`](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/docs/decisions/)):
+Todas as implementações financeiras devem obedecer estritamente aos princípios consolidados nas decisões de arquitetura ([`docs/decisions/`](decisions/)):
 
 ### 3.1. Representação Exata de Dinheiro (Sem Float)
 - **Regra**: Valores monetários são manipulados internamente como **centavos inteiros (`int`)**.
 - **Interface e API**: Na API e nos formulários, dinheiro é representado exclusivamente como string decimal canônica com ponto e duas casas decimais (ex.: `"1250.50"`), variando de `"0.00"` a `"999999999999.99"`.
 - **Proibições**: É proibido o uso de números de ponto flutuante (`float`/`double`) para valores monetários. Formatos com vírgula, mais de duas casas ou notação científica são rejeitados com erro de validação (`422 Unprocessable Entity`).
-- *Referência técnica*: Decisão [0002 — Dinheiro e geração de parcelas](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/docs/decisions/0002-dinheiro-e-parcelas.md).
+- *Referência técnica*: Decisão [0002 — Dinheiro e geração de parcelas](decisions/0002-dinheiro-e-parcelas.md).
 
 ### 3.2. Distribuição Determinística de Centavos e Vencimentos
 - **Divisão de Parcelas**: Quando o valor total não divide exatamente pelo número de parcelas, a fração excedente de centavos é distribuída obrigatoriamente nas primeiras parcelas (1 centavo por parcela inicial), garantindo que a soma exata das parcelas seja idêntica ao total contratado.
 - **Preservação do Dia de Referência**: Vencimentos em dias 29, 30 ou 31 preservam o dia original. Se um mês seguinte tiver menos dias (ex.: fevereiro com 28 ou 29 dias), o vencimento ocorre no último dia do mês curto, mas nos meses subsequentes mais longos (ex.: março), o dia 31 volta a ser utilizado como referência.
-- *Referência técnica*: [`MonthlyDate.php`](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/apps/api/app/Domain/Receivables/MonthlyDate.php) e Decisão [0002](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/docs/decisions/0002-dinheiro-e-parcelas.md).
+- *Referência técnica*: [`MonthlyDate.php`](../apps/api/app/Domain/Receivables/MonthlyDate.php) e Decisão [0002](decisions/0002-dinheiro-e-parcelas.md).
 
 ### 3.3. Saldo Disponível vs. Valores Previstos
 - **Saldo Disponível**: Reflete exclusivamente a soma algébrica das movimentações financeiras efetivamente liquidadas (`AccountMovement`).
 - **Valores Previstos**: Contas a pagar pendentes, parcelas futuras e compromissos recorrentes geram previsão de fluxo de caixa, mas **nunca afetam o saldo disponível da conta bancária** até que o pagamento seja registrado e efetivado.
 - **Contas Arquivadas**: Contas desativadas não aparecem para novos lançamentos, mas seu saldo permanece computado no saldo total patrimonial do espaço.
-- *Referência técnica*: Decisão [0005 — Editar, corrigir abertura e arquivar contas](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/docs/decisions/0005-editar-e-arquivar-contas.md).
+- *Referência técnica*: Decisão [0005 — Editar, corrigir abertura e arquivar contas](decisions/0005-editar-e-arquivar-contas.md).
 
 ### 3.4. Idempotência e Concorrência
 - **Chave de Idempotência**: Toda mutação financeira crítica (recebimentos, pagamentos, cadastros) exige uma chave de idempotência vinculada ao escopo `(usuário, espaço, operação)`.
@@ -81,7 +81,7 @@ Todas as implementações financeiras devem obedecer estritamente aos princípio
 - **Imutabilidade**: Registros financeiros efetivados nunca são excluídos (`DELETE`).
 - **Estorno**: Um estorno gera uma contra-movimentação de sinal oposto vinculada à transação original, restaurando o saldo e o restante da obrigação.
 - **Correção de Destino**: Caso um lançamento tenha sido direcionado para a conta errada, a correção movimenta os fundos entre as contas sem alterar o status da obrigação nem inflar o faturamento.
-- *Referência técnica*: Decisão [0004 — Estorno e correção de recebimentos](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/docs/decisions/0004-estorno-e-correcao.md).
+- *Referência técnica*: Decisão [0004 — Estorno e correção de recebimentos](decisions/0004-estorno-e-correcao.md).
 
 ### 3.6. Módulo de Contas a Pagar (`Payables`)
 - **Modalidades**:
@@ -89,7 +89,7 @@ Todas as implementações financeiras devem obedecer estritamente aos princípio
   - *Parcelada*: obrigação dividida em número fixo de parcelas calculadas determinística e cronologicamente.
   - *Recorrente*: compromissos periódicos contínuos (mensalidades, assinaturas), com geração antecipada de ocorrências e suporte a término opcional.
   - *Faturas de Cartão*: obrigações vinculadas a cartões com possibilidade de valor inicial indefinido até o fechamento.
-- *Referência técnica*: Decisão [0006 — A pagar](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/docs/decisions/0006-a-pagar.md).
+- *Referência técnica*: Decisão [0006 — A pagar](decisions/0006-a-pagar.md).
 
 ---
 
@@ -121,9 +121,9 @@ A identidade visual foi desenhada e aprovada para transmitir segurança, autorid
 
 ### 5.1. Marca e Logotipo
 - **Símbolo Oficial**: Gorila geométrico da BigDev.Z em duas variações oficiais:
-  - Tema Claro: [`assets/brand/gorilla_dark.png`](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/apps/mobile/assets/brand/gorilla_dark.png) (gorila escuro para fundos claros).
-  - Tema Escuro: [`assets/brand/gorilla_white.png`](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/apps/mobile/assets/brand/gorilla_white.png) (gorila claro para fundos escuros).
-- **Componente**: [`BrandHeader`](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/apps/mobile/lib/ui/app_brand.dart), exibindo a marca com proporções compactas no topo do app.
+  - Tema Claro: [`assets/brand/gorilla_dark.png`](../apps/mobile/assets/brand/gorilla_dark.png) (gorila escuro para fundos claros).
+  - Tema Escuro: [`assets/brand/gorilla_white.png`](../apps/mobile/assets/brand/gorilla_white.png) (gorila claro para fundos escuros).
+- **Componente**: [`BrandHeader`](../apps/mobile/lib/ui/app_brand.dart), exibindo a marca com proporções compactas no topo do app.
 
 ### 5.2. Paleta de Cores e Temas
 - **Espaço PF (Pessoal)**:
@@ -132,17 +132,17 @@ A identidade visual foi desenhada e aprovada para transmitir segurança, autorid
 - **Espaço PJ (Empresarial)**:
   - Cor primária: Verde Esmeralda Rico (`#064E3B` / `#047857`).
   - Cartão: gradiente verde escuro alinhado verticalmente com o cartão PF.
-- **Temas**: Suporte completo a Modo Claro (*Light*) e Modo Escuro (*Dark*), orquestrado dinamicamente via [`buildTheme(brightness, seed)`](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/apps/mobile/lib/ui/theme.dart).
+- **Temas**: Suporte completo a Modo Claro (*Light*) e Modo Escuro (*Dark*), orquestrado dinamicamente via [`buildTheme(brightness, seed)`](../apps/mobile/lib/ui/theme.dart).
 
 ### 5.3. Tipografia e Tokens
-- **Escala de Espaçamento**: Padronizada em [`AppTokens`](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/apps/mobile/lib/ui/app_tokens.dart) (`p4`, `p8`, `p12`, `p16`, `p20`, `p24`, `p32`, raios de borda `r8`, `r12`, `r16`, `r24`).
-- **Ícones**: Biblioteca Hugeicons (estilo Stroke Rounded) abstraída e padronizada em [`AppIcons`](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/apps/mobile/lib/ui/app_icons.dart).
+- **Escala de Espaçamento**: Padronizada em [`AppTokens`](../apps/mobile/lib/ui/app_tokens.dart) (`p4`, `p8`, `p12`, `p16`, `p20`, `p24`, `p32`, raios de borda `r8`, `r12`, `r16`, `r24`).
+- **Ícones**: Biblioteca Hugeicons (estilo Stroke Rounded) abstraída e padronizada em [`AppIcons`](../apps/mobile/lib/ui/app_icons.dart).
 
 ### 5.4. Acessibilidade e Responsividade
 - **SafeArea Rigorosa**: AppBar e componentes de tela devem sempre respeitar os insets da barra de status, Dynamic Island e home indicator.
 - **Textos Ampliados (150% e 200%)**:
   - Proibido o uso de `TextOverflow.ellipsis` em rótulos essenciais de formulários.
-  - Componente [`AccessibleFieldWrapper`](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/apps/mobile/lib/ui/widgets.dart): renderiza rótulos acima do campo em `Text` multilinhas quando o fator de escala do texto for maior que 1.2x.
+  - Componente [`AccessibleFieldWrapper`](../apps/mobile/lib/ui/widgets.dart): renderiza rótulos acima do campo em `Text` multilinhas quando o fator de escala do texto for maior que 1.2x.
   - Seletor de modalidade adaptativo (`_KindSelector`): adota disposição vertical com botões de no mínimo 48pt de altura sob textos ampliados, prevenindo quebras de layout.
   - Formulários mantêm rolagem livre até as ações finais mesmo sob teclado virtual aberto.
 
@@ -166,7 +166,7 @@ A identidade visual foi desenhada e aprovada para transmitir segurança, autorid
 
 ## 7. Catálogo Oficial de Evidências Visuais
 
-As evidências visuais aprovadas comprovam o estado funcional e de acessibilidade do aplicativo e estão catalogadas em [`prints/`](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/prints/):
+As evidências visuais aprovadas comprovam o estado funcional e de acessibilidade do aplicativo e estão catalogadas em [`prints/`](../prints/):
 
 1. `dark_01_resumo_pf.png` — Resumo financeiro PF em tema escuro.
 2. `dark_02_resumo_pj.png` — Resumo financeiro PJ em tema escuro.
