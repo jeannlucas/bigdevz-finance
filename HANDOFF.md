@@ -1,10 +1,10 @@
 # Handoff Histórico — 09/10/2026 (Consolidação Técnica, Auditoria de Software e Preparação para Publicação)
 
 > [!NOTE]
-> **AVISO DE TRANSIÇÃO DE GOVERNANÇA (CHECKPOINT GOV-06.B):**<br>
-> Este documento é o **registro histórico imutável** consolidado das sessões até 09/10/2026.<br>
+> **AVISO DE TRANSIÇÃO E REGISTRO HISTÓRICO (CHECKPOINTS GOV-06.B / FINANCE-DOCS-02):**<br>
+> Este documento é o **registro histórico consolidado** das sessões até 09/10/2026.<br>
 > A partir do Checkpoint GOV-06.B, a **autoridade canônica operacional ativa** para continuidade entre Google Antigravity e OpenAI Codex reside exclusivamente em [`docs/ai/HANDOFF.md`](docs/ai/HANDOFF.md).<br>
-> Todas as seções, diagnósticos e planos históricos originais abaixo foram integralmente preservados em sua forma autêntica.
+> Todas as seções técnicas, diagnósticos e planos históricos originais abaixo foram integralmente preservados em sua substância técnica, com metadados de caminhos locais e assinatura de build editorialmente sanitizados para publicação open source.
 
 Consolidação técnica e auditoria completa de engenharia de software do BigDev.Z Finance concluídas com sucesso. Todos os testes automatizados, formatadores e suítes de validação estão 100% aprovados e verdes. O repositório foi higienizado estruturalmente (versão real do Laravel corrigida para 13.34, 15 duplicatas de capturas removidas, simulator_state histórico preservado, .git/info/exclude configurado). A integridade financeira (centavos inteiros, idempotência por advisory lock, isolamento PF/PJ), a acessibilidade e o catálogo oficial de evidências visuais encontram-se rigorosamente preservados e documentados.
 
@@ -16,9 +16,9 @@ Branch: `dev`. **Sem staging, commit, push, merge, reset de banco ou remoção d
 
 | # | Item | Causa Raiz Identificada | Correção Aplicada e Situação Atual |
 | :--- | :--- | :--- | :--- |
-| **1** | `light_03_carteira_pf.png` mostrava dados PJ | No script de teste de integração anterior, a navegação para "Contas" no tema claro foi feita sem selecionar explicitamente o espaço PF após a captura do Resumo PJ, herdando o espaço ativo. | Em [generate_evidences_test.dart](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/apps/mobile/integration_test/generate_evidences_test.dart), implementada a seleção obrigatória e explícita via `selectSpace('PF')`, com validação do `SessionController` e asserções estritas (`expect('Conta financeira PF', findsWidgets)` e `expect('Banco Fictício PJ', findsNothing)`). Captura regerada com o cartão azul escuro e dados PF. |
+| **1** | `light_03_carteira_pf.png` mostrava dados PJ | No script de teste de integração anterior, a navegação para "Contas" no tema claro foi feita sem selecionar explicitamente o espaço PF após a captura do Resumo PJ, herdando o espaço ativo. | Em [generate_evidences_test.dart](apps/mobile/integration_test/generate_evidences_test.dart), implementada a seleção obrigatória e explícita via `selectSpace('PF')`, com validação do `SessionController` e asserções estritas (`expect('Conta financeira PF', findsWidgets)` e `expect('Banco Fictício PJ', findsNothing)`). Captura regerada com o cartão azul escuro e dados PF. |
 | **2** | Título "Nova conta a pagar" invadia área do relógio/status bar em 150% | **Defeito no harness de teste, não no app**. A tela de produto usa `Scaffold` com `AppBar` nativa e respeita a SafeArea. O harness de teste isolado injetava um `MediaQuery` sem `padding` ou `viewPadding` (`top = 0`). | Injetados insets reais da Safe Area do iPhone (`EdgeInsets.only(top: 59, bottom: 34)`). O título fica posicionado perfeitamente abaixo da status bar e Dynamic Island. |
-| **3** | Rótulos truncados em 200%: "Beneficiário (opcional)" e "Primeiro vencimento (dia de referência)" | 1. O floating label do Material ficava restrito a uma linha.<br>2. O label de vencimento continha texto explicativo longo embutido no título. | 1. Criado [AccessibleFieldWrapper](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/apps/mobile/lib/ui/widgets.dart), que sob escalas ampliadas (`scale > 1.2`) apresenta o rótulo multilinhas acima do campo.<br>2. Em [date_field.dart](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/apps/mobile/lib/ui/date_field.dart), o rótulo foi simplificado para "Primeiro vencimento" e a explicação movida para `helperText: 'O dia escolhido será usado como referência nos meses seguintes.'` com até 3 linhas. |
+| **3** | Rótulos truncados em 200%: "Beneficiário (opcional)" e "Primeiro vencimento (dia de referência)" | 1. O floating label do Material ficava restrito a uma linha.<br>2. O label de vencimento continha texto explicativo longo embutido no título. | 1. Criado [AccessibleFieldWrapper](apps/mobile/lib/ui/widgets.dart), que sob escalas ampliadas (`scale > 1.2`) apresenta o rótulo multilinhas acima do campo.<br>2. Em [date_field.dart](apps/mobile/lib/ui/date_field.dart), o rótulo foi simplificado para "Primeiro vencimento" e a explicação movida para `helperText: 'O dia escolhido será usado como referência nos meses seguintes.'` com até 3 linhas. |
 | **4** | Ausência da seta de retorno nas capturas A11y 150%/200% | **Mecanismo de teste isolado**. O harness montava `PayableFormScreen` como `home:` do `MaterialApp`. Na rota raiz (`/`), `Navigator.canPop(context)` é `false`, logo o `AppBar` nativo não renderiza o botão de voltar. | **Comprovado**: na tela real do produto (aberta via `Navigator.push`), `canPop` é `true` e a seta de retorno `<` é renderizada normalmente e com total acessibilidade (como comprovado nas capturas reais nativas `dark_06` e `light_06`). |
 | **5** | Relatório anterior com caminhos em branco e sem explicação técnica de 375px | Relatório continha placeholders e omitia a metodologia técnica de insets e viewport. | Catálogo completo com todos os caminhos absolutos, dimensões lógicas, físicas e insets devidamente documentados. |
 
@@ -33,27 +33,27 @@ Branch: `dev`. **Sem staging, commit, push, merge, reset de banco ou remoção d
 
 ## 3. Catálogo Completo das Evidências Visuais Oficiais
 
-Todas as 15 capturas ativas oficiais estão gravadas exclusivamente na pasta oficial [prints/](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/prints/). As 15 duplicatas redundantes em `design/screenshots/` foram removidas, preservando estritamente a captura histórica de referência `design/screenshots/simulator_state.png`.
+Todas as 15 capturas ativas oficiais estão gravadas exclusivamente na pasta oficial [prints/](prints/). As 15 duplicatas redundantes em `design/screenshots/` foram removidas, preservando estritamente a captura histórica de referência `design/screenshots/simulator_state.png`.
 
 | Arquivo | Tela / Espaço | Tema | Largura x Altura Lógica | Escala Texto | Safe Area Insets (T/B/L/R) | Ambiente / Método | Caminho Completo (Pasta Principal) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `dark_01_resumo_pf.png` | Resumo / PF | Escuro | 402 x 874 pt | 100% (1.0x) | 59 / 34 / 0 / 0 pt | Simulador iPhone 17 Pro | `/Users/jeannlucasdev/Documents/Projetos/BigDev.Z Finance/prints/dark_01_resumo_pf.png` |
-| `dark_02_resumo_pj.png` | Resumo / PJ | Escuro | 402 x 874 pt | 100% (1.0x) | 59 / 34 / 0 / 0 pt | Simulador iPhone 17 Pro | `/Users/jeannlucasdev/Documents/Projetos/BigDev.Z Finance/prints/dark_02_resumo_pj.png` |
-| `dark_03_carteira_pf.png` | Carteira / PF | Escuro | 402 x 874 pt | 100% (1.0x) | 59 / 34 / 0 / 0 pt | Simulador iPhone 17 Pro | `/Users/jeannlucasdev/Documents/Projetos/BigDev.Z Finance/prints/dark_03_carteira_pf.png` |
-| `dark_04_carteira_pj.png` | Carteira / PJ | Escuro | 402 x 874 pt | 100% (1.0x) | 59 / 34 / 0 / 0 pt | Simulador iPhone 17 Pro | `/Users/jeannlucasdev/Documents/Projetos/BigDev.Z Finance/prints/dark_04_carteira_pj.png` |
-| `dark_05_a_pagar_pf.png` | A pagar / PF | Escuro | 402 x 874 pt | 100% (1.0x) | 59 / 34 / 0 / 0 pt | Simulador iPhone 17 Pro | `/Users/jeannlucasdev/Documents/Projetos/BigDev.Z Finance/prints/dark_05_a_pagar_pf.png` |
-| `dark_06_cadastro_pagar_recorrente.png` | Novo A pagar / PF | Escuro | 402 x 874 pt | 100% (1.0x) | 59 / 34 / 0 / 0 pt | Simulador iPhone 17 Pro | `/Users/jeannlucasdev/Documents/Projetos/BigDev.Z Finance/prints/dark_06_cadastro_pagar_recorrente.png` |
-| `light_01_resumo_pf.png` | Resumo / PF | Claro | 402 x 874 pt | 100% (1.0x) | 59 / 34 / 0 / 0 pt | Simulador iPhone 17 Pro | `/Users/jeannlucasdev/Documents/Projetos/BigDev.Z Finance/prints/light_01_resumo_pf.png` |
-| `light_02_resumo_pj.png` | Resumo / PJ | Claro | 402 x 874 pt | 100% (1.0x) | 59 / 34 / 0 / 0 pt | Simulador iPhone 17 Pro | `/Users/jeannlucasdev/Documents/Projetos/BigDev.Z Finance/prints/light_02_resumo_pj.png` |
-| `light_03_carteira_pf.png` | Carteira / PF | Claro | 402 x 874 pt | 100% (1.0x) | 59 / 34 / 0 / 0 pt | Simulador iPhone 17 Pro | `/Users/jeannlucasdev/Documents/Projetos/BigDev.Z Finance/prints/light_03_carteira_pf.png` |
-| `light_04_carteira_pj.png` | Carteira / PJ | Claro | 402 x 874 pt | 100% (1.0x) | 59 / 34 / 0 / 0 pt | Simulador iPhone 17 Pro | `/Users/jeannlucasdev/Documents/Projetos/BigDev.Z Finance/prints/light_04_carteira_pj.png` |
-| `light_05_a_pagar_pf.png` | A pagar / PF | Claro | 402 x 874 pt | 100% (1.0x) | 59 / 34 / 0 / 0 pt | Simulador iPhone 17 Pro | `/Users/jeannlucasdev/Documents/Projetos/BigDev.Z Finance/prints/light_05_a_pagar_pf.png` |
-| `light_06_cadastro_pagar_recorrente.png` | Novo A pagar / PF | Claro | 402 x 874 pt | 100% (1.0x) | 59 / 34 / 0 / 0 pt | Simulador iPhone 17 Pro | `/Users/jeannlucasdev/Documents/Projetos/BigDev.Z Finance/prints/light_06_cadastro_pagar_recorrente.png` |
-| `a11y_375px_scale_150_seletor.png` | Novo A pagar / PF | Escuro | 375 x 874 pt | 150% (1.5x) | 59 / 34 / 0 / 0 pt | Test Harness (Viewport 375pt) | `/Users/jeannlucasdev/Documents/Projetos/BigDev.Z Finance/prints/a11y_375px_scale_150_seletor.png` |
-| `a11y_375px_scale_200_seletor.png` | Novo A pagar / PF | Escuro | 375 x 874 pt | 200% (2.0x) | 59 / 34 / 0 / 0 pt | Test Harness (Viewport 375pt) | `/Users/jeannlucasdev/Documents/Projetos/BigDev.Z Finance/prints/a11y_375px_scale_200_seletor.png` |
-| `a11y_iphone17pro_scale_200_seletor.png` | Novo A pagar / PF | Escuro | 402 x 874 pt | 200% (2.0x) | 59 / 34 / 0 / 0 pt | Test Harness (Viewport 402pt) | `/Users/jeannlucasdev/Documents/Projetos/BigDev.Z Finance/prints/a11y_iphone17pro_scale_200_seletor.png` |
+| `dark_01_resumo_pf.png` | Resumo / PF | Escuro | 402 x 874 pt | 100% (1.0x) | 59 / 34 / 0 / 0 pt | Simulador iPhone 17 Pro | `prints/dark_01_resumo_pf.png` |
+| `dark_02_resumo_pj.png` | Resumo / PJ | Escuro | 402 x 874 pt | 100% (1.0x) | 59 / 34 / 0 / 0 pt | Simulador iPhone 17 Pro | `prints/dark_02_resumo_pj.png` |
+| `dark_03_carteira_pf.png` | Carteira / PF | Escuro | 402 x 874 pt | 100% (1.0x) | 59 / 34 / 0 / 0 pt | Simulador iPhone 17 Pro | `prints/dark_03_carteira_pf.png` |
+| `dark_04_carteira_pj.png` | Carteira / PJ | Escuro | 402 x 874 pt | 100% (1.0x) | 59 / 34 / 0 / 0 pt | Simulador iPhone 17 Pro | `prints/dark_04_carteira_pj.png` |
+| `dark_05_a_pagar_pf.png` | A pagar / PF | Escuro | 402 x 874 pt | 100% (1.0x) | 59 / 34 / 0 / 0 pt | Simulador iPhone 17 Pro | `prints/dark_05_a_pagar_pf.png` |
+| `dark_06_cadastro_pagar_recorrente.png` | Novo A pagar / PF | Escuro | 402 x 874 pt | 100% (1.0x) | 59 / 34 / 0 / 0 pt | Simulador iPhone 17 Pro | `prints/dark_06_cadastro_pagar_recorrente.png` |
+| `light_01_resumo_pf.png` | Resumo / PF | Claro | 402 x 874 pt | 100% (1.0x) | 59 / 34 / 0 / 0 pt | Simulador iPhone 17 Pro | `prints/light_01_resumo_pf.png` |
+| `light_02_resumo_pj.png` | Resumo / PJ | Claro | 402 x 874 pt | 100% (1.0x) | 59 / 34 / 0 / 0 pt | Simulador iPhone 17 Pro | `prints/light_02_resumo_pj.png` |
+| `light_03_carteira_pf.png` | Carteira / PF | Claro | 402 x 874 pt | 100% (1.0x) | 59 / 34 / 0 / 0 pt | Simulador iPhone 17 Pro | `prints/light_03_carteira_pf.png` |
+| `light_04_carteira_pj.png` | Carteira / PJ | Claro | 402 x 874 pt | 100% (1.0x) | 59 / 34 / 0 / 0 pt | Simulador iPhone 17 Pro | `prints/light_04_carteira_pj.png` |
+| `light_05_a_pagar_pf.png` | A pagar / PF | Claro | 402 x 874 pt | 100% (1.0x) | 59 / 34 / 0 / 0 pt | Simulador iPhone 17 Pro | `prints/light_05_a_pagar_pf.png` |
+| `light_06_cadastro_pagar_recorrente.png` | Novo A pagar / PF | Claro | 402 x 874 pt | 100% (1.0x) | 59 / 34 / 0 / 0 pt | Simulador iPhone 17 Pro | `prints/light_06_cadastro_pagar_recorrente.png` |
+| `a11y_375px_scale_150_seletor.png` | Novo A pagar / PF | Escuro | 375 x 874 pt | 150% (1.5x) | 59 / 34 / 0 / 0 pt | Test Harness (Viewport 375pt) | `prints/a11y_375px_scale_150_seletor.png` |
+| `a11y_375px_scale_200_seletor.png` | Novo A pagar / PF | Escuro | 375 x 874 pt | 200% (2.0x) | 59 / 34 / 0 / 0 pt | Test Harness (Viewport 375pt) | `prints/a11y_375px_scale_200_seletor.png` |
+| `a11y_iphone17pro_scale_200_seletor.png` | Novo A pagar / PF | Escuro | 402 x 874 pt | 200% (2.0x) | 59 / 34 / 0 / 0 pt | Test Harness (Viewport 402pt) | `prints/a11y_iphone17pro_scale_200_seletor.png` |
 
-Arquivo histórico preservado: `/Users/jeannlucasdev/Documents/Projetos/BigDev.Z Finance/design/screenshots/simulator_state.png`.
+Arquivo histórico preservado localmente: `design/screenshots/simulator_state.png` (referência técnica de design mantida exclusivamente no ambiente local).
 
 ---
 
@@ -115,7 +115,7 @@ Resultados reais obtidos nesta verificação de consolidação:
 9. **Evidências Visuais**:
    - 15 capturas ativas oficiais em `prints/`; `simulator_state.png` histórico em `design/screenshots/`.
 10. **Arquivos de Configuração Local da Máquina (NÃO PUBLICAR)**:
-    - `apps/mobile/ios/Runner.xcodeproj/project.pbxproj` (contém `DEVELOPMENT_TEAM = 2X74SUJ4CB;` e upgrade do Xcode).
+    - `apps/mobile/ios/Runner.xcodeproj/project.pbxproj` (contém identificador particular de assinatura Apple preservado exclusivamente no ambiente local e upgrade do Xcode).
     - `apps/mobile/ios/Runner/Info.plist` (ajustes locais de rede).
     - `apps/mobile/devtools_options.yaml` (preferências do DevTools local).
 
@@ -169,4 +169,4 @@ Quando o usuário autorizar a publicação no GitHub, recomenda-se realizar os c
 ## 8. Pendências Anteriores à Publicação
 
 - **Licença do Repositório**: O repositório ainda não possui arquivo `LICENSE`. A escolha da licença (MIT, Apache 2.0, AGPL etc.) depende da decisão do usuário.
-- **Configurações locais do Xcode**: Descartar ou separar do commit o `DEVELOPMENT_TEAM` em `project.pbxproj` e o `devtools_options.yaml`.
+- **Configurações locais do Xcode**: Descartar ou separar do commit a assinatura particular Apple em `project.pbxproj` e o `devtools_options.yaml`.

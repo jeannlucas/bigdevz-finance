@@ -23,7 +23,7 @@
   <a href="https://flutter.dev"><img src="https://img.shields.io/badge/Flutter-3.47.6-02569B?style=flat&logo=flutter&logoColor=white" alt="Flutter"></a>
   <a href="https://laravel.com"><img src="https://img.shields.io/badge/Laravel-13.34-FF2D20?style=flat&logo=laravel&logoColor=white" alt="Laravel"></a>
   <a href="https://www.postgresql.org"><img src="https://img.shields.io/badge/PostgreSQL-18-4169E1?style=flat&logo=postgresql&logoColor=white" alt="PostgreSQL"></a>
-  <a href="https://github.com/jeannlucas/bigdevz-finance/actions"><img src="https://img.shields.io/badge/CI-GitHub%20Actions-brightgreen?style=flat&logo=githubactions&logoColor=white" alt="CI"></a>
+  <a href="https://github.com/jeannlucas/bigdevz-finance/actions/workflows/ci.yml"><img src="https://github.com/jeannlucas/bigdevz-finance/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/Licen%C3%A7a-MIT-blue?style=flat" alt="Licença"></a>
 </p>
 
@@ -262,9 +262,13 @@ Para testar as principais funcionalidades no aplicativo:
   - [ADR 0006: Módulo de Contas a Pagar e Recorrências](docs/decisions/0006-a-pagar.md)
 - [Roadmap de Evolução](ROADMAP.md): Etapas concluídas e próximos módulos planejados.
 - [Guia de Contribuição](CONTRIBUTING.md): Padrões de branch, mensagens de commit e diretrizes de desenvolvimento.
+- [Política de Segurança](SECURITY.md): Diretrizes de divulgação responsável de vulnerabilidades.
+- [Diretrizes de Marca](TRADEMARK.md): Orientações de uso da identidade visual e regras para forks.
 
 ---
 
-## Licença
+## Licença e Marca
 
-Este projeto é distribuído sob os termos da licença **MIT**. Consulte o arquivo [LICENSE](LICENSE) para obter o texto integral e as condições de uso.
+O código-fonte deste projeto é distribuído sob os termos da licença **MIT**. Consulte o arquivo [LICENSE](LICENSE) para obter o texto integral e as condições de uso do software.
+
+Os nomes "BigDev.Z", "BigDev.Z Finance" e os logotipos oficiais (símbolo do gorila) são marcas e identidade visual protegidas de Jeann Lucas. Para diretrizes de uso da marca e orientações sobre forks e projetos derivados, consulte [TRADEMARK.md](TRADEMARK.md).
