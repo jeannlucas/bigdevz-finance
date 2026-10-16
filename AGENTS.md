@@ -1,8 +1,6 @@
 # BigDev.Z Finance — instruções locais
 
-> **Autoridade Canônica Local:** BigDev.Z Finance<br>
-> **Aplica-se a:** Google Antigravity e OpenAI Codex operando no projeto.<br>
-> **Governança Global:** Sujeito a [`~/AGENTS.md`](file:///Users/jeannlucasdev/AGENTS.md), [`padroes-engenharia-bigdevz.md`](file:///Users/jeannlucasdev/.agents/governanca/padroes-engenharia-bigdevz.md) e [`padroes-qa-bigdevz.md`](file:///Users/jeannlucasdev/.agents/governanca/padroes-qa-bigdevz.md).
+> **Governança Operacional:** As diretrizes canônicas deste repositório estão consolidadas em `docs/project-guidelines.md`, nos ADRs em `docs/decisions/` e nas instruções deste arquivo, sendo autossuficientes para contribuidores externos. Em ambientes locais do mantenedor com governança organizacional BigDev.Z instalada em `~/.agents/governanca/`, essas diretrizes se aplicam em cooperação com as políticas centrais da organização.
 
 ## Estado e modo
 
@@ -37,8 +35,8 @@ Não exibir segredos nem publicar dados financeiros reais, PII ou comprovantes.
 Não alterar outros projetos, configuração global, volumes ou produção.
 Criar Git com `main` conforme o prompt; desenvolver em `dev` após a preparação.
 Antes de trabalho em um Git existente, conferir branch/status e executar fetch.
-Publicação inicial está autorizada pelo prompt específico; revisar arquivos,
-diff preparado e verificações antes de commit/push. Não usar force push.
+Autorizações de commit, push, merge e publicação devem ser concedidas especificamente pelo mantenedor para cada operação ou checkpoint; revisar arquivos,
+diff preparado e verificações antes de qualquer operação remota. Não usar force push.
 Licença MIT formalizada ([LICENSE](LICENSE)). Nenhum deploy.
 
 ## Onde verificar neste projeto

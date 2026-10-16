@@ -3,7 +3,7 @@
 > **Autoridade Canônica de Continuidade:** BigDev.Z Finance<br>
 > **Aplica-se a:** Google Antigravity e OpenAI Codex operando no projeto.<br>
 > **Protocolo:** Handoff Universal Bidirecional BigDev.Z (GOV-03 / GOV-06.B).<br>
-> **Registro Histórico Precedente:** [`HANDOFF.md`](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/HANDOFF.md) (preservado na raiz como histórico consolidado até 09/10/2026).
+> **Registro Histórico Precedente:** [`HANDOFF.md`](../../HANDOFF.md) (preservado na raiz como histórico consolidado até 09/10/2026).
 
 ---
 
@@ -15,18 +15,18 @@
   - **Backend:** Laravel 13 monólito modular em `apps/api/` com Actions dedicadas (`ReceiveInstallment`, `ReverseReceipt`).
   - **Banco de Dados:** PostgreSQL com restrições compostas `(id, space_id)` e advisory locks para controle de concorrência.
 - **Modo do Repositório:** **DESENVOLVIMENTO ATIVO**.
-- **Licença:** MIT Formalizada ([LICENSE](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/LICENSE)).
-- **Diretrizes e Regras de Domínio:** Consolidadas em [`docs/project-guidelines.md`](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/docs/project-guidelines.md) e [`docs/architecture.md`](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/docs/architecture.md).
+- **Licença:** MIT Formalizada ([LICENSE](../../LICENSE)).
+- **Diretrizes e Regras de Domínio:** Consolidadas em [`docs/project-guidelines.md`](../project-guidelines.md) e [`docs/architecture.md`](../architecture.md).
 
 ---
 
 ## 2. Estado Operacional Atual e Máquina de Estados
 
-- **Estado Atual:** **`VALIDADO TECNICAMENTE`** / **`CORRECAO_SEGURANCA_LOCAL`** (Checkpoint `FINANCE-SEC-02`).
-- **Branch Ativa:** `dev` (HEAD local `3cbf8566a212a125d00e19b5492455935bea691a`, `ahead 2` em relação a `origin/dev`).
-- **Branch de Produção:** `main` local preservada em `42a3e397d3921777cb952c96e0de03d7d6e20f0c` (`origin/main` em `0f49606bf5ee57ce29256209ac51991f992cef89`).
-- **Paridade Remota:** `origin/dev` retida em `0f49606bf5ee57ce29256209ac51991f992cef89` (push não autorizado neste checkpoint).
-- **Integridade do Core Financeiro:** 100% verde em todas as suítes de testes automatizados (domínio, API, concorrência e mobile).
+- **Estado Atual:** **`VALIDADO TECNICAMENTE`** / **`PREPARACAO_COMMIT_DOCUMENTAL`** (Checkpoint `FINANCE-DOCS-03 — Fase B`).
+- **Branch Ativa:** `dev` (HEAD local `b7160f26d923574f2e3266c5eef8d8f6141dea2f`, alinhado com `origin/dev`).
+- **Branch de Produção:** `main` (remoto `origin/main` atualizado após merge do PR #2 em `c8e61e1ed0e48e9c67be11093f77abd48d6e2d11`).
+- **Integridade do Core Financeiro e Suíte:** 100% verde em todas as suítes (11/11 testes de domínio, 132/132 testes mobile, Pint aprovado e formatação Dart conforme).
+- **Escopo do Checkpoint:** Staging seletivo e criação do commit local documental `docs: aprimorar governança open source e política de marca` cobrindo exatamente os 10 arquivos aprovados.
 
 ---
 
@@ -41,33 +41,38 @@ Todas as decisões técnicas e arquiteturais consolidadas nas etapas anteriores 
 5. **Decisão 0005 (Gestão e Correção de Contas):** Edição e arquivamento de contas financeiras sem violar integridade de lançamentos pretéritos.
 6. **Decisão 0006 (Contas a Pagar, Parcelas e Recorrências):** Módulo de contas a pagar, parcelas e recorrências (conforme `docs/project-guidelines.md`), com harness de acessibilidade em 375pt padronizado para insets reais.
 
-> Detalhamento integral das causas raízes e auditorias históricas disponível em [`HANDOFF.md`](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/HANDOFF.md).
+> Detalhamento integral das causas raízes e auditorias históricas disponível em [`HANDOFF.md`](../../HANDOFF.md).
 
 ---
 
 ## 4. Alterações em Andamento e Working Tree
 
-Inventário detalhado das alterações locais presentes no repositório:
+Inventário detalhado do escopo documental homologado para versionamento local:
 
 | Arquivo | Tipo | Descrição e Finalidade |
 | :--- | :--- | :--- |
-| `HANDOFF.md` | Modificado | Handoff original na raiz com banner de transição para o canônico. |
-| `AGENTS.md` | Modificado | Instruções locais atualizadas com referências canônicas globais e a docs/ai/HANDOFF.md. |
-| `apps/mobile/ios/Runner.xcodeproj/project.pbxproj` | Modificado | Configurações locais de build e assinatura do Runner iOS. |
-| `apps/mobile/ios/Runner/Info.plist` | Modificado | Configurações de permissões e chaves locais do runner iOS. |
-| `apps/mobile/lib/features/summary/summary_tab.dart` | Modificado | Refatoração e aprimoramento ergonômico da aba de resumo mobile. |
-| `apps/mobile/devtools_options.yaml` | Não rastreado | Preferências locais de profiling do Flutter DevTools. |
-| `apps/mobile/test/features/summary_test.dart` | Não rastreado | Testes de unidade e widgets para as alterações da aba de resumo. |
-| `design/screenshots/` | Não rastreado | Diretório contendo captura histórica de referência (`simulator_state.png`). |
-| `scripts/run-mobile.sh` | Não rastreado | Utilitário local para inicialização rápida do ambiente mobile. |
-| `docs/ai/HANDOFF.md` | Criado | Este documento (canônico universal de governança). |
+| `.gitignore` | Modificado | Proteção de `.local/`, `docs/archive/`, DevTools, script local e capturas temporárias. |
+| `AGENTS.md` | Modificado | Sanitização de links absolutos, regras autossuficientes e autorizações normativas. |
+| `CONTRIBUTING.md` | Modificado | Guia comunitário (Fork, Branch, PR, CI) e nota sobre governança de agentes. |
+| `HANDOFF.md` | Modificado | Sanitização de caminhos locais e assinatura Apple, preservando integridade histórica. |
+| `README.md` | Modificado | Badge dinâmico oficial de CI, links para SECURITY/TRADEMARK e seção de Licença. |
+| `docs/ai/AJUSTES-PARA-RETOMADA.md` | Modificado | Generalização de portas do host e alinhamento com diretrizes públicas. |
+| `docs/ai/HANDOFF.md` | Modificado | Este documento canônico (links normalizados e estado operacional atualizado). |
+| `docs/screenshots.md` | Modificado | Precisão terminológica separando apresentação visual de testes funcionais. |
+| `SECURITY.md` | Novo | Política de divulgação responsável e canal seguro via GitHub Security Advisories. |
+| `TRADEMARK.md` | Novo | Diretrizes de uso da marca BigDev.Z e do gorila em harmonia com a licença MIT. |
+
+**Arquivos particulares protegidos preservados fora do commit:**
+- `apps/mobile/ios/Runner.xcodeproj/project.pbxproj` (configurações locais de build/assinatura).
+- `apps/mobile/ios/Runner/Info.plist` (ajustes locais de rede).
+- `apps/mobile/integration_test/ux_evidences_test.dart` (teste local não rastreado).
 
 ---
 
 ## 5. Catálogo de Evidências Visuais e Demonstração Real (GOV-04)
 
-- **Diretório Oficial de Capturas:** [`prints/`](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/prints/) (15 capturas oficiais ativas, geradas no simulador iPhone 17 Pro e harness 375pt).
-- **Diretório Histórico:** [`design/screenshots/simulator_state.png`](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/design/screenshots/simulator_state.png) (captura de referência técnica).
+- **Diretório Oficial de Capturas:** [`prints/`](../../prints/) (15 capturas oficiais ativas, geradas no simulador iPhone 17 Pro e harness 375pt).
+- **Referência Histórica Local:** `design/screenshots/simulator_state.png` (captura técnica de design preservada exclusivamente no ambiente de trabalho local).
 - **Regra de Plataforma:** **Validação em Android não convalida iOS; validação em iOS não convalida Android.**
 - **Inventário de Evidências Oficiais:**
   - **Tema Escuro (Dark Mode - 402x874pt):**
@@ -115,7 +120,7 @@ Os comandos reais de verificação aprovados na última auditoria de consolidaç
 ## 7. Governança Git, Soberania Humana e Segurança
 
 - **Branch de Trabalho:** `dev`. Todo desenvolvimento ocorre exclusivamente nesta branch.
-- **Branch de Produção:** `main`. Push direto é estritamente proibido. Promoção somente via merge fast-forward aprovado.
+- **Branch de Produção:** `main`. Push direto é estritamente proibido. Integração realizada exclusivamente pelo mantenedor via Pull Request formal após aprovação completa de todos os checks da CI.
 - **Soberania do Desenvolvedor Jeann Lucas:** Commits são preparados pelo agente mas criados e autorizados exclusivamente pelo Jeann. Proibido criar commits, tags ou branches autonomamente.
 - **Segurança de Credenciais:** Proibido comitar `.env` real, tokens ou dados pessoais (PII). Variáveis de ambiente vivem exclusivamente em `.env` ignorado pelo Git, com templates em `.env.example`.
 - **Deploy:** Nenhum deploy automático é realizado por agentes de IA.
@@ -124,12 +129,12 @@ Os comandos reais de verificação aprovados na última auditoria de consolidaç
 
 ## 8. Próximos Passos Imediatos e Retomada Multi-IA
 
-Roteiro de continuidade para **Google Antigravity** e **OpenAI Codex**:
+Roteiro de continuidade operacional para **Google Antigravity** e **OpenAI Codex**:
 
-1. **Manutenção da Aba de Resumo:** Concluir a validação e testes unitários das alterações locais em `apps/mobile/lib/features/summary/summary_tab.dart` e `summary_test.dart`.
-2. **Revisão de Staging:** Apresentar o diff limpo das alterações locais para revisão e commit pelo desenvolvedor Jeann Lucas.
-3. **Acompanhamento de CI:** Monitorar a integridade dos workflows em `.github/workflows/ci.yml`.
-4. **Atualização Contínua deste Documento:** Qualquer nova sessão com trabalho material deve encerrar atualizando as seções 2, 4 e 8 deste arquivo [`docs/ai/HANDOFF.md`](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/docs/ai/HANDOFF.md).
+1. **Staging Seletivo e Commit Local (FINANCE-DOCS-03 — Fase B):** Realizar o staging dos 10 arquivos homologados e criar o commit local com a mensagem imperativa `docs: aprimorar governança open source e política de marca`, mantendo arquivos de ambiente iOS rigorosamente preservados fora do staging.
+2. **Auditoria e Portão de Publicação (FINANCE-DOCS-04):** Submeter o commit criado à autorização do mantenedor para push controlado na branch `dev` e acompanhamento da CI no GitHub Actions.
+3. **Continuidade de Funcionalidades:** Retomada das pendências da aba de Resumo e testes de concorrência com base limpa e governança profissional consolidada.
+4. **Atualização Contínua deste Documento:** Qualquer nova sessão com trabalho material deve encerrar atualizando as seções 2, 4 e 8 deste arquivo [`docs/ai/HANDOFF.md`](HANDOFF.md).
 
 
 ## Registro de Homologação — Checkpoint FINANCE-QA-01 (15/10/2026)

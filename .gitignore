@@ -26,3 +26,18 @@ storage/private/
 dados-reais/
 comprovantes/
 !infra/postgres/init/*.sql
+
+# Ambiente operacional local e notas particulares
+.local/
+docs/archive/
+
+# Preferências locais de profiling
+apps/mobile/devtools_options.yaml
+
+# Utilitários locais de execução
+scripts/run-mobile.sh
+
+# Evidências temporárias de testes e design (preservando prints/*.png oficiais)
+prints/qa-*/
+prints/ux-*/
+design/screenshots/

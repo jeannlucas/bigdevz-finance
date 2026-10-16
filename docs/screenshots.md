@@ -1,8 +1,9 @@
 # Galeria Oficial de Evidências Visuais
 
-Catálogo completo das 15 capturas oficiais do **BigDev.Z Finance**, comprovando a interface fintech aprovada, o isolamento estrito entre espaços (Pessoa Física e Pessoa Jurídica), temas claro e escuro, e conformidade com acessibilidade sob texto ampliado (150% e 200%) em telas compactas (375pt).
+Catálogo completo das 15 capturas oficiais do **BigDev.Z Finance**, apresentando o estado visual da interface fintech aprovada, a diferenciação gráfica entre espaços (Pessoa Física em azul e Pessoa Jurídica em verde), os temas claro e escuro, e o comportamento visual sob escalas de texto ampliado (150% e 200%) em telas compactas (375pt).
 
-Todas as capturas foram extraídas diretamente de execuções reais no Simulador iOS e testes automatizados de integração, sem dados reais e sem edição gráfica.
+> [!NOTE]
+> Estas capturas documentam a apresentação visual em execuções no Simulador iOS e testes automatizados de widgets. O isolamento lógico entre inquilinos, a precisão matemática monetária e a integridade de concorrência são comprovados pelas suítes automatizadas de testes de integração e domínio (`make test`).
 
 ---
 

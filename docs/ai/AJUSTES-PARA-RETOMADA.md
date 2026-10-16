@@ -31,7 +31,7 @@ A paridade desejada é de arquitetura, versões compatíveis, contratos e contro
 - **Portas:** unicidade é por host, endereço, porta e protocolo; dois containers podem usar a mesma porta interna em redes isoladas. Dois serviços não podem disputar a mesma porta publicada no mesmo endereço do host. Domínios distintos não eliminam essa colisão.
 - **Mac:** publicar apenas o indispensável, com loopback explícito. Acesso de dispositivo físico pela LAN exige exceção delimitada e autorizada; loopback de um container não é o loopback do Mac.
 - **VPS:** preferir bancos, caches e serviços internos sem publicação no host. Somente o proxy de entrada precisa de exposição pública; upstream pode usar rede Docker compartilhada controlada ou porta exclusiva em loopback. Reutilizar o proxy existente quando aplicável; não criar um por aplicação disputando 80/443.
-- **Registro por host:** consultar `~/.agents/governanca/registro-portas-bigdevz.md` para o Mac e inventariar separadamente a VPS, com autorização de acesso. Reserva local não prova disponibilidade na VPS. Toda porta citada como PROPOSTA continua não reservada e não implementada.
+- **Registro por host:** consultar o inventário de portas do host local (ou registro de governança de portas corporativo) para o Mac e inventariar separadamente a VPS, com autorização de acesso. Reserva local não prova disponibilidade na VPS. Toda porta citada como PROPOSTA continua não reservada e não implementada.
 - **Namespace:** planejar nome Compose por projeto e ambiente, com redes e volumes segregados. Antes de remover `container_name` ou alterar o nome do projeto, mapear nomes efetivos e montagens; mudar namespace pode ligar um volume vazio em vez do existente.
 - **Dados:** separar dev, teste e produção; ensaiar com dados sintéticos e recursos descartáveis identificados. Nenhum teste pode atingir banco persistente por fallback silencioso.
 - **Rede:** evitar `network_mode: host`, redes globais e sub-redes fixas sem necessidade comprovada. Considerar o histórico de saturação IPAM; rede interna não substitui autenticação e autorização.
@@ -43,7 +43,7 @@ A paridade desejada é de arquitetura, versões compatíveis, contratos e contro
 
 ## Alinhamento às regras globais
 
-Referências canônicas: `AGENTS.md` local, `docs/ai/HANDOFF.md`, regras globais fornecidas pelo usuário e `~/.agents/governanca/{politica-operacional-bigdevz,padroes-engenharia-bigdevz,padroes-qa-bigdevz,registro-portas-bigdevz}.md`. A disponibilidade dessas fontes em outra máquina deve ser conferida; não presumir que estão presentes na VPS.
+Referências canônicas: `AGENTS.md` local, `docs/ai/HANDOFF.md`, diretrizes em `docs/project-guidelines.md` e, em ambientes corporativos BigDev.Z com governança local instalada, as diretrizes de engenharia e QA em `~/.agents/governanca/`. A disponibilidade dessas fontes em outra máquina deve ser conferida; não presumir que estão presentes na VPS nem exigir dependências privadas de colaboradores externos.
 
 O ponteiro em AGENTS torna esta lista encontrável. Isso NÃO comprova conformidade integral de código, hooks ou infraestrutura. Na retomada, conferir:
 
