@@ -312,6 +312,7 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
             validator: (value) =>
                 (value ?? '').trim().isEmpty ? 'Informe a descrição.' : null,
           ),
+          const SizedBox(height: 12),
           AccessibleFieldWrapper(
             label: 'Beneficiário (opcional)',
             isOptional: true,
@@ -331,6 +332,7 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
               },
             ),
           ),
+          const SizedBox(height: 12),
           TextFormField(
             controller: _amount,
             decoration: InputDecoration(

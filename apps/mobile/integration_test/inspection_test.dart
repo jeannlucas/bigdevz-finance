@@ -35,8 +35,24 @@ void main() {
       }
 
       Future<void> capture(String name) async {
-        // Ponto de observação das etapas de inspeção visual.
         await settle();
+        try {
+          await http
+              .get(
+                Uri.parse('http://10.0.2.2:9876/screenshot_android?name=$name'),
+              )
+              .timeout(const Duration(seconds: 3));
+        } catch (_) {
+          try {
+            await http
+                .get(
+                  Uri.parse(
+                    'http://127.0.0.1:9876/screenshot_android?name=$name',
+                  ),
+                )
+                .timeout(const Duration(seconds: 3));
+          } catch (_) {}
+        }
       }
 
       await tester.pumpWidget(

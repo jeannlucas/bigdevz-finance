@@ -10,6 +10,8 @@ import '../agreements/agreements_tab.dart';
 import '../auth/auth_models.dart';
 import '../auth/session_controller.dart';
 import '../payables/payables_tab.dart';
+import '../settings/preferences_controller.dart';
+import '../settings/settings_screen.dart';
 import '../summary/summary_tab.dart';
 
 class HomeShell extends StatefulWidget {
@@ -26,8 +28,15 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final session = context.watch<SessionController>();
+    final preferences = context.watch<PreferencesController?>();
     final space = session.activeSpace!;
-    final brightness = Theme.of(context).brightness;
+    final platformBrightness = MediaQuery.platformBrightnessOf(context);
+    final isDark = switch (preferences?.themeMode ?? ThemeMode.system) {
+      ThemeMode.system => platformBrightness == Brightness.dark,
+      ThemeMode.dark => true,
+      ThemeMode.light => false,
+    };
+    final brightness = isDark ? Brightness.dark : Brightness.light;
 
     // Cor e conteúdo vinculados ao espaço: a chave descarta todo estado do anterior.
     return Theme(
@@ -54,7 +63,14 @@ class _HomeShellState extends State<HomeShell> {
                       borderRadius: BorderRadius.circular(AppTokens.r12),
                     ),
                     onSelected: (action) {
-                      if (action == 'logout') {
+                      if (action == 'settings') {
+                        Navigator.of(context).push(
+                          spaceRoute(
+                            isPf: space.isPf,
+                            child: const SettingsScreen(),
+                          ),
+                        );
+                      } else if (action == 'logout') {
                         _confirmLogout(context, session);
                       }
                     },
@@ -67,6 +83,16 @@ class _HomeShellState extends State<HomeShell> {
                         ),
                       ),
                       const PopupMenuDivider(),
+                      const PopupMenuItem(
+                        value: 'settings',
+                        child: Row(
+                          children: [
+                            AppIcon(AppIcons.settings, size: 18),
+                            SizedBox(width: 8),
+                            Text('Configurações'),
+                          ],
+                        ),
+                      ),
                       const PopupMenuItem(
                         value: 'logout',
                         child: Row(

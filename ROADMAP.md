@@ -28,8 +28,12 @@
 | Acessibilidade do formulário e seletor adaptativo | Concluído e integrado na `main` via PR #1; validado em 150%/200%, rótulos multilinhas e SafeArea |
 | Catálogo de evidências visuais oficiais | 15 capturas reais em `prints/` geradas e auditadas; `simulator_state.png` histórico em `design/screenshots/` |
 | Hugeicons (Stroke Rounded, gratuitos) | Integrados e em uso no app; referência https://hugeicons.com/icons/stroke-rounded |
+| Dashboard modernizado com Hero Card e ações rápidas | Concluído e homologado em iOS e Android; isolamento PF/PJ e métricas financeiras |
+| Central de Configurações e temas (Automático, Claro, Escuro) | Concluído com persistência segura de preferências no dispositivo |
+| Privacidade financeira expandida e mascaramento de valores | Concluído no Dashboard, Contas, A receber e A pagar; acessibilidade com Semantics |
+| Homologação nativa cruzada Android (API 36) e iOS (iPhone 17 Pro) | Validada tecnicamente com 20 capturas no catálogo de evidências |
 
-Estado detalhado, comandos executados e evidências: `HANDOFF.md`.
-Desenvolvimento segue no Simulador iOS; iPhone físico só quando o simulador
+Estado detalhado, comandos executados e evidências: `docs/ai/HANDOFF.md`.
+Desenvolvimento segue no Simulador iOS e Emulador Android; iPhone físico só quando o simulador
 não comprovar o comportamento. Obra e empréstimo podem ser antecipados por decisão do
 usuário. Licença MIT formalizada ([LICENSE](LICENSE)).

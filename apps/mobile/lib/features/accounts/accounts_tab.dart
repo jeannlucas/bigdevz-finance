@@ -7,6 +7,7 @@ import '../../ui/app_tokens.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import '../auth/auth_models.dart';
+import '../settings/preferences_controller.dart';
 import 'account.dart';
 import 'account_card.dart';
 import 'account_form_screen.dart';
@@ -50,6 +51,8 @@ class _AccountsTabState extends State<AccountsTab> {
       ),
       builder: (context, accounts, refresh) {
         final theme = Theme.of(context);
+        final obscure =
+            context.watch<PreferencesController?>()?.obscureValues ?? false;
         final active = accounts.where((a) => !a.isArchived).toList();
         final archived = accounts.where((a) => a.isArchived).toList();
         final total = Money(accounts.fold(0, (t, a) => t + a.balance.cents));
@@ -135,6 +138,7 @@ class _AccountsTabState extends State<AccountsTab> {
                           space: space,
                           account: item,
                           isHighlighted: index == _activeCardIndex,
+                          obscureBalance: obscure,
                           onTap: () => Navigator.of(context).push(
                             spaceRoute(
                               isPf: space.isPf,
@@ -149,40 +153,25 @@ class _AccountsTabState extends State<AccountsTab> {
                     },
                   ),
                 ),
-                // Área reservada abaixo do cartão (32 pixels lógicos), padronizada
-                // entre PF (com indicadores) e PJ (sem indicadores falsos), garantindo
-                // alinhamento vertical idêntico do bloco "Saldo total".
+                // Área reservada abaixo do cartão (32 pixels lógicos) com indicadores
+                // para listas compactas (<= 6) e privilegiando o indicador textual em listas grandes
                 SizedBox(
                   height: 32,
-                  child: cardList.length > 1
+                  child: (cardList.length > 1 && cardList.length <= 6)
                       ? Center(
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: List.generate(
-                              cardList.length > 8 ? 8 : cardList.length,
+                              cardList.length,
                               (i) => AnimatedContainer(
                                 duration: const Duration(milliseconds: 200),
                                 margin: const EdgeInsets.symmetric(
                                   horizontal: 3,
                                 ),
-                                width:
-                                    (cardList.length > 8
-                                        ? (i ==
-                                              (_activeCardIndex *
-                                                  8 ~/
-                                                  cardList.length))
-                                        : (i == _activeCardIndex))
-                                    ? 18
-                                    : 6,
+                                width: (i == _activeCardIndex) ? 18 : 6,
                                 height: 6,
                                 decoration: BoxDecoration(
-                                  color:
-                                      (cardList.length > 8
-                                          ? (i ==
-                                                (_activeCardIndex *
-                                                    8 ~/
-                                                    cardList.length))
-                                          : (i == _activeCardIndex))
+                                  color: (i == _activeCardIndex)
                                       ? theme.colorScheme.primary
                                       : theme
                                             .colorScheme
@@ -207,7 +196,9 @@ class _AccountsTabState extends State<AccountsTab> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Saldo total: ${total.brl}',
+                          obscure
+                              ? r'Saldo total: R$ ••••••••'
+                              : 'Saldo total: ${total.brl}',
                           key: const ValueKey('accounts-total'),
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
@@ -243,9 +234,12 @@ class _AccountsTabState extends State<AccountsTab> {
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
-                    const SizedBox(height: 8),
                     for (final account in active) ...[
-                      _AccountTile(space: space, account: account),
+                      _AccountTile(
+                        space: space,
+                        account: account,
+                        obscure: obscure,
+                      ),
                       const SizedBox(height: 8),
                     ],
                     if (archived.isNotEmpty) ...[
@@ -269,7 +263,11 @@ class _AccountsTabState extends State<AccountsTab> {
                       ),
                       const SizedBox(height: 10),
                       for (final account in archived) ...[
-                        _AccountTile(space: space, account: account),
+                        _AccountTile(
+                          space: space,
+                          account: account,
+                          obscure: obscure,
+                        ),
                         const SizedBox(height: 8),
                       ],
                     ],
@@ -285,10 +283,15 @@ class _AccountsTabState extends State<AccountsTab> {
 }
 
 class _AccountTile extends StatelessWidget {
-  const _AccountTile({required this.space, required this.account});
+  const _AccountTile({
+    required this.space,
+    required this.account,
+    this.obscure = false,
+  });
 
   final Space space;
   final Account account;
+  final bool obscure;
 
   @override
   Widget build(BuildContext context) {
@@ -326,6 +329,7 @@ class _AccountTile extends StatelessWidget {
         ),
         trailing: MoneyText(
           account.balance,
+          obscure: obscure,
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w700,
           ),

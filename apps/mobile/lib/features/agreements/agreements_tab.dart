@@ -8,6 +8,7 @@ import '../../ui/app_tokens.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import '../auth/auth_models.dart';
+import '../settings/preferences_controller.dart';
 import 'agreement.dart';
 import 'agreement_form_screen.dart';
 import 'agreement_screen.dart';
@@ -345,6 +346,8 @@ class AgreementCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final obscure =
+        context.watch<PreferencesController?>()?.obscureValues ?? false;
     final progress = agreement.total.cents == 0
         ? 0.0
         : (agreement.received.cents / agreement.total.cents).clamp(0.0, 1.0);
@@ -429,6 +432,7 @@ class AgreementCard extends StatelessWidget {
                             activeFilter,
                             filterMatchingAmount,
                           ),
+                          obscure: obscure,
                           style: theme.textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w800,
                             letterSpacing: -0.4,
@@ -454,6 +458,7 @@ class AgreementCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       MoneyText(
                         _secondaryValue(agreement, activeFilter),
+                        obscure: obscure,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: theme.colorScheme.onSurfaceVariant,
@@ -490,7 +495,7 @@ class AgreementCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Recebido: ${agreement.received.brl}',
+                        'Recebido: ${obscure ? '••••••' : agreement.received.brl}',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: AppTokens.income,
                           fontWeight: FontWeight.w600,
@@ -520,7 +525,7 @@ class AgreementCard extends StatelessWidget {
                             : theme.colorScheme.primary,
                       ),
                       semanticsLabel:
-                          'Recebido da conta: ${agreement.received.brl}',
+                          'Recebido da conta: ${obscure ? 'oculto' : agreement.received.brl}',
                     ),
                   ),
                 ],

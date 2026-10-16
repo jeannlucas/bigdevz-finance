@@ -18,12 +18,14 @@ class AccountCard extends StatelessWidget {
     required this.account,
     this.onTap,
     this.isHighlighted = false,
+    this.obscureBalance = false,
   });
 
   final Space space;
   final Account account;
   final VoidCallback? onTap;
   final bool isHighlighted;
+  final bool obscureBalance;
 
   @override
   Widget build(BuildContext context) {
@@ -202,20 +204,33 @@ class AccountCard extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 4),
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: MoneyText(
-                                account.balance,
-                                style: const TextStyle(
+                            if (obscureBalance)
+                              const Text(
+                                r'R$ ••••••••',
+                                style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 26,
                                   fontWeight: FontWeight.w800,
-                                  letterSpacing: -0.5,
-                                  fontFeatures: [FontFeature.tabularFigures()],
+                                  letterSpacing: 1.5,
+                                ),
+                              )
+                            else
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: MoneyText(
+                                  account.balance,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.5,
+                                    fontFeatures: [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
                           ],
                         ),
 

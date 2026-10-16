@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/session_controller.dart';
 import 'features/home/home_shell.dart';
+import 'features/settings/preferences_controller.dart';
 import 'ui/theme.dart';
 import 'ui/widgets.dart';
 
@@ -13,9 +14,11 @@ class FinanceApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final preferences = context.watch<PreferencesController?>();
     return MaterialApp(
       title: 'BigDev.Z Finance',
       debugShowCheckedModeBanner: false,
+      themeMode: preferences?.themeMode ?? ThemeMode.system,
       theme: buildTheme(Brightness.light),
       darkTheme: buildTheme(Brightness.dark),
       locale: const Locale('pt', 'BR'),

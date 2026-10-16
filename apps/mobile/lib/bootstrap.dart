@@ -13,6 +13,7 @@ import 'features/auth/auth_repository.dart';
 import 'features/auth/session_controller.dart';
 import 'features/payables/payable_creations.dart';
 import 'features/payables/payables_repository.dart';
+import 'features/settings/preferences_controller.dart';
 import 'features/summary/summary.dart';
 
 /// Monta as dependências do app; os testes trocam cliente HTTP e armazenamento.
@@ -49,11 +50,23 @@ Widget buildApp({
       ),
       Provider(create: (_) => SummaryRepository(api)),
       ChangeNotifierProvider(
-        create: (_) => SessionController(
-          api: api,
-          auth: AuthRepository(api),
-          storage: storage,
-        )..restore(),
+        create: (_) => PreferencesController(storage: storage)..load(),
+      ),
+      ChangeNotifierProvider(
+        create: (context) {
+          final preferences = context.read<PreferencesController>();
+          final session = SessionController(
+            api: api,
+            auth: AuthRepository(api),
+            storage: storage,
+          )..restore();
+          session.addListener(() {
+            if (session.status == SessionStatus.signedOut) {
+              preferences.resetSessionPrivacy();
+            }
+          });
+          return session;
+        },
       ),
     ],
     child: const FinanceApp(),

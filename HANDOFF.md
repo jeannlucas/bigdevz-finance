@@ -1,4 +1,10 @@
-# Handoff — 09/10/2026 (Consolidação Técnica, Auditoria de Software e Preparação para Publicação)
+# Handoff Histórico — 09/10/2026 (Consolidação Técnica, Auditoria de Software e Preparação para Publicação)
+
+> [!NOTE]
+> **AVISO DE TRANSIÇÃO DE GOVERNANÇA (CHECKPOINT GOV-06.B):**<br>
+> Este documento é o **registro histórico imutável** consolidado das sessões até 09/10/2026.<br>
+> A partir do Checkpoint GOV-06.B, a **autoridade canônica operacional ativa** para continuidade entre Google Antigravity e OpenAI Codex reside exclusivamente em [`docs/ai/HANDOFF.md`](docs/ai/HANDOFF.md).<br>
+> Todas as seções, diagnósticos e planos históricos originais abaixo foram integralmente preservados em sua forma autêntica.
 
 Consolidação técnica e auditoria completa de engenharia de software do BigDev.Z Finance concluídas com sucesso. Todos os testes automatizados, formatadores e suítes de validação estão 100% aprovados e verdes. O repositório foi higienizado estruturalmente (versão real do Laravel corrigida para 13.34, 15 duplicatas de capturas removidas, simulator_state histórico preservado, .git/info/exclude configurado). A integridade financeira (centavos inteiros, idempotência por advisory lock, isolamento PF/PJ), a acessibilidade e o catálogo oficial de evidências visuais encontram-se rigorosamente preservados e documentados.
 

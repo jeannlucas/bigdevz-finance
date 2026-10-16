@@ -1,10 +1,14 @@
 # BigDev.Z Finance — instruções locais
 
+> **Autoridade Canônica Local:** BigDev.Z Finance<br>
+> **Aplica-se a:** Google Antigravity e OpenAI Codex operando no projeto.<br>
+> **Governança Global:** Sujeito a [`~/AGENTS.md`](file:///Users/jeannlucasdev/AGENTS.md), [`padroes-engenharia-bigdevz.md`](file:///Users/jeannlucasdev/.agents/governanca/padroes-engenharia-bigdevz.md) e [`padroes-qa-bigdevz.md`](file:///Users/jeannlucasdev/.agents/governanca/padroes-qa-bigdevz.md).
+
 ## Estado e modo
 
 DESENVOLVIMENTO ATIVO. Diretrizes permanentes, regras de negócio e convenções
-estão consolidadas em `docs/project-guidelines.md`. Leia `HANDOFF.md` e
-`docs/project-guidelines.md` antes de intervir. Não trate escopo planejado
+estão consolidadas em `docs/project-guidelines.md`. Leia `docs/ai/HANDOFF.md` (canônico ativo),
+`HANDOFF.md` (histórico consolidado) e `docs/project-guidelines.md` antes de intervir. Não trate escopo planejado
 como implementado. Respostas, documentação e mensagens de commit em pt-BR.
 Sem co-autores (não adicionar linhas Co-Authored-By).
 
@@ -60,7 +64,13 @@ Licença MIT formalizada ([LICENSE](LICENSE)). Nenhum deploy.
 
 ## Continuidade
 
-Atualizar README, ROADMAP e HANDOFF em cada incremento com comandos realmente
-executados, resultados, limitações, branch e commit quando disponíveis.
+Atualizar README, ROADMAP e `docs/ai/HANDOFF.md` em cada incremento com comandos realmente
+executados, resultados, limitações, branch e commit quando disponíveis. O arquivo `HANDOFF.md`
+na raiz permanece como registro histórico consolidado.
 Não declarar etapa funcional concluída com erros financeiros ou isolamento
 sem validação. Não instalar integrações ChatGPT: o fluxo é exclusivamente CLI.
+
+
+## Ajustes pendentes para a retomada
+
+Antes de iniciar implementação ou infraestrutura, leia [docs/ai/AJUSTES-PARA-RETOMADA.md](docs/ai/AJUSTES-PARA-RETOMADA.md). A lista registra prioridades, evidências, paridade de segurança Mac/VPS e avaliação de material antigo; não autoriza executar toda a fila nem excluir recursos. Preserve alterações preexistentes e worktrees protegidos; as regras globais e a autorização humana permanecem obrigatórias.
