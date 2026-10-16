@@ -19,11 +19,14 @@ class PreferencesController extends ChangeNotifier {
   bool _loaded = false;
   bool _hasReadError = false;
 
+  bool _isSavingPrivacy = false;
+
   ThemeMode get themeMode => _themeMode;
   bool get hideValuesByDefault => _hideValuesByDefault;
   bool get obscureValues => _obscureValues;
   bool get isLoaded => _loaded;
   bool get hasReadError => _hasReadError;
+  bool get isSavingPrivacy => _isSavingPrivacy;
 
   /// Carrega as preferências salvas localmente com tratamento de falhas isolado (fail-closed).
   ///
@@ -82,8 +85,8 @@ class PreferencesController extends ChangeNotifier {
   }
 
   /// Altera o modo de tema e persiste a escolha localmente.
-  Future<void> setThemeMode(ThemeMode mode) async {
-    if (_themeMode == mode) return;
+  Future<bool> setThemeMode(ThemeMode mode) async {
+    if (_themeMode == mode) return true;
     _themeMode = mode;
     notifyListeners();
     try {
@@ -93,22 +96,42 @@ class PreferencesController extends ChangeNotifier {
         ThemeMode.system => 'system',
       };
       await storage.write(themeModeKey, value);
+      return true;
     } catch (_) {
-      // Falha silenciosa de escrita preserva experiência do usuário
+      // Falha silenciosa de escrita preserva a experiência visual do usuário na sessão atual
+      return false;
     }
   }
 
   /// Altera a preferência de iniciar com valores financeiros ocultos por padrão.
-  Future<void> setHideValuesByDefault(bool hide) async {
-    if (_hideValuesByDefault == hide && _obscureValues == hide) return;
-    _hideValuesByDefault = hide;
-    _obscureValues = hide;
-    _hasReadError = false;
+  ///
+  /// Garante persistência atômica e proteção contra falhas de I/O:
+  /// - Se a gravação no storage for bem-sucedida, atualiza [_hideValuesByDefault].
+  /// - Em caso de erro na gravação, mantém [_hideValuesByDefault] com o valor anterior
+  ///   para evitar estado falso na UI, adota fail-closed na sessão ativa ([_obscureValues = true] se hide == true)
+  ///   e retorna `false` para que a UI notifique o usuário com opção de retry.
+  Future<bool> setHideValuesByDefault(bool hide) async {
+    if (_isSavingPrivacy) return false;
+    if (_hideValuesByDefault == hide && _obscureValues == hide) return true;
+
+    _isSavingPrivacy = true;
     notifyListeners();
+
     try {
       await storage.write(hideByDefaultKey, hide ? 'true' : 'false');
+      _hideValuesByDefault = hide;
+      _obscureValues = hide;
+      _hasReadError = false;
+      return true;
     } catch (_) {
-      // Falha de escrita: preserva o estado de privacidade na sessão atual
+      if (hide) {
+        // Se tentava ativar privacidade, aplica fail-closed temporário na sessão ativa.
+        _obscureValues = true;
+      }
+      return false;
+    } finally {
+      _isSavingPrivacy = false;
+      notifyListeners();
     }
   }
 

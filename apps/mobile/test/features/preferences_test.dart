@@ -627,9 +627,10 @@ void main() {
       final controller = PreferencesController(storage: faultyStorage);
       await controller.load();
 
-      // Altera na sessão; falha na escrita não deve lançar exceção não tratada
-      await controller.setHideValuesByDefault(true);
-      expect(controller.hideValuesByDefault, isTrue);
+      // Altera na sessão; falha na escrita retorna false e não propaga exceção
+      final success = await controller.setHideValuesByDefault(true);
+      expect(success, isFalse);
+      expect(controller.hideValuesByDefault, isFalse);
       expect(controller.obscureValues, isTrue);
     });
 
@@ -671,6 +672,104 @@ void main() {
 
       // obscureValues DEVE continuar true (protegido contra desarme prematuro)
       expect(controller.obscureValues, isTrue);
+    });
+
+    test('SEC-W01: setHideValuesByDefault retorna false e mantém hideValuesByDefault inalterado em falha de escrita', () async {
+      final storage = _WriteFaultyStorage();
+      final controller = PreferencesController(storage: storage);
+      await controller.load();
+      expect(controller.hideValuesByDefault, isFalse);
+      expect(controller.obscureValues, isFalse);
+
+      final success = await controller.setHideValuesByDefault(true);
+      expect(success, isFalse);
+      expect(
+        controller.hideValuesByDefault,
+        isFalse,
+      ); // Não altera o valor persistido
+      expect(
+        controller.obscureValues,
+        isTrue,
+      ); // Fail-closed protege a sessão atual
+    });
+
+    test('SEC-W02: Novo controller lendo storage após falha de escrita mantém valor anterior honesto', () async {
+      final storage = _WriteFaultyStorage();
+      final controller1 = PreferencesController(storage: storage);
+      await controller1.load();
+      await controller1.setHideValuesByDefault(true);
+
+      final controller2 = PreferencesController(storage: storage);
+      await controller2.load();
+      expect(controller2.hideValuesByDefault, isFalse);
+      expect(controller2.obscureValues, isFalse);
+    });
+
+    test('SEC-W03: Bloqueio de concorrência: chamadas paralelas durante isSavingPrivacy são rejeitadas', () async {
+      final completer = Completer<void>();
+      final slowStorage = _SlowStorage(completer);
+      final controller = PreferencesController(storage: slowStorage);
+      await controller.load();
+
+      final future1 = controller.setHideValuesByDefault(true);
+      expect(controller.isSavingPrivacy, isTrue);
+
+      final future2 = controller.setHideValuesByDefault(true);
+      final success2 = await future2;
+      expect(success2, isFalse);
+
+      completer.complete();
+      final success1 = await future1;
+      expect(success1, isTrue);
+      expect(controller.isSavingPrivacy, isFalse);
+      expect(controller.hideValuesByDefault, isTrue);
+    });
+
+    test('SEC-W04: Chamada no-op para o mesmo estado retorna true sem reescrever no storage', () async {
+      final storage = MemorySessionStorage();
+      final controller = PreferencesController(storage: storage);
+      await controller.load();
+      await controller.setHideValuesByDefault(true);
+
+      final success = await controller.setHideValuesByDefault(true);
+      expect(success, isTrue);
+      expect(controller.isSavingPrivacy, isFalse);
+    });
+
+    test('SEC-W05: setThemeMode retorna false em caso de falha de persistência mas mantém tema ativo na sessão', () async {
+      final storage = _WriteFaultyStorage();
+      final controller = PreferencesController(storage: storage);
+      await controller.load();
+      expect(controller.themeMode, equals(ThemeMode.system));
+
+      final success = await controller.setThemeMode(ThemeMode.dark);
+      expect(success, isFalse);
+      expect(
+        controller.themeMode,
+        equals(ThemeMode.dark),
+      ); // Mantém na sessão atual sem flicker
+    });
+
+    test('SEC-W06: Falha ao tentar desativar preferência previamente true mantém hideValuesByDefault = true', () async {
+      final storage = _WriteFaultyStorage();
+      storage.failWrite = false;
+      final controller = PreferencesController(storage: storage);
+      await controller.load();
+
+      // Grava com sucesso primeiro
+      final ok = await controller.setHideValuesByDefault(true);
+      expect(ok, isTrue);
+      expect(controller.hideValuesByDefault, isTrue);
+      expect(controller.obscureValues, isTrue);
+
+      // Agora ativa a falha de escrita e tenta desativar
+      storage.failWrite = true;
+      final success = await controller.setHideValuesByDefault(false);
+      expect(success, isFalse);
+      expect(
+        controller.hideValuesByDefault,
+        isTrue,
+      ); // Permanece true honestamente
     });
 
     testWidgets(
@@ -761,6 +860,101 @@ void main() {
         expect(find.text(r'R$ ••••••••'), findsNothing);
       },
     );
+
+    testWidgets(
+      'SEC-W08: Switch de privacidade fica desabilitado e mostra subtítulo de salvamento durante isSavingPrivacy',
+      (tester) async {
+        final completer = Completer<void>();
+        final slowStorage = _SlowStorage(completer);
+        final controller = PreferencesController(storage: slowStorage);
+        await controller.load();
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ChangeNotifierProvider<PreferencesController>.value(
+              value: controller,
+              child: const SettingsScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        unawaited(controller.setHideValuesByDefault(true));
+        await tester.pump();
+
+        expect(find.text('Salvando preferência...'), findsOneWidget);
+        final switchWidget = tester.widget<Switch>(find.byType(Switch));
+        expect(switchWidget.onChanged, isNull);
+
+        completer.complete();
+        await tester.pumpAndSettle();
+
+        expect(find.text('Salvando preferência...'), findsNothing);
+        expect(
+          find.text('Iniciar com os valores financeiros ocultos.'),
+          findsOneWidget,
+        );
+        final updatedSwitch = tester.widget<Switch>(find.byType(Switch));
+        expect(updatedSwitch.onChanged, isNotNull);
+      },
+    );
+
+    testWidgets(
+      'SEC-W09 e SEC-W10: Falha de escrita no Switch exibe SnackBar de erro com ação Tentar novamente e suporta retries sucessivos',
+      (tester) async {
+        final storage = _WriteFaultyStorage();
+        final controller = PreferencesController(storage: storage);
+        await controller.load();
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ChangeNotifierProvider<PreferencesController>.value(
+              value: controller,
+              child: const SettingsScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // 1. Tenta ativar o switch com falha simulada de disco
+        await tester.tap(find.byType(Switch));
+        await tester.pumpAndSettle();
+
+        // SnackBar de erro exibido
+        expect(
+          find.text('Não foi possível salvar a preferência de privacidade.'),
+          findsOneWidget,
+        );
+        expect(find.text('Tentar novamente'), findsOneWidget);
+
+        // O switch permanece falso porque a escrita falhou
+        expect(controller.hideValuesByDefault, isFalse);
+        final switchWidget = tester.widget<Switch>(find.byType(Switch));
+        expect(switchWidget.value, isFalse);
+
+        // 2. Clica em "Tentar novamente" mantendo failWrite = true (segunda falha)
+        await tester.tap(find.text('Tentar novamente'));
+        await tester.pumpAndSettle();
+
+        // O SnackBar é reapresentado e o botão de retry continua acessível
+        expect(
+          find.text('Não foi possível salvar a preferência de privacidade.'),
+          findsOneWidget,
+        );
+        expect(find.text('Tentar novamente'), findsOneWidget);
+        expect(controller.hideValuesByDefault, isFalse);
+
+        // 3. Agora o storage é corrigido e o usuário clica novamente em retry
+        storage.failWrite = false;
+        await tester.tap(find.text('Tentar novamente'));
+        await tester.pumpAndSettle();
+
+        // Agora salvou com sucesso no storage
+        expect(controller.hideValuesByDefault, isTrue);
+        final finalSwitch = tester.widget<Switch>(find.byType(Switch));
+        expect(finalSwitch.value, isTrue);
+      },
+    );
   });
 }
 
@@ -819,4 +1013,50 @@ class _DelayedStorage implements SessionStorage {
 
   @override
   Future<void> write(String key, String value) async {}
+}
+
+class _WriteFaultyStorage implements SessionStorage {
+  _WriteFaultyStorage();
+
+  final Map<String, String> _data = {};
+  bool failWrite = true;
+
+  @override
+  Future<void> delete(String key) async {
+    _data.remove(key);
+  }
+
+  @override
+  Future<String?> read(String key) async {
+    return _data[key];
+  }
+
+  @override
+  Future<void> write(String key, String value) async {
+    if (failWrite) {
+      throw Exception('Storage disk full / write fault');
+    }
+    _data[key] = value;
+  }
+}
+
+class _SlowStorage implements SessionStorage {
+  _SlowStorage(this.completer);
+
+  final Completer<void> completer;
+  final Map<String, String> _data = {};
+
+  @override
+  Future<void> delete(String key) async {
+    _data.remove(key);
+  }
+
+  @override
+  Future<String?> read(String key) async => _data[key];
+
+  @override
+  Future<void> write(String key, String value) async {
+    await completer.future;
+    _data[key] = value;
+  }
 }

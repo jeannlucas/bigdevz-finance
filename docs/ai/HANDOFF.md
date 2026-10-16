@@ -22,10 +22,10 @@
 
 ## 2. Estado Operacional Atual e Máquina de Estados
 
-- **Estado Atual:** **`VALIDADO TECNICAMENTE`** / **`CORRECAO_SEGURANCA_LOCAL`** (Checkpoint `FINANCE-SEC-01`).
-- **Branch Ativa:** `dev` (HEAD local `6b56f76785ab71f4fdb0ece06a198323aca8e071`, `ahead 1` em relação a `origin/dev`).
+- **Estado Atual:** **`VALIDADO TECNICAMENTE`** / **`CORRECAO_SEGURANCA_LOCAL`** (Checkpoint `FINANCE-SEC-02`).
+- **Branch Ativa:** `dev` (HEAD local `3cbf8566a212a125d00e19b5492455935bea691a`, `ahead 2` em relação a `origin/dev`).
 - **Branch de Produção:** `main` local preservada em `42a3e397d3921777cb952c96e0de03d7d6e20f0c` (`origin/main` em `0f49606bf5ee57ce29256209ac51991f992cef89`).
-- **Paridade Remota:** `origin/dev` retida em `0f49606bf5ee57ce29256209ac51991f992cef89` (push bloqueado no portão de segurança do checkpoint `FINANCE-PUBLISH-01`).
+- **Paridade Remota:** `origin/dev` retida em `0f49606bf5ee57ce29256209ac51991f992cef89` (push não autorizado neste checkpoint).
 - **Integridade do Core Financeiro:** 100% verde em todas as suítes de testes automatizados (domínio, API, concorrência e mobile).
 
 ---
@@ -287,4 +287,37 @@ Roteiro de continuidade para **Google Antigravity** e **OpenAI Codex**:
   - `flutter test`: **123 testes aprovados** (116 anteriores + 7 novos testes de segurança `SEC-01` a `SEC-08` + teste anti-flicker dinâmico com `Completer`).
   - `php apps/api/tests/domain.php`: 11/11 testes aprovados (0 falhas).
   - `git diff --check`: 0 erros de whitespace.
-- **Próximos Passos**: Auditoria independente OpenAI Codex CLI e criação do commit corretivo local na branch `dev` para futuro avanço no checkpoint `FINANCE-PUBLISH-02`.
+- **Commit Corretivo Criado**: `3cbf8566a212a125d00e19b5492455935bea691a` (`fix(security): proteger privacidade financeira em falhas de storage`).
+
+---
+
+## 8. Checkpoint FINANCE-SEC-02 (16/10/2026) — Persistência Segura de Preferências, Integridade de Estado e Correção de Segurança
+
+- **Objetivo**: Corrigir a vulnerabilidade de persistência e integridade de estado identificada na auditoria Codex: eliminação do silenciamento em `catch (_)` na gravação de preferências em `PreferencesController.setHideValuesByDefault` e na tela `SettingsScreen`.
+- **Causa Raiz Corrigida**:
+  - Anteriormente, o método `setHideValuesByDefault` atualizava a variável `_hideValuesByDefault = hide` antes de gravar no storage e silenciava a exceção de escrita no `catch (_)`. Como consequência, em caso de erro de gravação em disco/keychain, a UI refletia o switch como persistido sem que o valor tivesse sido de fato salvo, gerando reversão inesperada de privacidade após reinicialização do app.
+- **Correções Implementadas**:
+  1. **Contrato de Persistência Confiável (`PreferencesController`):**
+     - `setHideValuesByDefault` agora retorna `Future<bool>`.
+     - Implementado lock contra concorrência e toques repetidos via flag `_isSavingPrivacy` e getter público `isSavingPrivacy`.
+     - A variável de estado persistido `_hideValuesByDefault` somente é atualizada após a confirmação bem-sucedida de escrita no storage (`storage.write`).
+     - Em caso de falha de escrita (`catch`), `_hideValuesByDefault` NÃO é alterado (mantendo honestidade quanto ao dado em disco). Se o usuário estava tentando ativar privacidade (`hide == true`), a sessão ativa adota política fail-closed preventiva (`_obscureValues = true`) e retorna `false`.
+     - `setThemeMode` também retorna `Future<bool>`, mantendo a escolha visual na sessão ativa sem causar flicker na UI.
+  2. **Experiência de Usuário e Acessibilidade (`SettingsScreen`):**
+     - O `SwitchListTile` de privacidade é desabilitado (`onChanged: preferences.isSavingPrivacy ? null : ...`) durante a persistência assíncrona para prevenir concorrência.
+     - Subtítulo dinâmico indica `'Salvando preferência...'` durante a escrita.
+     - Em caso de falha de persistência, um `SnackBar` acessível e informativo é exibido com a mensagem `'Não foi possível salvar a preferência de privacidade.'` e um botão de ação `SnackBarAction` (`'Tentar novamente'`) para recuperação transparente.
+  3. **Nova Matriz de Testes de Segurança (`SEC-W01` a `SEC-W10`):**
+     - Testes unitários com storage falho (`_WriteFaultyStorage`) validando que falha de escrita retorna `false`, mantém `_hideValuesByDefault` inalterado e preserva `_obscureValues = true`.
+     - Teste de novo controller instanciado após falha comprovando que o storage simulado reteve o valor original sem falso estado.
+     - Teste cobrindo falha ao desativar preferência previamente true mantendo o valor persistido.
+     - Teste de bloqueio de concorrência com escrita lenta (`_SlowStorage`).
+     - Testes de widget cobrindo desabilitação do switch durante gravação, exibição do SnackBar de erro e recuperação bem-sucedida via ação "Tentar novamente" com suporte a múltiplos retries.
+- **Validação Técnica Executada**:
+  - `dart format lib test`: 100% conforme.
+  - `flutter analyze`: 0 issues (No issues found).
+  - `flutter test`: **132 testes aprovados** (100% verde em todas as suítes mobile).
+  - `php apps/api/tests/domain.php`: 11/11 testes aprovados (0 falhas).
+  - `git diff --check`: 0 erros de whitespace.
+- **Parecer Codex**: APROVADO COM RESSALVAS (ressalvas atendidas integralmente antes da criação do commit).
+- **Próximos Passos**: Criação do commit local na branch `dev` com a mensagem `fix(security): garantir persistencia segura da privacidade`.

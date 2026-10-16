@@ -19,6 +19,25 @@ class SettingsScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final preferences = context.watch<PreferencesController>();
 
+    Future<void> onTogglePrivacy(bool value) async {
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      final success = await preferences.setHideValuesByDefault(value);
+      if (!success && context.mounted) {
+        scaffoldMessenger.hideCurrentSnackBar();
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Não foi possível salvar a preferência de privacidade.',
+            ),
+            action: SnackBarAction(
+              label: 'Tentar novamente',
+              onPressed: () => onTogglePrivacy(value),
+            ),
+          ),
+        );
+      }
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Configurações')),
       body: ListView(
@@ -78,13 +97,15 @@ class SettingsScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: SwitchListTile.adaptive(
                 value: preferences.hideValuesByDefault,
-                onChanged: (value) => preferences.setHideValuesByDefault(value),
+                onChanged: preferences.isSavingPrivacy ? null : onTogglePrivacy,
                 title: const Text(
                   'Ocultar valores por padrão',
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
-                subtitle: const Text(
-                  'Iniciar com os valores financeiros ocultos.',
+                subtitle: Text(
+                  preferences.isSavingPrivacy
+                      ? 'Salvando preferência...'
+                      : 'Iniciar com os valores financeiros ocultos.',
                 ),
                 secondary: const AppIcon(AppIcons.viewOff, size: 22),
               ),
