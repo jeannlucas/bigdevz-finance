@@ -47,10 +47,16 @@ class AppIcons {
   static const List<List<dynamic>> lock = HugeIcons.strokeRoundedLockPassword;
   static const List<List<dynamic>> pending = HugeIcons.strokeRoundedHourglass;
 
-  // Espaços e usuário
+  // Espaços, preferências e usuário
   static const List<List<dynamic>> user = HugeIcons.strokeRoundedUser;
   static const List<List<dynamic>> business = HugeIcons.strokeRoundedBuilding04;
   static const List<List<dynamic>> logout = HugeIcons.strokeRoundedLogout01;
+  static const List<List<dynamic>> settings = HugeIcons.strokeRoundedSettings01;
+  static const List<List<dynamic>> view = HugeIcons.strokeRoundedView;
+  static const List<List<dynamic>> viewOff = HugeIcons.strokeRoundedViewOff;
+  static const List<List<dynamic>> sun = HugeIcons.strokeRoundedSun01;
+  static const List<List<dynamic>> moon = HugeIcons.strokeRoundedMoon01;
+  static const List<List<dynamic>> computer = HugeIcons.strokeRoundedComputer;
 }
 
 /// Widget padronizado para renderizar ícones do app com Hugeicons.

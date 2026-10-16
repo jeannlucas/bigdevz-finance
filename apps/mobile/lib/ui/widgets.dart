@@ -141,14 +141,15 @@ class _LoadViewState<T> extends State<LoadView<T>> {
 }
 
 class MoneyText extends StatelessWidget {
-  const MoneyText(this.value, {super.key, this.style});
+  const MoneyText(this.value, {super.key, this.style, this.obscure = false});
 
   final Money value;
   final TextStyle? style;
+  final bool obscure;
 
   @override
   Widget build(BuildContext context) => Text(
-    value.brl,
+    obscure ? r'R$ ••••••••' : value.brl,
     style: (style ?? DefaultTextStyle.of(context).style).copyWith(
       fontFeatures: const [FontFeature.tabularFigures()],
     ),

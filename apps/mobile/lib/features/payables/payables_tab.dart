@@ -9,6 +9,7 @@ import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import '../auth/auth_models.dart';
 import '../auth/session_controller.dart';
+import '../settings/preferences_controller.dart';
 import 'cards_screen.dart';
 import 'payable.dart';
 import 'payable_creations.dart';
@@ -237,6 +238,8 @@ class PayableCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final obscure =
+        context.watch<PreferencesController?>()?.obscureValues ?? false;
     final isAwaiting =
         payable.status == PayableStatus.awaitingAmount ||
         payable.remaining == null;
@@ -341,6 +344,7 @@ class PayableCard extends StatelessWidget {
                                 : (payable.remaining ??
                                       payable.amount ??
                                       const Money(0)),
+                            obscure: obscure,
                             style: theme.textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.w800,
                               letterSpacing: -0.4,
@@ -363,6 +367,7 @@ class PayableCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         MoneyText(
                           payable.paid,
+                          obscure: obscure,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                             color: AppTokens.income,
@@ -386,6 +391,7 @@ class PayableCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         MoneyText(
                           payable.amount!,
+                          obscure: obscure,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                             color: theme.colorScheme.onSurfaceVariant,

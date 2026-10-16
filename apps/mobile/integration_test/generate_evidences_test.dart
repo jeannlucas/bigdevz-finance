@@ -131,12 +131,12 @@ void main() {
       // 1.1 Resumo PF
       await selectTab('Resumo');
       await selectSpace('PF');
-      expect(find.text('Espaço PF'), findsOneWidget);
+      expect(find.text('Pessoal (PF)'), findsOneWidget);
       await capture('dark_01_resumo_pf');
 
       // 1.2 Resumo PJ
       await selectSpace('PJ');
-      expect(find.text('Espaço PJ'), findsOneWidget);
+      expect(find.text('Empresa (PJ)'), findsOneWidget);
       await capture('dark_02_resumo_pj');
 
       // 1.3 Carteira PF
@@ -200,12 +200,12 @@ void main() {
       // 2.1 Resumo PF
       await selectTab('Resumo');
       await selectSpace('PF');
-      expect(find.text('Espaço PF'), findsOneWidget);
+      expect(find.text('Pessoal (PF)'), findsOneWidget);
       await capture('light_01_resumo_pf');
 
       // 2.2 Resumo PJ
       await selectSpace('PJ');
-      expect(find.text('Espaço PJ'), findsOneWidget);
+      expect(find.text('Empresa (PJ)'), findsOneWidget);
       await capture('light_02_resumo_pj');
 
       // 2.3 Carteira PF (Garante selecao explicita de PF e conteudo real PF)
