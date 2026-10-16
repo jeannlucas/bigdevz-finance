@@ -22,10 +22,10 @@
 
 ## 2. Estado Operacional Atual e Máquina de Estados
 
-- **Estado Atual:** **`VALIDADO TECNICAMENTE`** / **`AGUARDANDO_APROVACAO`** (para futura promoção de `dev` para `main`).
-- **Branch Ativa:** `dev` (apontando para commit `0f49606bf5ee57ce29256209ac51991f992cef89`).
-- **Branch de Produção:** `main` (intocada, aguardando aprovação explícita do mantenedor).
-- **Paridade Remota:** Branch local `dev` com histórico publicado e alinhado com `origin/dev`.
+- **Estado Atual:** **`VALIDADO TECNICAMENTE`** / **`CORRECAO_SEGURANCA_LOCAL`** (Checkpoint `FINANCE-SEC-01`).
+- **Branch Ativa:** `dev` (HEAD local `6b56f76785ab71f4fdb0ece06a198323aca8e071`, `ahead 1` em relação a `origin/dev`).
+- **Branch de Produção:** `main` local preservada em `42a3e397d3921777cb952c96e0de03d7d6e20f0c` (`origin/main` em `0f49606bf5ee57ce29256209ac51991f992cef89`).
+- **Paridade Remota:** `origin/dev` retida em `0f49606bf5ee57ce29256209ac51991f992cef89` (push bloqueado no portão de segurança do checkpoint `FINANCE-PUBLISH-01`).
 - **Integridade do Core Financeiro:** 100% verde em todas as suítes de testes automatizados (domínio, API, concorrência e mobile).
 
 ---
@@ -39,7 +39,7 @@ Todas as decisões técnicas e arquiteturais consolidadas nas etapas anteriores 
 3. **Decisão 0003 (Isolamento Multi-Espaço PF/PJ):** Chaves estrangeiras compostas `(id, space_id)` em todas as tabelas transacionais. No mobile, isolamento absoluto de árvore de widgets via `KeyedSubtree` para alternância de contexto sem vazamento de estado.
 4. **Decisão 0004 (Estornos e Idempotência Persistida):** Tabela `IdempotentOperation` associada a advisory locks por usuário/espaço/operação. Estornos registrados via `ReceiptReversal` sem apagar histórico efetivado.
 5. **Decisão 0005 (Gestão e Correção de Contas):** Edição e arquivamento de contas financeiras sem violar integridade de lançamentos pretéritos.
-6. **Decisão 0006 (Metodologia de Evidências em 375pt):** Harness de acessibilidade emulando viewport 375pt (iPhone SE / 12 mini) com safe area real preservada (`EdgeInsets.only(top: 59, bottom: 34)`), eliminando falsos positivos de sobreposição com a status bar do sistema.
+6. **Decisão 0006 (Contas a Pagar, Parcelas e Recorrências):** Módulo de contas a pagar, parcelas e recorrências (conforme `docs/project-guidelines.md`), com harness de acessibilidade em 375pt padronizado para insets reais.
 
 > Detalhamento integral das causas raízes e auditorias históricas disponível em [`HANDOFF.md`](file:///Users/jeannlucasdev/Documents/Projetos/BigDev.Z%20Finance/HANDOFF.md).
 
@@ -256,4 +256,35 @@ Roteiro de continuidade para **Google Antigravity** e **OpenAI Codex**:
     - `scripts/run-mobile.sh` (atalho local de simulação com UUID do device).
     - `apps/mobile/integration_test/ux_evidences_test.dart` (script dependente do `screenshot_server.py` local).
     - Diretórios temporários de capturas de tela dos checkpoints (`prints/qa-01/`, `prints/ux-01/`, `prints/ux-02/`, `design/screenshots/`).
-- **Próximos Passos**: Apresentação do relatório consolidado e aguardo da decisão soberana do mantenedor para futuros checkpoints e eventual publicação remota.
+- **Próximos Passos**: Submissão ao portão formal pré-push no checkpoint `FINANCE-PUBLISH-01`.
+
+---
+
+## 6. Checkpoint FINANCE-PUBLISH-01 (16/10/2026) — Auditoria Pré-Publicação e Bloqueio de Segurança
+
+- **Objetivo**: Auditoria de portão pré-push antes de publicar na branch remota `origin/dev`.
+- **Diagnóstico de Segurança Realizado**:
+  - Inspeção profunda de `PreferencesController.load()` e `SessionStorage`.
+  - Descoberta de vulnerabilidade P0: bloco `catch (_)` em erro de leitura do armazenamento seguro redefinia `_obscureValues = false`, revelando valores financeiros na tela contrariando a escolha do usuário de ocultar saldos.
+  - Auditoria independente OpenAI Codex CLI (`--sandbox read-only`): Parecer **BLOQUEAR PUSH**.
+- **Decisão Operacional**: Portão de segurança pré-push acionado com sucesso. Push para `origin/dev` **BLOQUEADO**. Nenhum dado foi publicado no GitHub e a CI remota permaneceu não acionada (`NOT_TRIGGERED`).
+- **Encaminhamento**: Abertura imediata do checkpoint corretivo de segurança `FINANCE-SEC-01`.
+
+---
+
+## 7. Checkpoint FINANCE-SEC-01 (16/10/2026) — Correção de Segurança da Privacidade Financeira (P0)
+
+- **Objetivo**: Eliminação definitiva da vulnerabilidade de exposição financeira inesperada e proteção contra flicker no boot.
+- **Correções Implementadas**:
+  1. **Política Fail-Closed:** `_obscureValues` inicia como `true` por padrão no `PreferencesController` e sob qualquer erro de leitura (`catch`), valor inválido ou corrupção no storage, mantendo os valores financeiros mascarados por precaução.
+  2. **Desacoplamento de Erros:** Leitura de `themeModeKey` e `hideByDefaultKey` isoladas em blocos `try/catch` independentes. Falha no carregamento de tema não afeta nem bloqueia a privacidade financeira.
+  3. **Proteção Anti-Flicker:** Durante carregamento assíncrono atrasado do storage (`isLoaded == false`), a interface já renderiza mascarada, eliminando vazamento transitório de saldos reais.
+  4. **Padrão Aprovado Preservado:** Ausência comprovada de chave (`rawHide == null`) e escolhas explícitas (`'true'` ou `'false'`) continuam funcionando com total fidelidade.
+  5. **Retificação do HANDOFF Histórico:** O arquivo `HANDOFF.md` da raiz teve seu texto histórico legítimo original de `0f49606` integralmente restaurado, mantendo a canonicidade ativa exclusivamente em `docs/ai/HANDOFF.md`.
+- **Validação Técnica Executada**:
+  - `dart format`: 100% conforme.
+  - `flutter analyze`: 0 issues.
+  - `flutter test`: **123 testes aprovados** (116 anteriores + 7 novos testes de segurança `SEC-01` a `SEC-08` + teste anti-flicker dinâmico com `Completer`).
+  - `php apps/api/tests/domain.php`: 11/11 testes aprovados (0 falhas).
+  - `git diff --check`: 0 erros de whitespace.
+- **Próximos Passos**: Auditoria independente OpenAI Codex CLI e criação do commit corretivo local na branch `dev` para futuro avanço no checkpoint `FINANCE-PUBLISH-02`.

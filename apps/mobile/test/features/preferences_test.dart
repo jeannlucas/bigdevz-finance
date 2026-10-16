@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bigdevz_finance/app.dart';
 import 'package:bigdevz_finance/bootstrap.dart';
 import 'package:bigdevz_finance/core/config.dart';
@@ -559,23 +561,117 @@ void main() {
   });
 
   group('PreferencesController - Resiliência e Acessibilidade Semântica', () {
-    test(
-      'Resiliência a exceção no storage: fallback seguro sem travar',
-      () async {
-        final faultyStorage = _FaultyStorage();
-        final controller = PreferencesController(storage: faultyStorage);
+    test('SEC-04: Resiliência a exceção no storage: fallback conservador fail-closed (valores ocultos por segurança)', () async {
+      final faultyStorage = _FaultyStorage();
+      final controller = PreferencesController(storage: faultyStorage);
 
-        // Não deve lançar exceção
-        await controller.load();
-        expect(controller.themeMode, equals(ThemeMode.system));
-        expect(controller.hideValuesByDefault, isFalse);
-        expect(controller.obscureValues, isFalse);
+      // Não deve lançar exceção e deve proteger os valores financeiros (fail-closed)
+      await controller.load();
+      expect(controller.themeMode, equals(ThemeMode.system));
+      expect(controller.hideValuesByDefault, isFalse);
+      expect(
+        controller.obscureValues,
+        isTrue,
+      ); // Fail-closed seguro: valores protegidos
+      expect(controller.hasReadError, isTrue);
 
-        // Escrita também tolera exceções
-        await controller.setThemeMode(ThemeMode.dark);
-        expect(controller.themeMode, equals(ThemeMode.dark));
-      },
-    );
+      // Escrita também tolera exceções
+      await controller.setThemeMode(ThemeMode.dark);
+      expect(controller.themeMode, equals(ThemeMode.dark));
+    });
+
+    test('SEC-01: Preferência ausente no storage mantém padrão aprovado do produto (visível)', () async {
+      final storage = MemorySessionStorage();
+      final controller = PreferencesController(storage: storage);
+      await controller.load();
+
+      expect(controller.isLoaded, isTrue);
+      expect(controller.hasReadError, isFalse);
+      expect(controller.hideValuesByDefault, isFalse);
+      expect(controller.obscureValues, isFalse);
+    });
+
+    test('SEC-02 e SEC-03: Preferências explícitas true e false são rigorosamente respeitadas', () async {
+      final storage = MemorySessionStorage();
+      await storage.write(PreferencesController.hideByDefaultKey, 'true');
+      final cTrue = PreferencesController(storage: storage);
+      await cTrue.load();
+      expect(cTrue.hideValuesByDefault, isTrue);
+      expect(cTrue.obscureValues, isTrue);
+
+      await storage.write(PreferencesController.hideByDefaultKey, 'false');
+      final cFalse = PreferencesController(storage: storage);
+      await cFalse.load();
+      expect(cFalse.hideValuesByDefault, isFalse);
+      expect(cFalse.obscureValues, isFalse);
+    });
+
+    test('SEC-05: Falha na leitura do tema NÃO contamina nem bloqueia a privacidade financeira', () async {
+      final selectiveStorage = _SelectiveFaultyStorage(
+        faultyTheme: true,
+        hideVal: 'false',
+      );
+      final controller = PreferencesController(storage: selectiveStorage);
+
+      await controller.load();
+      // Tema recua para o padrão do sistema
+      expect(controller.themeMode, equals(ThemeMode.system));
+      // Privacidade financeira foi lida com sucesso e respeitada (false = visível)
+      expect(controller.hideValuesByDefault, isFalse);
+      expect(controller.obscureValues, isFalse);
+      expect(controller.hasReadError, isFalse);
+    });
+
+    test('SEC-06: Falha de gravação de preferência mantém estado seguro em memória para a sessão ativa', () async {
+      final faultyStorage = _FaultyStorage();
+      final controller = PreferencesController(storage: faultyStorage);
+      await controller.load();
+
+      // Altera na sessão; falha na escrita não deve lançar exceção não tratada
+      await controller.setHideValuesByDefault(true);
+      expect(controller.hideValuesByDefault, isTrue);
+      expect(controller.obscureValues, isTrue);
+    });
+
+    test('SEC-07: Preferência corrompida / formato inesperado aciona fallback fail-closed (oculto)', () async {
+      final storage = MemorySessionStorage();
+      await storage.write(
+        PreferencesController.hideByDefaultKey,
+        'corrupted_value_xyz',
+      );
+      final controller = PreferencesController(storage: storage);
+
+      await controller.load();
+      expect(controller.isLoaded, isTrue);
+      expect(controller.hasReadError, isTrue);
+      expect(controller.obscureValues, isTrue); // Valores protegidos
+    });
+
+    test('SEC-08: Estado inicial antes de load() é fail-closed (obscureValues = true) prevenindo flicker', () {
+      final storage = MemorySessionStorage();
+      final controller = PreferencesController(storage: storage);
+
+      // Antes de load(), o estado é conservador para prevenir exposição de dados no boot
+      expect(controller.isLoaded, isFalse);
+      expect(controller.obscureValues, isTrue);
+    });
+
+    test('SEC-09: resetSessionPrivacy() durante carga pendente (!isLoaded) mantém obscureValues = true', () {
+      final completer = Completer<String?>();
+      final delayedStorage = _DelayedStorage(completer);
+      final controller = PreferencesController(storage: delayedStorage);
+
+      // Dispara carga assíncrona que fica pendente
+      unawaited(controller.load());
+      expect(controller.isLoaded, isFalse);
+      expect(controller.obscureValues, isTrue);
+
+      // Simula reset acionado por SessionStateSignedOut durante o boot antes da carga terminar
+      controller.resetSessionPrivacy();
+
+      // obscureValues DEVE continuar true (protegido contra desarme prematuro)
+      expect(controller.obscureValues, isTrue);
+    });
 
     testWidgets(
       'Acessibilidade: _ThemeOptionTile declara semântica de seleção',
@@ -621,6 +717,50 @@ void main() {
         expect(lightTile.properties.selected, isFalse);
       },
     );
+
+    testWidgets(
+      'SEC-08 (Widget Anti-flicker): Durante carregamento assíncrono atrasado do storage, saldos já montam mascarados',
+      (tester) async {
+        final completer = Completer<String?>();
+        final delayedStorage = _DelayedStorage(completer);
+        final controller = PreferencesController(storage: delayedStorage);
+
+        // Dispara carga mas NÃO completa ainda o Future do storage
+        unawaited(controller.load());
+
+        // Monta a interface observando o controller em estado não carregado (_loaded == false)
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: buildTheme(Brightness.light, seed: seedForSpace(true)),
+            home: ChangeNotifierProvider<PreferencesController>.value(
+              value: controller,
+              child: Builder(
+                builder: (context) {
+                  final obscure = context
+                      .watch<PreferencesController>()
+                      .obscureValues;
+                  return Scaffold(
+                    body: Text(obscure ? r'R$ ••••••••' : r'R$ 5.432,10'),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+
+        // ANTES do completer resolver: valor financeiro real NÃO PODE estar na tela!
+        expect(find.text(r'R$ 5.432,10'), findsNothing);
+        expect(find.text(r'R$ ••••••••'), findsOneWidget);
+
+        // Completa o carregamento com preferência 'false' (usuário optou por ver)
+        completer.complete('false');
+        await tester.pumpAndSettle();
+
+        // Agora que carregou explicitamente false, o saldo é revelado com segurança
+        expect(find.text(r'R$ 5.432,10'), findsOneWidget);
+        expect(find.text(r'R$ ••••••••'), findsNothing);
+      },
+    );
   });
 }
 
@@ -635,4 +775,48 @@ class _FaultyStorage implements SessionStorage {
   @override
   Future<void> write(String key, String value) async =>
       throw Exception('Storage disk full');
+}
+
+class _SelectiveFaultyStorage implements SessionStorage {
+  _SelectiveFaultyStorage({this.faultyTheme = false, this.hideVal});
+
+  final bool faultyTheme;
+  final String? hideVal;
+
+  @override
+  Future<void> delete(String key) async {}
+
+  @override
+  Future<String?> read(String key) async {
+    if (key == PreferencesController.themeModeKey && faultyTheme) {
+      throw Exception('Theme storage error');
+    }
+    if (key == PreferencesController.hideByDefaultKey) {
+      return hideVal;
+    }
+    return null;
+  }
+
+  @override
+  Future<void> write(String key, String value) async {}
+}
+
+class _DelayedStorage implements SessionStorage {
+  _DelayedStorage(this.completer);
+
+  final Completer<String?> completer;
+
+  @override
+  Future<void> delete(String key) async {}
+
+  @override
+  Future<String?> read(String key) async {
+    if (key == PreferencesController.hideByDefaultKey) {
+      return completer.future;
+    }
+    return null;
+  }
+
+  @override
+  Future<void> write(String key, String value) async {}
 }
