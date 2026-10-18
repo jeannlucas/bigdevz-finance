@@ -104,6 +104,45 @@ $tests = [
     'cronograma de 2028 usa 29 de fevereiro' => static function (): void {
         same(['2028-01-31', '2028-02-29', '2028-03-31'], array_column(InstallmentSchedule::generate('90.00', 3, '2028-01-31'), 'due_date'));
     },
+    'formatAggregate preserva centavos exatos acima de MAX_CENTS sem float' => static function (): void {
+        same('0.00', Money::formatAggregate(0));
+        same('0.05', Money::formatAggregate(5));
+        same('-0.05', Money::formatAggregate(-5));
+        same('-250.00', Money::formatAggregate(-25000));
+        same('999999999999.99', Money::formatAggregate(Money::MAX_CENTS));
+        same('1000000000000.00', Money::formatAggregate(Money::MAX_CENTS + 1));
+        same('1999999999999.98', Money::formatAggregate(2 * Money::MAX_CENTS));
+        same('-1000000000000.00', Money::formatAggregate(-(Money::MAX_CENTS + 1)));
+        // Aceita string numérica de agregações SQL
+        same('1000000000000.00', Money::formatAggregate('100000000000000'));
+        same('-250.00', Money::formatAggregate('-25000'));
+        // Recusa strings inválidas ou com casas decimais embutidas
+        invalid(static fn () => Money::formatAggregate('100.00'));
+        invalid(static fn () => Money::formatAggregate('abc'));
+        invalid(static fn () => Money::formatAggregate('999999999999999999999999999999999999'));
+        // Canonicalização de zeros à esquerda
+        same('0.01', Money::formatAggregate('0001'));
+        same('0.00', Money::formatAggregate('0000'));
+        same('-0.05', Money::formatAggregate('-0005'));
+        // Extremos de 64 bits suportados
+        same('-92233720368547758.08', Money::formatAggregate(PHP_INT_MIN));
+        same('92233720368547758.07', Money::formatAggregate(PHP_INT_MAX));
+    },
+    'Money::sum preserva exatidão com bcadd mesmo com overflow intermediário' => static function (): void {
+        // Cenário auditado: 92.234 valores MAX_CENTS seguidos de 92.233 valores -MAX_CENTS
+        $sequence = array_merge(
+            array_fill(0, 92234, Money::MAX_CENTS),
+            array_fill(0, 92233, -Money::MAX_CENTS)
+        );
+        same('999999999999.99', Money::sum($sequence));
+        // Deterministico mesmo se bcscale global for alterado
+        $prev = bcscale(2);
+        try {
+            same('0.03', Money::sum([1, 2]));
+        } finally {
+            bcscale($prev);
+        }
+    },
 ];
 
 $failures = 0;

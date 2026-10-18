@@ -98,7 +98,7 @@ class CreatePayable
             $past = self::pastOf($plan, Money::toCents($data['amount']));
             if ($past['count'] > 0 && ! filter_var($data['confirm_past'], FILTER_VALIDATE_BOOLEAN)) {
                 throw ValidationException::withMessages([
-                    'confirm_past' => "Confirme a criação das {$past['count']} ocorrências já vencidas (total ".Money::fromCents($past['total_cents']).').',
+                    'confirm_past' => "Confirme a criação das {$past['count']} ocorrências já vencidas (total ".Money::formatAggregate($past['total_cents']).').',
                 ]);
             }
             $recurrence = Recurrence::create([

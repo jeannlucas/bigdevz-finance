@@ -5,18 +5,34 @@ class Money {
   const Money(this.cents);
 
   static const int maxCents = 99999999999999;
-  static final RegExp _api = RegExp(r'^(-?)(0|[1-9][0-9]{0,11})\.([0-9]{2})$');
+  static final RegExp _api = RegExp(r'^(-?)(0|[1-9][0-9]*)\.([0-9]{2})$');
 
   final int cents;
 
   /// Lê o contrato da API: string com ponto e duas casas, como "2000.00".
   /// Saldos podem vir negativos depois de pagamentos ("-250.00").
+  /// Suporta totais agregados acima de maxCents dentro da precisão de 64 bits.
   factory Money.parse(String value) {
     final match = _api.firstMatch(value);
     if (match == null) throw FormatException('Valor monetário inválido', value);
-    final cents = int.parse(match.group(2)!) * 100 + int.parse(match.group(3)!);
-    return Money(match.group(1) == '-' ? -cents : cents);
+    final units = int.tryParse(match.group(2)!);
+    final centsUnit = int.tryParse(match.group(3)!);
+    if (units == null || centsUnit == null) {
+      throw FormatException('Valor monetário excede o limite suportado', value);
+    }
+    final isNeg = match.group(1) == '-';
+    // No Dart (64 bits): teto positivo é 9223372036854775807, piso negativo é -9223372036854775808.
+    final maxCentsUnit = isNeg ? 8 : 7;
+    if (units > 92233720368547758 ||
+        (units == 92233720368547758 && centsUnit > maxCentsUnit)) {
+      throw FormatException('Valor monetário excede o limite suportado', value);
+    }
+    final cents = isNeg ? -units * 100 - centsUnit : units * 100 + centsUnit;
+    return Money(cents);
   }
+
+  /// Lê especificamente valores agregados da API.
+  static Money parseAggregate(String value) => Money.parse(value);
 
   /// Lê o texto digitado no formato brasileiro ("1.500,00").
   static Money? fromInput(String text) {
@@ -26,21 +42,26 @@ class Money {
     return cents > maxCents ? null : Money(cents);
   }
 
-  String toApi() =>
-      '${cents < 0 ? '-' : ''}${cents.abs() ~/ 100}.${(cents.abs() % 100).toString().padLeft(2, '0')}';
+  String toApi() {
+    final absQuotient = (cents ~/ 100).abs();
+    final absRemainder = cents.remainder(100).abs();
+    return '${cents < 0 ? '-' : ''}$absQuotient.${absRemainder.toString().padLeft(2, '0')}';
+  }
 
   /// Sem o prefixo "R$", para campos de edição.
   String get plain {
-    final units = (cents.abs() ~/ 100).toString();
+    final absQuotient = (cents ~/ 100).abs();
+    final absRemainder = cents.remainder(100).abs();
+    final units = absQuotient.toString();
     final grouped = StringBuffer();
     for (var i = 0; i < units.length; i++) {
       if (i > 0 && (units.length - i) % 3 == 0) grouped.write('.');
       grouped.write(units[i]);
     }
-    return '${cents < 0 ? '-' : ''}$grouped,${(cents.abs() % 100).toString().padLeft(2, '0')}';
+    return '${cents < 0 ? '-' : ''}$grouped,${absRemainder.toString().padLeft(2, '0')}';
   }
 
-  String get brl => cents < 0 ? '-R\$ ${Money(-cents).plain}' : 'R\$ $plain';
+  String get brl => cents < 0 ? '-R\$ ${plain.substring(1)}' : 'R\$ $plain';
 
   bool get isNegative => cents < 0;
 

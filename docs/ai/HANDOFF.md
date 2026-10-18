@@ -22,11 +22,11 @@
 
 ## 2. Estado Operacional Atual e Máquina de Estados
 
-- **Estado Atual:** **`VALIDADO TECNICAMENTE`** / **`PREPARACAO_COMMIT_DOCUMENTAL`** (Checkpoint `FINANCE-DOCS-03 — Fase B`).
-- **Branch Ativa:** `dev` (HEAD local `b7160f26d923574f2e3266c5eef8d8f6141dea2f`, alinhado com `origin/dev`).
-- **Branch de Produção:** `main` (remoto `origin/main` atualizado após merge do PR #2 em `c8e61e1ed0e48e9c67be11093f77abd48d6e2d11`).
-- **Integridade do Core Financeiro e Suíte:** 100% verde em todas as suítes (11/11 testes de domínio, 132/132 testes mobile, Pint aprovado e formatação Dart conforme).
-- **Escopo do Checkpoint:** Staging seletivo e criação do commit local documental `docs: aprimorar governança open source e política de marca` cobrindo exatamente os 10 arquivos aprovados.
+- **Estado Atual:** **`VALIDADO TECNICAMENTE`** / **`AGUARDANDO_APROVACAO`** (Checkpoint `FINANCE-RETOMADA-01`).
+- **Branch Ativa:** `dev` (HEAD local `58cc1c9`, alinhado com `origin/dev`).
+- **Branch de Produção:** `main` (intocada, protegida).
+- **Integridade do Core Financeiro e Suíte:** 100% verde em todas as suítes (11/11 testes de domínio PHP, 132/132 testes mobile Flutter, Pint 100%, formatação Dart 81/81 arquivos conformes, `scripts/check.sh` 100% verde).
+- **Escopo do Checkpoint:** Retomada com base na governança global (`~/AGENTS.md`), criação da spec permanente `specs/financeiro/financeiro.md` (AC-FIN-001 a AC-FIN-016), verificação de precisão monetária (centavos inteiros, proibição estrita de float), auditoria de isolamento multi-tenant (`space_id` com injeção de ID autenticado e prevenção de IDOR), e implementação do quality gate `scripts/check.sh`.
 
 ---
 
@@ -326,3 +326,109 @@ Roteiro de continuidade operacional para **Google Antigravity** e **OpenAI Codex
   - `git diff --check`: 0 erros de whitespace.
 - **Parecer Codex**: APROVADO COM RESSALVAS (ressalvas atendidas integralmente antes da criação do commit).
 - **Próximos Passos**: Criação do commit local na branch `dev` com a mensagem `fix(security): garantir persistencia segura da privacidade`.
+
+---
+
+## 9. Checkpoint FINANCE-RETOMADA-01 (17/10/2026) — Alinhamento à Governança Global, Spec Permanente e Quality Gate
+
+- **Objetivo**: Retomada do projeto com base na governança unificada (`~/AGENTS.md`), auditoria de integridade monetária, verificação de isolamento multi-tenant (prevenção de IDOR), criação da spec permanente com critérios de aceite numerados e execução do script determinístico de validação única (`scripts/check.sh`).
+- **Diagnóstico e Auditorias Realizadas**:
+  1. **Integridade Monetária e Proibição de Float:** Confirmado que a aplicação não utiliza `float` ou `double` para cálculos financeiros (`Money.php`, `money.dart`, migrations `BIGINT` com restrições `CHECK` entre 0 e `99999999999999`). Juros, multas e conciliação seguem rigorosamente a aritmética de centavos inteiros e marco temporal de abertura da conta.
+  2. **Isolamento Multi-Tenant e Prevenção de IDOR:** O modelo multi-tenant é baseado na entidade `Space` (`space_id`), com separação rígida entre PF e PJ. Toda consulta e mutação injeta obrigatoriamente o identificador derivado do usuário autenticado (`$request->user()->spaces()->findOrFail($spaceId)`). Acesso a espaços ou recursos alheios resulta em 404 imediato (sem vazar metadados). Chaves estrangeiras compostas `(id, space_id)` no PostgreSQL blindam a integridade no banco.
+  3. **Spec Permanente Criada (`specs/financeiro/financeiro.md`):** Regras de negócio formalizadas com critérios de aceite numerados de `AC-FIN-001` a `AC-FIN-016` cobrindo precisão monetária, cronogramas, juros/multas/conciliação, isolamento multi-tenant, saldo disponível e concorrência/idempotência.
+  4. **Quality Gate Unificado (`scripts/check.sh`):** Implementado o script determinístico "O Primeiro Não da Máquina" que executa análise de tipagem/estática, linters e toda a suíte de testes (11 testes PHP de domínio, 132 testes Flutter, Pint e Dart format).
+- **Validação Técnica Executada (`bash scripts/check.sh`):**
+  - Domínio Financeiro PHP: 11/11 testes aprovados (0 falhas).
+  - Análise Estática Flutter: `No issues found!`.
+  - Laravel Pint: `passed`.
+  - Formatação Dart: 81 arquivos verificados, 0 alterações pendentes.
+  - Testes Mobile Flutter: 132/132 testes aprovados (100% verde).
+- **Estado Operacional:** `VALIDADO TECNICAMENTE` / `AGUARDANDO_APROVACAO`. Pronto para inspeção e aprovação do desenvolvedor Jeann Lucas.
+
+---
+
+## 10. Checkpoint FINANCE-FIN-02 — Fase B (18/10/2026) — Correções de Integridade Financeira, Agregados Exatos e Quality Gate
+
+- **Objetivo**: Implementação controlada dos achados de integridade financeira identificados na auditoria FINANCE-FIN-01 e fechados arquiteturalmente no FINANCE-FIN-02.A2 sob a Opção 1 (valores individuais limitados a R$ 999 bilhões; agregados exatos sem float até inteiros de 64 bits).
+- **Modo**: IMPLEMENTAÇÃO CONTROLADA LOCAL, sob autorização humana explícita. Sem staging, commit ou push.
+- **Branch Ativa**: `dev` (HEAD `58cc1c9d7bf65447df68d09c0c5de999efe257d2`).
+- **Arquivos Particulares Protegidos**: Intactos e rigorosamente preservados fora do escopo (`project.pbxproj`, `Info.plist`, `ux_evidences_test.dart`, `HANDOFF.md` raiz).
+
+### Correções Implementadas
+
+1. **A1 — Integridade dos Estornos e Correções de Saldo (`ReversePayment.php`, `ReverseReceipt.php`):**
+   - Em `ReversePayment::handle`, adicionada validação do saldo líquido resultante na conta original sob lock pessimista antes de qualquer mutação contábil (`resulting > Money::MAX_CENTS || resulting < -Money::MAX_CENTS`).
+   - Em `ReverseReceipt::handle` e `validateReplacement`, adicionadas verificações de limites bidirecionais tanto na conta original quanto na conta substituta.
+   - Ambas as ações lançam `ValidationException::withMessages(['amount' => 'O saldo da conta ultrapassaria o limite suportado.'])` com rollback transacional automático e gravação do estado `rejected` na chave de idempotência com replay determinístico (HTTP 422).
+2. **A2 — Limite Inferior no Ajuste de Saldo de Abertura (`AdjustAccountOpening.php`):**
+   - A validação de saldo resultante pós-ajuste (`openingCents + movements`) tornou-se estritamente bidirecional (`> Money::MAX_CENTS || < -Money::MAX_CENTS`), impedindo subfluxo contábil abaixo do piso.
+3. **A3 — Agregados Monetários Exatos e Sem Float (`Money.php`, `SpaceController.php`, `PayableController.php`, `CreatePayable.php`, `money.dart`):**
+   - Implementado `Money::formatAggregate(int|string $cents): string` no domínio PHP com formatação aritmética inteira pura em 64 bits (`PHP_INT_MAX` = ~92 quadrilhões de reais), eliminando o risco de `InvalidArgumentException` / HTTP 500 em dashboards e relatórios consolidados.
+   - Atualizados `SpaceController::summary` (`balance`, `received_total`, `receivable_remaining`, `open_total`, `overdue_total`, `due_next_30_days_total`, `paid_total`), `PayableController::preview` (`past_total`, `total`) e `CreatePayable::createRecurrence` (mensagem de confirmação de vencidos).
+   - No Flutter (`money.dart`), ampliado o regex de API de `[0-9]{0,11}` para `[0-9]*` com controle estrito contra overflow de 64 bits (`92233720368547758.07`). Adicionado `Money.parseAggregate`. Entradas de usuário (`Money.fromInput` e `MoneyInputFormatter`) mantêm restrição estrita a `maxCents = 99999999999999`.
+4. **A4 — Eliminação de Falso PASS no Quality Gate (`scripts/check.sh`):**
+   - Implementado contrato com modos `--fast` e `--full` (padrão sem argumentos).
+   - O modo `--full` realiza sondagem ativa PDO contra o banco PostgreSQL de testes (`bigdevz_finance_test` na porta 5440) sem expor credenciais no script.
+   - Caso o banco esteja inacessível ou o ambiente não seja homologado, o script encerra imediatamente com exit code `2`, bloqueando o gate. Exit code `0` é retornado apenas sob aprovação integral de todos os testes.
+5. **Sincronização da Especificação Permanente (`specs/financeiro/financeiro.md`):**
+   - Atualizados `AC-FIN-001` (double permitido exclusivamente em tokens de layout Flutter), `AC-FIN-004` (diferenciação explícita entre limite individual `MAX_CENTS` e agregados exatos int64), `AC-FIN-007` (juros/multas classificados como especificados mas não implementados no roadmap futuro) e `AC-FIN-015` (detalhamento de replay de sucesso 200, replay de rejeição 422 e operações sem idempotência no backend).
+
+### Testes Automatizados e Evidências
+
+- **Domínio Financeiro PHP (`apps/api/tests/domain.php`):** 13 testes aprovados (inclui `formatAggregate` com canonicalização de zeros à esquerda e `Money::sum` imune a `bcscale` global), 0 falhas.
+- **Testes Flutter Mobile (`apps/mobile/test`):** 133 testes aprovados (leitura de agregados e roundtrip nos extremos int64 com remainder e divisão inteira segura), 0 falhas.
+- **Análise Estática Dart (`flutter analyze`):** 0 issues (`No issues found!`).
+- **Laravel Pint (`vendor/bin/pint --test`):** 100% conforme.
+- **Testes de Integração API Laravel em PostgreSQL Real (`php artisan test`):** 74 testes aprovados (3 novos testes de regressão: `test_payment_reversal_is_rejected_if_account_balance_would_exceed_max_cents`, `test_receipt_reversal_is_rejected_if_account_balance_would_underflow_max_cents`, `test_opening_adjustment_is_rejected_if_resulting_balance_would_underflow_max_cents`), 1044 asserções, 0 falhas.
+- **Quality Gate FAST (`bash scripts/check.sh --fast`):** Aprovado (código 0).
+- **Quality Gate FULL (`bash scripts/check.sh --full`):** Aprovado (código 0), com validação da conexão efetiva no runtime do framework (`127.0.0.1:5440/bigdevz_finance_test`).
+- **Auditoria Independente OpenAI Codex CLI (`codex exec -s read-only`):** Executada com sucesso; todas as observações técnicas (scale 0 em bcadd, remainder/abs em Dart int64, canonicalização decimal e injeção forçada de conexão no test runner) foram refinadas e validadas.
+- **Estado Operacional:** `VALIDADO TECNICAMENTE` / `AGUARDANDO_APROVACAO`. Pronto para inspeção e homologação humana soberana do desenvolvedor Jeann Lucas.
+
+---
+
+## 11. Checkpoint FINANCE-FIN-02.D (18/10/2026) — Saneamento de Bloqueadores, Segurança do PostgreSQL e Homologação do Commit Gate
+
+- **Objetivo**: Saneamento completo dos 4 apontamentos técnicos identificados no Commit Gate (P0: blindagem da conexão efetiva de testes; P1: declaração formal de `ext-bcmath` no Composer; P1: testes HTTP dedicados de integração do Dashboard com agregação > MAX_CENTS; P1: reconciliação de `AC-FIN-015` com a arquitetura real de idempotência) e adição de testes de fronteira A1/A2.
+- **Modo**: IMPLEMENTAÇÃO CONTROLADA LOCAL, sob autorização humana explícita para o Portão 2. Sem staging, commit ou push.
+- **Branch Ativa**: `dev` (HEAD `58cc1c9d7bf65447df68d09c0c5de999efe257d2`).
+- **Arquivos Particulares Protegidos**: Intactos e rigorosamente preservados fora do escopo (`project.pbxproj`, `Info.plist`, `ux_evidences_test.dart`, `HANDOFF.md` raiz).
+
+### Correções Implementadas
+
+1. **P0 — Blindagem da Conexão Efetiva de Testes (`phpunit.xml`, `TestCase.php`, `scripts/check.sh`):**
+   - Em `phpunit.xml`, adicionado `force="true"` nas variáveis de conexão (`DB_CONNECTION`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`, `DB_URL`), impedindo sobreposição por variáveis ambientais do shell.
+   - Em `TestCase.php`, implementada validação restrita no `setUpTraits()` antes de qualquer migrate ou transação:
+     - Validação estrita do driver `pgsql` e pares autorizados `('127.0.0.1:5440'`, `'localhost:5440'` no host, e exclusivamente `'postgres:5432'` dentro do container Docker) para o banco `bigdevz_finance_test`.
+     - Consulta ativa direta ao PDO de escrita: `$writePdo->query('SELECT current_database()')->fetchColumn()`, rejeitando qualquer conexão divergente com `RuntimeException`.
+   - Em `scripts/check.sh`, validação dinâmica a partir de `phpunit.xml` e teste direto no write PDO antes da execução da suíte de testes.
+2. **P1 — Declaração Formal da Extensão BCMath (`composer.json`, `composer.lock`):**
+   - Adicionada dependência `"ext-bcmath": "*"` na seção `"require"` de `apps/api/composer.json`.
+   - Sincronizados os metadados do `apps/api/composer.lock` estritamente via `composer update --lock --no-install --no-scripts --no-plugins`, preservando 100% das versões de pacotes instalados.
+   - Validado com `composer check-platform-reqs` (`ext-bcmath: success`).
+3. **P1 — Testes HTTP de Integração do Dashboard (`apps/api/tests/Feature/SpaceSummaryTest.php`):**
+   - Criado arquivo de teste dedicado para o contrato `GET /api/spaces/{space}/summary` cobrindo rigorosamente os 7 cenários obrigatórios (T-01 a T-07):
+     - **T-01:** Duas contas de R$ 600 bilhões somando R$ 1,2 trilhão exato (`"1200000000000.00"`), sem float e sem erro 500.
+     - **T-02:** Soma monetária regular dentro de MAX_CENTS (`"1500.00"`).
+     - **T-03:** Agregado negativo válido após pagamentos superiores à abertura (`"-200.00"`).
+     - **T-04:** Multi-tenant estrito: 404 para Space de outro usuário sem vazar dados; segregação total entre PF e PJ do mesmo usuário.
+     - **T-05:** Espaço vazio sem contas retorna `"0.00"` e contagens zeradas.
+     - **T-06:** Duas contas no limite individual exato MAX_CENTS (`999999999999.99` cada) somando exatamente 2 x MAX_CENTS (`"1999999999999.98"`).
+     - **T-07:** Resposta JSON preserva strings decimais canônicas com ponto e exatamente duas casas decimais em todos os totalizadores com valores não-zero e assert matemático exato (`balance`: `"850.00"`, `received_total`: `"150.00"`, `receivable_remaining`: `"350.00"`, `open_total`: `"700.00"`, `overdue_total`: `"200.00"`, `due_next_30_days_total`: `"500.00"`, `paid_total`: `"300.00"`).
+4. **P1 — Reconciliação Textual de Idempotência (`specs/financeiro/financeiro.md`):**
+   - Reconciliado `AC-FIN-015`: unicidade real no banco por `UNIQUE(space_id, key)`; distinção precisa entre validação sintática do request com chave válida (que persiste a chave como `rejected` com erros e devolve 422 em replay ou 409 em alteração) versus chave ausente/malformada (que é rejeitada preliminarmente sem persistência de chave); replay de sucesso responde `HTTP 200 OK` com `replayed: true` resserializando recursos atuais; `HTTP 409 Conflict` em caso de fingerprint divergente.
+5. **Testes de Fronteira Adicionais (A1 e A2) com Asserções de Persistência no Banco:**
+   - `PayablesTest.php`: Adicionado `test_payment_reversal_boundary_at_exact_max_cents_and_one_cent_above`, conferindo saldo persistido exato no teto e ausência de mutação/estorno na rejeição por 1 centavo.
+   - `ReceiptReversalTest.php`: Adicionado `test_receipt_reversal_boundary_at_exact_negative_max_cents_and_one_cent_below`, conferindo saldo persistido exato no piso e integridade na tabela `receipt_reversals`.
+   - `AccountManagementTest.php`: Adicionado `test_opening_adjustment_boundary_at_exact_max_cents_and_one_cent_above`, conferindo persistência e histórico de `account_opening_adjustments`.
+
+### Resultados das Suítes Automatizadas
+- **Domínio Financeiro PHP (`apps/api/tests/domain.php`):** 13 testes aprovados (0 falhas).
+- **Testes Flutter Mobile (`apps/mobile/test`):** 133 testes aprovados (0 falhas).
+- **Análise Estática Dart (`flutter analyze`):** 0 issues (`No issues found!`).
+- **Laravel Pint (`vendor/bin/pint --test`):** 100% conforme.
+- **Testes de Integração API Laravel em PostgreSQL Real (`php artisan test`):** 84 testes aprovados (inclui os 7 testes de `SpaceSummaryTest` e os 3 novos testes de fronteira com asserções de persistência), 1.139 asserções, 0 falhas.
+- **Quality Gate FAST (`bash scripts/check.sh --fast`):** Aprovado (código 0).
+- **Quality Gate FULL (`bash scripts/check.sh --full`):** Aprovado (código 0).
+- **Auditoria Independente OpenAI Codex CLI (`codex exec -s read-only`):** **APROVADO** em todos os 5 critérios técnicos avaliados (P0: APROVADO; P1 bcmath: APROVADO; P1 dashboard: APROVADO; P1 spec: APROVADO; Fronteiras A1/A2: APROVADO).
+- **Estado Operacional:** `HOMOLOGADO LOCALMENTE` / `AGUARDANDO_HOMOLOGACAO_MANUTENCAO`. Zero commits, zero pushes, área de staging limpa.

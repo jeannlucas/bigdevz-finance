@@ -28,14 +28,14 @@ class SpaceController extends Controller
 
         return response()->json(['data' => [
             'space' => new SpaceResource($space),
-            'balance' => Money::fromCents($accounts->sum(fn ($account) => $account->balanceCents())),
+            'balance' => Money::sum($accounts->map(fn ($account) => $account->balanceCents())),
             // O saldo inclui contas arquivadas: arquivar não zera nem transfere dinheiro.
             'accounts_count' => $accounts->count(),
             'active_accounts_count' => $accounts->filter(fn ($account) => ! $account->isArchived())->count(),
             'archived_accounts_count' => $accounts->filter(fn ($account) => $account->isArchived())->count(),
             'agreements_count' => $space->agreements()->count(),
-            'received_total' => Money::fromCents($installments->sum('received_cents')),
-            'receivable_remaining' => Money::fromCents($installments->sum(fn ($item) => $item->remainingCents())),
+            'received_total' => Money::sum($installments->pluck('received_cents')),
+            'receivable_remaining' => Money::sum($installments->map(fn ($item) => $item->remainingCents())),
             'overdue_installments' => $installments->filter(fn ($item) => $item->isOverdue())->count(),
             // A pagar: previsto, separado do saldo (obrigação não reduz saldo).
             'payables' => $this->payables($space),
@@ -55,12 +55,12 @@ class SpaceController extends Controller
         $remaining = 'COALESCE(SUM(amount_cents - paid_cents), 0)';
 
         return [
-            'open_total' => Money::fromCents((int) (clone $open)->selectRaw($remaining.' AS total')->value('total')),
+            'open_total' => Money::formatAggregate((clone $open)->selectRaw($remaining.' AS total')->value('total')),
             'open_count' => (clone $open)->count(),
-            'overdue_total' => Money::fromCents((int) (clone $open)->where('due_date', '<', $today)->selectRaw($remaining.' AS total')->value('total')),
+            'overdue_total' => Money::formatAggregate((clone $open)->where('due_date', '<', $today)->selectRaw($remaining.' AS total')->value('total')),
             'overdue_count' => (clone $open)->where('due_date', '<', $today)->count(),
-            'due_next_30_days_total' => Money::fromCents((int) (clone $open)->whereBetween('due_date', [$today, $until])->selectRaw($remaining.' AS total')->value('total')),
-            'paid_total' => Money::fromCents((int) $space->payables()->sum('paid_cents')),
+            'due_next_30_days_total' => Money::formatAggregate((clone $open)->whereBetween('due_date', [$today, $until])->selectRaw($remaining.' AS total')->value('total')),
+            'paid_total' => Money::sum($space->payables()->pluck('paid_cents')),
             'awaiting_amount_count' => $space->payables()->whereNull('cancelled_at')->whereNull('amount_cents')->count(),
             'today' => $today,
         ];

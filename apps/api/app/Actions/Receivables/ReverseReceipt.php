@@ -71,6 +71,15 @@ class ReverseReceipt
                 $this->validateReplacement($installment, $original, $accounts->get($replacement['account_id']), $replacement);
             }
 
+            $originalAccount = $accounts->get($original->account_id);
+            $netChange = ($replacement !== null && $replacement['account_id'] === $original->account_id)
+                ? ($replacement['amount_cents'] - $original->amount_cents)
+                : -$original->amount_cents;
+            $resultingOriginal = $originalAccount->balanceCents() + $netChange;
+            if ($resultingOriginal > Money::MAX_CENTS || $resultingOriginal < -Money::MAX_CENTS) {
+                throw ValidationException::withMessages(['amount' => 'O saldo da conta ultrapassaria o limite suportado.']);
+            }
+
             $reversal = ReceiptReversal::create([
                 'space_id' => $space->id,
                 'installment_id' => $installment->id,
@@ -137,7 +146,8 @@ class ReverseReceipt
             ]);
         }
         $balance = $account->balanceCents() - ($account->id === $original->account_id ? $original->amount_cents : 0);
-        if ($balance + $replacement['amount_cents'] > Money::MAX_CENTS) {
+        $resulting = $balance + $replacement['amount_cents'];
+        if ($resulting > Money::MAX_CENTS || $resulting < -Money::MAX_CENTS) {
             throw ValidationException::withMessages(['amount' => 'O saldo da conta ultrapassaria o limite suportado.']);
         }
     }

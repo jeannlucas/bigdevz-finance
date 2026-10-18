@@ -69,6 +69,15 @@ class ReversePayment
                     $payable->remainingCents() + $original->amount_cents, $relief);
             }
 
+            $originalAccount = $accounts->get($original->account_id);
+            $netChange = ($replacement !== null && $replacement['account_id'] === $original->account_id)
+                ? ($original->amount_cents - $replacement['amount_cents'])
+                : $original->amount_cents;
+            $resultingOriginal = $originalAccount->balanceCents() + $netChange;
+            if ($resultingOriginal > Money::MAX_CENTS || $resultingOriginal < -Money::MAX_CENTS) {
+                throw ValidationException::withMessages(['amount' => 'O saldo da conta ultrapassaria o limite suportado.']);
+            }
+
             $reversal = PaymentReversal::create([
                 'space_id' => $space->id, 'payable_id' => $payable->id, 'payment_id' => $original->id,
                 'account_id' => $original->account_id, 'user_id' => $user->id, 'reason' => $reason,

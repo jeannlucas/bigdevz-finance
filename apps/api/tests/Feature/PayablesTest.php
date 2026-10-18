@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Domain\Receivables\Money;
+use App\Models\Account;
 use App\Models\AccountMovement;
 use App\Models\IdempotencyKey;
 use App\Models\ObligationChange;
@@ -262,6 +264,82 @@ class PayablesTest extends TestCase
         $this->pay($id, $this->a, '50.00', '2026-03-10', 'recusada')->assertStatus(422)->assertJsonPath('idempotency.replayed', true);
         $this->assertSame(0, Payment::query()->where('payable_id', $id)->where('amount_cents', 5000)->count());
         $this->pay($id, $this->a, '50.00', '2026-03-10', 'nova')->assertCreated();
+    }
+
+    public function test_payment_reversal_is_rejected_if_account_balance_would_exceed_max_cents(): void
+    {
+        $id = $this->single('100.00');
+        $payment = $this->pay($id, $this->a, '100.00', '2026-03-10', 'pay-max')->json('data.payment.id');
+
+        // Cria acordo e recebimento para adicionar saldo positivo válido na conta A
+        $agr = $this->api('POST', "/api/spaces/{$this->pf->id}/agreements", [
+            'description' => 'Entrada extra', 'total' => '100.00', 'installment_count' => 1, 'first_due_date' => '2026-03-01',
+        ])->json('data.id');
+        $inst = $this->api('GET', "/api/spaces/{$this->pf->id}/agreements/{$agr}")->json('data.installments.0.id');
+        $this->api('POST', "/api/spaces/{$this->pf->id}/installments/{$inst}/receipts", [
+            'account_id' => $this->a, 'amount' => '1.00', 'received_on' => '2026-03-01',
+        ], ['Idempotency-Key' => 'rec-teto']);
+
+        // Define a abertura no teto: com o recebimento (+1.00) e o pagamento (-100.00), o estorno (+100.00) resultaria em MAX_CENTS + 1.00
+        $account = Account::query()->findOrFail($this->a);
+        $account->update(['opening_balance_cents' => Money::MAX_CENTS]);
+
+        $this->reverse($payment, 'Estorno acima do teto', 'rev-max')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('amount')
+            ->assertJsonPath('errors.amount.0', 'O saldo da conta ultrapassaria o limite suportado.')
+            ->assertJsonPath('idempotency.status', 'rejected');
+
+        $this->reverse($payment, 'Estorno acima do teto', 'rev-max')
+            ->assertStatus(422)
+            ->assertJsonPath('idempotency.replayed', true);
+
+        $this->assertSame(0, PaymentReversal::query()->where('payment_id', $payment)->count());
+    }
+
+    public function test_payment_reversal_boundary_at_exact_max_cents_and_one_cent_above(): void
+    {
+        $id = $this->single('100.00');
+        $payment = $this->pay($id, $this->a, '10.00', '2026-03-10', 'pay-exact')->json('data.payment.id');
+
+        // Conta A tem pagamento de -10.00 (-1000 centavos).
+        // Cenário 1: Abertura em MAX_CENTS. Saldo atual = MAX_CENTS - 1000.
+        // Estorno (+1000) resulta em exatamente MAX_CENTS -> deve passar com sucesso.
+        $account = Account::query()->findOrFail($this->a);
+        $account->update(['opening_balance_cents' => Money::MAX_CENTS]);
+
+        $this->reverse($payment, 'Estorno no limite exato', 'rev-exact-pass')
+            ->assertCreated()
+            ->assertJsonPath('idempotency.status', 'completed');
+
+        $this->assertSame(Money::MAX_CENTS, Account::query()->findOrFail($this->a)->balanceCents());
+        $this->assertDatabaseHas('payment_reversals', ['payment_id' => $payment]);
+
+        // Cenário 2: Nova obrigação e pagamento de 10.00 em nova conta
+        $acc2 = $this->account($this->pf, 'Conta Borda', '0.00', '2026-01-01');
+        $p2 = $this->pay($this->single('100.00'), $acc2, '10.00', '2026-03-10', 'pay-exact-fail')->json('data.payment.id');
+
+        // Cria entrada de +1 centavo via recebimento
+        $agr = $this->api('POST', "/api/spaces/{$this->pf->id}/agreements", [
+            'description' => 'Entrada 1 centavo', 'total' => '100.00', 'installment_count' => 1, 'first_due_date' => '2026-03-01',
+        ])->json('data.id');
+        $inst = $this->api('GET', "/api/spaces/{$this->pf->id}/agreements/{$agr}")->json('data.installments.0.id');
+        $this->api('POST', "/api/spaces/{$this->pf->id}/installments/{$inst}/receipts", [
+            'account_id' => $acc2, 'amount' => '0.01', 'received_on' => '2026-03-01',
+        ], ['Idempotency-Key' => 'rec-1-cent']);
+
+        // Abertura em MAX_CENTS: Saldo atual = MAX_CENTS - 1000 + 1 = MAX_CENTS - 999
+        // Estorno (+1000) resultaria em MAX_CENTS + 1 -> rejeitado com 422
+        Account::query()->where('id', $acc2)->update(['opening_balance_cents' => Money::MAX_CENTS]);
+
+        $this->reverse($p2, 'Estorno 1 centavo acima', 'rev-exact-fail')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('amount')
+            ->assertJsonPath('errors.amount.0', 'O saldo da conta ultrapassaria o limite suportado.')
+            ->assertJsonPath('idempotency.status', 'rejected');
+
+        $this->assertSame(Money::MAX_CENTS - 999, Account::query()->findOrFail($acc2)->balanceCents());
+        $this->assertDatabaseMissing('payment_reversals', ['payment_id' => $p2]);
     }
 
     public function test_other_users_and_spaces_cannot_reach_payables(): void
