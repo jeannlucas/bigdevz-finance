@@ -22,11 +22,19 @@
 
 ## 2. Estado Operacional Atual e Máquina de Estados
 
-- **Estado Atual:** **`VALIDADO TECNICAMENTE`** / **`AGUARDANDO_APROVACAO`** (Checkpoint `FINANCE-RETOMADA-01`).
-- **Branch Ativa:** `dev` (HEAD local `58cc1c9`, alinhado com `origin/dev`).
-- **Branch de Produção:** `main` (intocada, protegida).
-- **Integridade do Core Financeiro e Suíte:** 100% verde em todas as suítes (11/11 testes de domínio PHP, 132/132 testes mobile Flutter, Pint 100%, formatação Dart 81/81 arquivos conformes, `scripts/check.sh` 100% verde).
-- **Escopo do Checkpoint:** Retomada com base na governança global (`~/AGENTS.md`), criação da spec permanente `specs/financeiro/financeiro.md` (AC-FIN-001 a AC-FIN-016), verificação de precisão monetária (centavos inteiros, proibição estrita de float), auditoria de isolamento multi-tenant (`space_id` com injeção de ID autenticado e prevenção de IDOR), e implementação do quality gate `scripts/check.sh`.
+- **Estado Operacional:** **`DOCUMENTACAO_EDITADA_AGUARDANDO_APROVACAO_DO_DIFF`** (Checkpoint `FINANCE-DOC-01.B.5-B`).
+- **Discriminação de Componentes e Publicação:**
+  - **Código Mobile Flutter:** Publicado na branch `dev` via commit `da8545fdfef934c91c0ca764023043bf80a040e0`.
+  - **CI Remota (GitHub Actions CI #23):** Execução [Run 39365113034](https://github.com/jeannlucas/bigdevz-finance/actions/runs/39365113034) **aprovada** com veredito `success` em ambos os jobs (`api` e `mobile`).
+  - **Documentação do Projeto:** Modificada localmente e saneada nos 3 arquivos autorizados (`docs/ai/HANDOFF.md`, `README.md`, `ROADMAP.md`), aguardando aprovação soberana do diff.
+  - **Commit Documental:** **Pendente** de autorização humana.
+  - **Push Documental:** **Pendente** de autorização humana.
+- **Branch Ativa:** `dev` (HEAD local e remoto `da8545fdfef934c91c0ca764023043bf80a040e0`, perfeitamente alinhados com `origin/dev`).
+- **Branch de Produção:** `origin/main` (`a9e6e8b`); branch local `main` (`42a3e39`, intocada e preservada neste ciclo).
+- **Integridade da Suíte e CI Oficial (GitHub Actions CI #23, Run ID [`39365113034`](https://github.com/jeannlucas/bigdevz-finance/actions/runs/39365113034)):**
+  - **Mobile Flutter:** 162/162 testes unitários e de widget aprovados (0 falhas); `flutter analyze` 100% verde (0 issues); `dart format` 80 arquivos conformes (0 alterados).
+  - **API Laravel:** 84 testes aprovados (1.139 asserções, 0 falhas) em PostgreSQL 18 real descartável; `php tests/domain.php` 13/13 testes aprovados (0 falhas); `vendor/bin/pint --test` 100% conforme.
+- **Escopo do Checkpoint:** Retificação final da cronologia dos checkpoints B.4-A e B.4-B, comprovação documental do comando `git checkout` no incidente Apple e gate de autorização humana para o commit documental do manifesto de três arquivos.
 
 ---
 
@@ -432,3 +440,114 @@ Roteiro de continuidade operacional para **Google Antigravity** e **OpenAI Codex
 - **Quality Gate FULL (`bash scripts/check.sh --full`):** Aprovado (código 0).
 - **Auditoria Independente OpenAI Codex CLI (`codex exec -s read-only`):** **APROVADO** em todos os 5 critérios técnicos avaliados (P0: APROVADO; P1 bcmath: APROVADO; P1 dashboard: APROVADO; P1 spec: APROVADO; Fronteiras A1/A2: APROVADO).
 - **Estado Operacional:** `HOMOLOGADO LOCALMENTE` / `AGUARDANDO_HOMOLOGACAO_MANUTENCAO`. Zero commits, zero pushes, área de staging limpa.
+
+---
+
+## 12. Ciclo FINANCE-MOB-01.B (B.1 a B.4-E) e Checkpoints Documentais B.5 a B.5-B — Acessibilidade Responsiva, Privacidade Semântica, Homologação na CI e Retificação Documental
+
+- **Objetivo**: Resolução completa dos problemas de overflow em telas compactas (largura ensaiada de 320pt) e escalas ampliadas de acessibilidade (150% e 200%) no app Flutter; implementação de semântica acessível em cartões de contas financeiras com exclusão de nós internos ao ocultar saldos; catálogo de 76 evidências visuais locais cruzadas (Android e iOS); auditoria e recuperação de incidente de restauração não autorizada de arquivos Apple; auditoria estrita pré-push e publicação controlada de commit único para `origin/dev`; homologação dos jobs `api` e `mobile` na CI remota do GitHub Actions; e saneamento/retificação documental rigorosa.
+- **Modo**: Ciclo de acessibilidade, testes de widget, auditorias pré-push com portões humanos, verificação de CI remota e retificação documental pré-commit.
+- **Branch Ativa**: `dev` (HEAD local e publicado: `da8545fdfef934c91c0ca764023043bf80a040e0`, parent: `2a379f8b668440dce100873b2900bbaf8119151d`).
+- **Branch de Produção**: `origin/main` (`a9e6e8b...`); branch local `main` (`42a3e39...`, intocada e preservada).
+
+### Rastreabilidade Cronológica e Individualizada dos Checkpoints
+
+| Checkpoint | Escopo / Operação Técnica | Evidência / Artefato Principal | Governança / Autorização | Status |
+|---|---|---|---|---|
+| **FINANCE-MOB-01.B.1** | Diagnóstico inicial READ-ONLY: identificação de capturas inválidas, overflows de texto em 150% e 200% em acordos e despesas, e identificação de risco de vazamento de saldo via acessibilidade semântica. | Capturas BEFORE em `prints/finance-mob-01/ios/` (`ios_iphone17e_mob-b1_agreements_overflow_200.png` e `ios_iphone17e_mob-b1_payables_overflow_200.png`). | Autorizado em sessão de diagnóstico | Homologado |
+| **FINANCE-MOB-01.B.2 (Portão A)** | Planejamento técnico: especificação das correções de layout e isolamento do manifesto restrito de exatamente 7 arquivos Flutter. | Plano de execução aprovado sem alterações de código. | Portão A de Planejamento aprovado | Homologado |
+| **FINANCE-MOB-01.B.2 (Portão B)** | Implementação controlada de código: reflow adaptativo com `Wrap` nas abas Contas, A receber e A pagar; clamp de carrossel em Contas; semântica com `excludeSemantics: true` e rótulo dinâmico em `AccountCard`; expansão de testes de 133 para 162. | 7 arquivos Flutter modificados; suíte com 162 testes aprovados localmente; ensaios em Pixel 8 e iPhone 17/17e. | Portão B de Implementação aprovado | Homologado |
+| **FINANCE-MOB-01.B.3** | Auditoria final pré-commit: revisão detalhada do diff dos 7 arquivos, confirmação dos 162 testes locais, conferência da privacidade semântica, ressalvas de acessibilidade WCAG e parecer OpenAI Codex CLI read-only. Sem novas alterações de código. | Relatório de auditoria pré-commit; nenhum código modificado. | Portão de Auditoria aprovado | Homologado |
+| **FINANCE-MOB-01.B.4-A** | Auditoria de incidente de governança envolvendo restauração não autorizada dos arquivos Apple locais por `git checkout`. Investigação read-only do Step 860, identificação do diff anterior no Step 859, análise dos efeitos sobre `project.pbxproj` e `Info.plist` e elaboração do plano de recuperação. Nenhuma recuperação executada neste checkpoint. | Relatório de auditoria de incidente em modo read-only; plano de recuperação aprovado. | Portão de auditoria de incidente | Homologado |
+| **FINANCE-MOB-01.B.4-B** | Preparação, autorização humana e execução da recuperação controlada dos dois arquivos Apple a partir do patch original documentado no Step 859. Aplicação validada, `plutil -lint` aprovado, alterações locais do mantenedor restauradas, sete arquivos Flutter preservados, staging vazio e auditoria Codex favorável. | Arquivos Apple recuperados e validados (`plutil -lint: OK`); staging vazio. | Autorização formal de recuperação concedida | Homologado |
+| **FINANCE-MOB-01.B.4-C** | Commit seletivo contendo exclusivamente os 7 arquivos Flutter homologados (`da8545fdfef934c91c0ca764023043bf80a040e0`). | Commit local `da8545f` criado com staging limpo; arquivos Apple e prints preservados. | Autorização de commit exclusivo concedida | Homologado |
+| **FINANCE-MOB-01.B.4-D** | Auditoria pré-push em modo read-only: conferência de fast-forward limpo, staging vazio e inspeção de fluxos em `.github/workflows/ci.yml`. | Relatório de auditoria pré-push e verificação de integridade remota. | Portão humano pré-push | Aprovado |
+| **FINANCE-MOB-01.B.4-E** | Execução de push único para `origin/dev` e homologação da CI GitHub Actions (Run ID `39365113034`). | `git push origin dev:dev`; CI #23 verde em ambos os jobs (`api` e `mobile`). | Autorização prévia soberana concedida | Homologado |
+| **FINANCE-DOC-01.B.5** | Consolidação documental inicial nos três arquivos autorizados (`docs/ai/HANDOFF.md`, `README.md`, `ROADMAP.md`). | Diffs documentais elaborados e auditados em modo read-only. | Autorização condicional concedida | Concluído |
+| **FINANCE-DOC-01.B.5-A** | Saneamento documental: distinção estrita dos catálogos de capturas, precisão técnica de Semantics e validação documental. | Diffs saneados; staging vazio; sem commit/push. | Autorização condicional concedida | Concluído |
+| **FINANCE-DOC-01.B.5-B** | Retificação final da cronologia B.4-A/B.4-B, comprovação estrita do comando `git checkout` e gate de commit documental. | Diffs finais retificados; staging vazio; sem commit/push. | Em execução sob autorização humana | Em aprovação |
+
+### Arquivos Homologados no Commit de Código Publicado (`da8545f`)
+Exatamente 7 arquivos Flutter (4 em `lib` e 3 em `test`), sem arquivos de configuração ou evidências:
+1. `apps/mobile/lib/features/accounts/account_card.dart`
+2. `apps/mobile/lib/features/accounts/accounts_tab.dart`
+3. `apps/mobile/lib/features/agreements/agreements_tab.dart`
+4. `apps/mobile/lib/features/payables/payables_tab.dart`
+5. `apps/mobile/test/features/accounts_test.dart`
+6. `apps/mobile/test/features/agreements_tab_test.dart`
+7. `apps/mobile/test/features/payables_test.dart`
+
+### Detalhamento das Alterações Técnicas no Mobile
+
+1. **Cartão de Contas e Privacidade Semântica (`account_card.dart`):**
+   - Implementação de rótulo semântico condicional no nó raiz do cartão:
+     `final semanticLabel = obscureBalance ? 'Conta ${account.name}, saldo oculto' : 'Conta ${account.name}, saldo ${account.balance.brl}';`
+   - Configuração de `Semantics(label: semanticLabel, button: onTap != null, onTap: onTap, excludeSemantics: true, child: ...)`. A propriedade `excludeSemantics: true` poda nativamente todos os nós semânticos descendentes do cartão (como `RichText`, `Text` e `MoneyText`), impedindo que leitores de tela leiam valores parciais ou vazem o saldo quando o mascaramento de privacidade estiver ativo.
+   - Remoção de espaçadores verticais fixos (`SizedBox(height: 18)` e `SizedBox(height: 16)`) no layout do cartão, prevenindo transbordamentos verticais quando a escala de texto aumenta.
+2. **Aba de Contas (`accounts_tab.dart`):**
+   - Altura do carrossel de cartões tornada responsiva e vinculada ao fator de escala do sistema:
+     `final cardCarouselHeight = textScaler.scale(210.0).clamp(210.0, 440.0);`
+   - Cabeçalhos de seção e botões de ação rápida ("Nova conta", "Ver arquivadas") refatorados com `Wrap` responsivo (`WrapAlignment.spaceBetween`, `spacing: AppTokens.p8`, `runSpacing: AppTokens.p8`), acomodando quebras de linha automáticas sem overflow em telas estreitas e fontes ampliadas.
+3. **Aba de Contas a Receber (`agreements_tab.dart`):**
+   - Header superior com título "Contas a receber" e botão "Nova conta a receber" refatorado com `Wrap`, permitindo que o botão passe para a linha seguinte em escalas elevadas de texto.
+   - Bloco de métricas do `AgreementCard` (total contratado, recebido e restante) migrado de `Row` com `Expanded` rígido para `Wrap` adaptativo (`spacing: AppTokens.p16`, `runSpacing: AppTokens.p8`), eliminando transbordamentos laterais em larguras ensaiadas a partir de 320pt com 200% de escala.
+4. **Aba de Contas a Pagar (`payables_tab.dart`):**
+   - Header superior refatorado com `Wrap` responsivo.
+   - Bloco de valores do `PayableCard` (restante a pagar / valor cancelado / total pago, pago líquido e valor total) migrado para `Wrap` adaptativo, alinhando as colunas de dados à esquerda com espaçamento fluido.
+5. **Ampliação da Cobertura de Testes Automatizados (de 133 para 162 testes):**
+   - `accounts_test.dart`: Testes de árvore semântica verificando que `AccountCard` com saldo oculto anuncia `'Conta ..., saldo oculto'` com nós internos excluídos; testes com saldo visível anunciando o valor canônico em BRL; testes de reflow em viewport de 320pt com escalas de 100%, 150% e 200% sem erros de layout.
+   - `agreements_tab_test.dart`: Novos testes de widget para os requisitos AC-MOB-001, AC-MOB-004, AC-MOB-005 e AC-MOB-006 em largura de 320pt nas escalas 100%, 150% e 200%, garantindo ausência de overflow e acessibilidade dos botões de ação.
+   - `payables_test.dart`: Testes de acessibilidade e reflow em 320pt nas escalas 100%, 150% e 200% sem overflow.
+
+### Incidente de Governança Apple e Recuperação
+
+- **Descrição do Incidente:** Durante a etapa preparatória do ciclo, ocorreu uma restauração não autorizada dos arquivos `apps/mobile/ios/Runner.xcodeproj/project.pbxproj` e `apps/mobile/ios/Runner/Info.plist` no working tree através do comando `git checkout`, descartando transitoriamente as configurações locais de desenvolvimento do mantenedor.
+- **Tratamento e Recuperação:** O evento foi formalmente identificado e catalogado como incidente de governança. Sob aprovação humana explícita, as configurações particulares do mantenedor foram recuperadas no working tree e blindadas para permanecerem estritamente fora da staging area e de qualquer commit ou push.
+
+### Distinção dos Catálogos de Evidências Visuais
+
+É fundamental distinguir categoricamente entre o catálogo oficial do repositório e o acervo local de ensaios de engenharia:
+
+#### A. Catálogo Oficial Versionado do Repositório (15 Capturas)
+Documentado formalmente em [`docs/screenshots.md`](../screenshots.md) e versionado diretamente em `prints/*.png`:
+- **3 capturas de Acessibilidade:** Seletores adaptativos em 150% e 200% (`a11y_375px_scale_150_seletor.png`, `a11y_375px_scale_200_seletor.png`, `a11y_iphone17pro_scale_200_seletor.png`).
+- **6 capturas de Tema Escuro:** Telas completas de Resumo PF/PJ, Carteira PF/PJ e Contas a Pagar (`dark_01_resumo_pf.png` a `dark_06_cadastro_pagar_recorrente.png`).
+- **6 capturas de Tema Claro:** Telas completas de Resumo PF/PJ, Carteira PF/PJ e Contas a Pagar (`light_01_resumo_pf.png` a `light_06_cadastro_pagar_recorrente.png`).
+
+#### B. Acervo de Evidências Locais de Engenharia FINANCE-MOB-01 (76 Capturas Não Versionadas)
+Mantido no diretório local de ensaios `prints/finance-mob-01/` fora do controle de versão do Git, servindo como suporte de auditoria técnica para este ciclo. **Este acervo não substitui o catálogo oficial versionado** e classifica-se rigorosamente em:
+1. **Históricas de Referência e Fluxo Geral (54 capturas):**
+   - *Android Pixel 8 (16 capturas em `android/`):* Telas de login (sucesso, credenciais inválidas, erros de validação), menu de usuário, dashboard PF/PJ (claro, escuro, saldos ocultos), carteira de contas e listas operacionais em 100%, além do ensaio isolado em 100% (`android_pixel8_mob-b1_a11y100_pf.png`).
+   - *iOS iPhone 17 / iPhone 17e / iPhone 17 Pro (38 capturas em `ios/`):* Modos claro e escuro, cartões de contas PF/PJ, telas compactas em 100%, configurações e seletores adaptativos em 375pt.
+2. **Substituídas / Superadas (BEFORE — 6 capturas de diagnóstico de falha):**
+   - *iOS (2 capturas em `ios/`):* `ios_iphone17e_mob-b1_agreements_overflow_200.png` e `ios_iphone17e_mob-b1_payables_overflow_200.png`, que documentavam falhas de overflow nas abas de acordos e despesas a 200%; **substituídas e superadas** pelas capturas AFTER correspondentes (`ios_iphone17e_mob-b2_agreements_after_200.png` e `ios_iphone17e_mob-b2_payables_after_200.png`).
+   - *Android (4 capturas em `android/`):* `android_pixel8_mob-b1_a11y150_pf.png` (ensaio intermediário em 150%), `android_pixel8_mob-b1_a11y200_initial.png`, `android_pixel8_mob-b1_a11y200_scrolled.png` e `android_pixel8_mob-b1_a11y200_bottom.png` (ensaios em 200%), que documentavam limitações iniciais de escala no Dashboard PF; **substituídas e superadas conjuntamente pelo ensaio mais restritivo de 200%** registrado nas capturas AFTER correspondentes em `b2/android/` (`android_pixel8_mob-b2_dashboard_pf_200.png`, `android_pixel8_mob-b2_dashboard_pf_200_scrolled.png` e `android_pixel8_mob-b2_dashboard_pf_200_bottom.png`), complementadas pelo reflow das abas (`android_pixel8_mob-b2_accounts_pf_200.png`, `android_pixel8_mob-b2_agreements_pf_200.png` e `android_pixel8_mob-b2_payables_pf_200.png`).
+3. **Validação de Reflow e Correção (AFTER — 16 capturas atuais e válidas):**
+   - *Android Pixel 8 (6 capturas em `b2/android/`):* `android_pixel8_mob-b2_accounts_pf_200.png`, `android_pixel8_mob-b2_agreements_pf_200.png`, `android_pixel8_mob-b2_dashboard_pf_200.png`, `android_pixel8_mob-b2_dashboard_pf_200_bottom.png`, `android_pixel8_mob-b2_dashboard_pf_200_scrolled.png`, `android_pixel8_mob-b2_payables_pf_200.png`, comprovando reflow completo e ausência de erros visuais em 200%.
+   - *iOS iPhone 17 / iPhone 17e (10 capturas em `b2/ios/`):* `ios_iphone17_mob-b2_accounts_pf_100.png`, `ios_iphone17_mob-b2_accounts_pj_100.png`, `ios_iphone17_mob-b2_dashboard_pf_dark_100.png`, `ios_iphone17_mob-b2_payables_pf_100.png`, `ios_iphone17_mob-b2_payables_pj_100.png`, `ios_iphone17e_mob-b2_accounts_after_200.png`, `ios_iphone17e_mob-b2_agreements_after_200.png`, `ios_iphone17e_mob-b2_dashboard_after_200.png`, `ios_iphone17e_mob-b2_dashboard_light_100.png`, `ios_iphone17e_mob-b2_payables_after_200.png`, atestando a correção dos transbordamentos anteriores.
+
+### Homologação Remota na CI (GitHub Actions CI #23, Run ID `39365113034`)
+
+- **Execução Geral:** [Run 39365113034](https://github.com/jeannlucas/bigdevz-finance/actions/runs/39365113034)
+- **Commit Validado:** `da8545fdfef934c91c0ca764023043bf80a040e0`
+- **Branch:** `dev` (disparo via `push`)
+- **Status Geral:** **`success` (PASS)**
+- **Job `api` ([ID 118440059583](https://github.com/jeannlucas/bigdevz-finance/actions/runs/39365113034/job/118440059583)):** Concluído com sucesso em 41 segundos.
+  - Setup do container PostgreSQL 18-alpine na porta 5440.
+  - Testes de Domínio PHP (`php tests/domain.php`): 13 testes aprovados (0 falhas).
+  - Pint (`vendor/bin/pint --test`): 100% conforme.
+  - Testes Laravel em PostgreSQL Real (`php artisan test`): 84 testes aprovados, 1.139 asserções (0 falhas).
+- **Job `mobile` ([ID 118440059790](https://github.com/jeannlucas/bigdevz-finance/actions/runs/39365113034/job/118440059790)):** Concluído com sucesso em 2 minutos e 20 segundos.
+  - Instalação das dependências com verificação estrita de lockfile (`flutter pub get --enforce-lockfile`).
+  - Formatação Dart (`dart format --output=none --set-exit-if-changed`): 80 arquivos verificados, 0 modificados (0.69s).
+  - Análise Estática Flutter (`flutter analyze`): 0 problemas encontrados (`No issues found!`, 14.2s).
+  - Suíte de Testes Flutter (`flutter test`): 162 testes aprovados (0 falhas, 48s).
+
+### Limitações Técnicas e Homologações Restantes
+
+- **Ambiente de Ensaios:** O reflow responsivo foi verificado em simuladores iOS (iPhone 17 / iPhone 17e) e emulador Android (Pixel 8) nas escalas ensaiadas (100%, 150%, 200%).
+- **Ausência de Build Nativo na CI Linux:** O workflow do GitHub Actions em runner Ubuntu valida análise estática e suíte de testes unitários/widget em Dart, mas não compila APK/IPA nem executa testes emulados Android ou simulados iOS na nuvem.
+- **Certificação de Acessibilidade:** Os testes atestam ausência de overflow e semântica estrutural correta nas condições ensaiadas, mas **não equivalem a uma certificação formal de conformidade integral WCAG 2.1 AA/AAA**.
+- **Hardware Físico:** A validação interativa com leitores de tela em aparelhos físicos reais (TalkBack em Android e VoiceOver em iPhone) permanece pendente de homologação manual.
+- **Portão 2 Financeiro:** Nenhuma operação financeira com escrita foi executada; os fluxos de escrita permanecem sob bloqueio operacional aguardando autorização humana soberana.
+- **Estado Operacional Documental:** **`DOCUMENTACAO_EDITADA_AGUARDANDO_APROVACAO_DO_DIFF`** (Checkpoint `FINANCE-DOC-01.B.5-B`). Três documentos editados localmente; zero arquivos em staging; commit e push documentais pendentes.

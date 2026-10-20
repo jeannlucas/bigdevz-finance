@@ -18,7 +18,7 @@
 | Simulador iOS contra a API real | Validado |
 | iPhone físico | Validado (teste de integração e roteiro manual) |
 | Android | Validado em emulador (API 36, arm64); aparelho não testado |
-| Repositório público e CI | Publicado; CI verde em `dev` e `main` |
+| Repositório público e CI | Publicado; CI verde em `dev` (Run ID 39365113034: 162 testes mobile e 84 testes de API) e `main` |
 | Confirmação do recebimento (revisão, tentativa incerta travada até verificar) | Concluída e integrada na `main` via PR #1; validada no Simulador iOS |
 | Estorno e correção de recebimentos, decisões idempotentes persistidas | Concluídos e integrados na `main` via PR #1 (decisão 0004); validados no Simulador iOS |
 | Editar, corrigir abertura e arquivar contas | Concluídos e integrados na `main` via PR #1 (decisão 0005); validados no Simulador iOS |
@@ -26,12 +26,13 @@
 | A pagar (avulsas, parceladas, recorrentes, faturas pelo total, pagamentos, estornos, correções) | Concluído e integrado na `main` via PR #1 (decisão 0006); validado no Simulador iOS |
 | Redesenho fintech e design system da marca | Concluído e integrado na `main` via PR #1; cartões PF/PJ, tokens e temas claro/escuro |
 | Acessibilidade do formulário e seletor adaptativo | Concluído e integrado na `main` via PR #1; validado em 150%/200%, rótulos multilinhas e SafeArea |
-| Catálogo de evidências visuais oficiais | 15 capturas reais em `prints/` geradas e auditadas; `simulator_state.png` histórico em `design/screenshots/` |
+| Acessibilidade e reflow responsivo (Contas, A receber e A pagar) | Homologado em simuladores iOS (iPhone 17/17e) e emulador Android (Pixel 8) em 100%, 150% e 200%; validado na CI (162 testes); pendente de leitores de tela em dispositivo físico |
+| Catálogo de evidências visuais | 15 capturas oficiais versionadas em `prints/` ([docs/screenshots.md](docs/screenshots.md)); 76 evidências locais do ciclo MOB-01 (BEFORE/AFTER) preservadas fora do Git em `prints/finance-mob-01/` |
 | Hugeicons (Stroke Rounded, gratuitos) | Integrados e em uso no app; referência https://hugeicons.com/icons/stroke-rounded |
 | Dashboard modernizado com Hero Card e ações rápidas | Concluído e homologado em iOS e Android; isolamento PF/PJ e métricas financeiras |
 | Central de Configurações e temas (Automático, Claro, Escuro) | Concluído com persistência segura de preferências no dispositivo |
-| Privacidade financeira expandida e mascaramento de valores | Concluído no Dashboard, Contas, A receber e A pagar; acessibilidade com Semantics |
-| Homologação nativa cruzada Android (API 36) e iOS (iPhone 17 Pro) | Validada tecnicamente com 20 capturas no catálogo de evidências |
+| Privacidade financeira expandida e mascaramento semântico de valores | Concluído no Dashboard, Contas, A receber e A pagar via MoneyText; acessibilidade semântica com `excludeSemantics` validada no AccountCard (Contas); 162 testes na CI; pendente de hardware físico |
+| Homologação nativa cruzada Android (API 36) e iOS (iPhone 17 Pro) | Validada tecnicamente com catálogo de evidências visuais |
 
 Estado detalhado, comandos executados e evidências: `docs/ai/HANDOFF.md`.
 Desenvolvimento segue no Simulador iOS e Emulador Android; iPhone físico só quando o simulador
