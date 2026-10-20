@@ -38,9 +38,15 @@ class AccountCard extends StatelessWidget {
       isArchived: isArchived,
     );
 
+    final semanticLabel = obscureBalance
+        ? 'Conta ${account.name}, saldo oculto'
+        : 'Conta ${account.name}, saldo ${account.balance.brl}';
+
     return Semantics(
-      label: 'Conta ${account.name}, saldo ${account.balance.brl}',
+      label: semanticLabel,
       button: onTap != null,
+      onTap: onTap,
+      excludeSemantics: true,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -97,7 +103,8 @@ class AccountCard extends StatelessWidget {
                     color: Colors.white,
                   ),
 
-                  // Conteúdo do cartão
+                  // Conteúdo do cartão (nós semânticos descendentes excluídos nativamente
+                  // pelo excludeSemantics: true no nó pai)
                   Padding(
                     padding: const EdgeInsets.all(AppTokens.p20),
                     child: Column(
@@ -129,18 +136,16 @@ class AccountCard extends StatelessWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  RichText(
+                                  Text(
+                                    account.name,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    text: TextSpan(
-                                      text: account.name,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: -0.2,
-                                        fontFamily: 'Inter',
-                                      ),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: -0.2,
+                                      fontFamily: 'Inter',
                                     ),
                                   ),
                                   const SizedBox(height: 2),
@@ -188,8 +193,6 @@ class AccountCard extends StatelessWidget {
                           ],
                         ),
 
-                        const SizedBox(height: 18),
-
                         // Bloco central: Saldo atual
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -233,8 +236,6 @@ class AccountCard extends StatelessWidget {
                               ),
                           ],
                         ),
-
-                        const SizedBox(height: 16),
 
                         // Rodapé: Somente a assinatura institucional da marca (data de abertura preservada no detalhe da conta)
                         const Row(

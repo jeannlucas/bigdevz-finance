@@ -117,9 +117,12 @@ class _AgreementsTabState extends State<AgreementsTab> {
     final theme = Theme.of(context);
     final indicatorColor = theme.scaffoldBackgroundColor;
 
+    final textScaler = MediaQuery.textScalerOf(context);
+    final chipsHeight = (44.0 * textScaler.scale(1.0) + 8.0).clamp(52.0, 96.0);
+
     return Column(
       children: [
-        // Cabeçalho da aba Contas a receber com ação principal
+        // Cabeçalho da aba Contas a receber com ação principal (layout adaptativo)
         Padding(
           padding: const EdgeInsets.fromLTRB(
             AppTokens.p16,
@@ -127,45 +130,49 @@ class _AgreementsTabState extends State<AgreementsTab> {
             AppTokens.p16,
             0,
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
+          child: SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: AppTokens.p12,
+              runSpacing: AppTokens.p8,
+              children: [
+                Text(
                   'Contas a receber',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.2,
                   ),
                 ),
-              ),
-              FilledButton.tonalIcon(
-                onPressed: () => Navigator.of(context).push(
-                  spaceRoute(
-                    isPf: space.isPf,
-                    child: AgreementFormScreen(space: space),
+                FilledButton.tonalIcon(
+                  onPressed: () => Navigator.of(context).push(
+                    spaceRoute(
+                      isPf: space.isPf,
+                      child: AgreementFormScreen(space: space),
+                    ),
+                  ),
+                  icon: const AppIcon(AppIcons.add, size: 18),
+                  label: const Text('Nova conta a receber'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 38),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-                icon: const AppIcon(AppIcons.add, size: 18),
-                label: const Text('Nova conta a receber'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(0, 38),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         // Barra de filtros com ChoiceChip e indicador de rolagem fluído e sutil
         SizedBox(
-          height: 52,
+          height: chipsHeight,
           child: Stack(
             children: [
               ListView(
@@ -405,49 +412,49 @@ class AgreementCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
 
-              // Bloco de Valores: Restante a receber como Herói principal
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
+              // Bloco de Valores: Restante a receber como Herói principal (layout adaptativo)
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.end,
+                spacing: AppTokens.p12,
+                runSpacing: AppTokens.p8,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _primaryValueLabel(activeFilter),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color:
-                                activeFilter == 'overdue' &&
-                                    filterMatchingAmount > 0
-                                ? AppTokens.expense
-                                : theme.colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w500,
-                          ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _primaryValueLabel(activeFilter),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color:
+                              activeFilter == 'overdue' &&
+                                  filterMatchingAmount > 0
+                              ? AppTokens.expense
+                              : theme.colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w500,
                         ),
-                        const SizedBox(height: 2),
-                        MoneyText(
-                          _primaryValue(
-                            agreement,
-                            activeFilter,
-                            filterMatchingAmount,
-                          ),
-                          obscure: obscure,
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.4,
-                            color:
-                                activeFilter == 'overdue' &&
-                                    filterMatchingAmount > 0
-                                ? AppTokens.expense
-                                : null,
-                          ),
+                      ),
+                      const SizedBox(height: 2),
+                      MoneyText(
+                        _primaryValue(
+                          agreement,
+                          activeFilter,
+                          filterMatchingAmount,
                         ),
-                      ],
-                    ),
+                        obscure: obscure,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.4,
+                          color:
+                              activeFilter == 'overdue' &&
+                                  filterMatchingAmount > 0
+                              ? AppTokens.expense
+                              : null,
+                        ),
+                      ),
+                    ],
                   ),
                   Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         _secondaryValueLabel(activeFilter),
@@ -494,14 +501,18 @@ class AgreementCard extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Recebido: ${obscure ? '••••••' : agreement.received.brl}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppTokens.income,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 11,
+                      Expanded(
+                        child: Text(
+                          'Recebido: ${obscure ? '••••••' : agreement.received.brl}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppTokens.income,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Text(
                         '${(progress * 100).toInt()}%',
                         style: theme.textTheme.bodySmall?.copyWith(

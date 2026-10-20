@@ -59,6 +59,8 @@ class _AccountsTabState extends State<AccountsTab> {
 
         // Lista para os cartões de topo (prioriza ativas, inclui arquivadas se não houver ativas)
         final cardList = active.isNotEmpty ? active : accounts;
+        final textScaler = MediaQuery.textScalerOf(context);
+        final cardCarouselHeight = textScaler.scale(210.0).clamp(210.0, 440.0);
 
         return RefreshIndicator(
           onRefresh: refresh,
@@ -71,10 +73,15 @@ class _AccountsTabState extends State<AccountsTab> {
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppTokens.p16,
                   ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Wrap(
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: AppTokens.p12,
+                      runSpacing: AppTokens.p8,
+                      children: [
+                        Wrap(
                           crossAxisAlignment: WrapCrossAlignment.center,
                           spacing: 8,
                           children: [
@@ -95,35 +102,34 @@ class _AccountsTabState extends State<AccountsTab> {
                               ),
                           ],
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      FilledButton.tonalIcon(
-                        onPressed: () => Navigator.of(context).push(
-                          spaceRoute(
-                            isPf: space.isPf,
-                            child: AccountFormScreen(space: space),
+                        FilledButton.tonalIcon(
+                          onPressed: () => Navigator.of(context).push(
+                            spaceRoute(
+                              isPf: space.isPf,
+                              child: AccountFormScreen(space: space),
+                            ),
+                          ),
+                          icon: const AppIcon(AppIcons.add, size: 16),
+                          label: const Text('Nova conta'),
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size(0, 36),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            textStyle: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                        icon: const AppIcon(AppIcons.add, size: 16),
-                        label: const Text('Nova conta'),
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size(0, 36),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          textStyle: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
-                  height: 200,
+                  height: cardCarouselHeight,
                   child: PageView.builder(
                     controller: _pageController,
                     itemCount: cardList.length,
@@ -296,43 +302,123 @@ class _AccountTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isScaled = MediaQuery.textScalerOf(context).scale(1.0) >= 1.5;
+
     return Card(
       key: ValueKey('account-${account.id}'),
-      child: ListTile(
+      child: InkWell(
         onTap: () => Navigator.of(context).push(
           spaceRoute(
             isPf: space.isPf,
             child: AccountScreen(space: space, accountId: account.id),
           ),
         ),
-        leading: CircleAvatar(
-          backgroundColor: account.isArchived
-              ? theme.colorScheme.surfaceContainerHighest
-              : theme.colorScheme.primaryContainer,
-          child: AppIcon(
-            account.isArchived ? AppIcons.archive : AppIcons.accounts,
-            color: account.isArchived
-                ? theme.colorScheme.onSurfaceVariant
-                : theme.colorScheme.onPrimaryContainer,
-            size: 20,
-          ),
-        ),
-        title: Text(
-          account.name,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: Text(
-          account.isArchived ? 'Conta arquivada' : 'Saldo disponível',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        trailing: MoneyText(
-          account.balance,
-          obscure: obscure,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
+        borderRadius: BorderRadius.circular(AppTokens.r12),
+        child: Padding(
+          padding: const EdgeInsets.all(AppTokens.p16),
+          child: isScaled
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          backgroundColor: account.isArchived
+                              ? theme.colorScheme.surfaceContainerHighest
+                              : theme.colorScheme.primaryContainer,
+                          child: AppIcon(
+                            account.isArchived
+                                ? AppIcons.archive
+                                : AppIcons.accounts,
+                            color: account.isArchived
+                                ? theme.colorScheme.onSurfaceVariant
+                                : theme.colorScheme.onPrimaryContainer,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: AppTokens.p12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                account.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                account.isArchived
+                                    ? 'Conta arquivada'
+                                    : 'Saldo disponível',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppTokens.p8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: MoneyText(
+                        account.balance,
+                        obscure: obscure,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: account.isArchived
+                          ? theme.colorScheme.surfaceContainerHighest
+                          : theme.colorScheme.primaryContainer,
+                      child: AppIcon(
+                        account.isArchived
+                            ? AppIcons.archive
+                            : AppIcons.accounts,
+                        color: account.isArchived
+                            ? theme.colorScheme.onSurfaceVariant
+                            : theme.colorScheme.onPrimaryContainer,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: AppTokens.p12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            account.name,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          Text(
+                            account.isArchived
+                                ? 'Conta arquivada'
+                                : 'Saldo disponível',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: AppTokens.p8),
+                    MoneyText(
+                      account.balance,
+                      obscure: obscure,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
         ),
       ),
     );

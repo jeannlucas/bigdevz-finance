@@ -130,8 +130,9 @@ void main() {
       WidgetTester tester,
       Widget home, {
       int userId = 1,
+      Size? physicalSize,
     }) async {
-      tester.view.physicalSize = const Size(1170, 2532);
+      tester.view.physicalSize = physicalSize ?? const Size(1170, 2532);
       tester.view.devicePixelRatio = 3;
       addTearDown(tester.view.reset);
       final client = api();
@@ -959,5 +960,48 @@ void main() {
         expect(find.text('150,00'), findsOneWidget);
       },
     );
+
+    const widths = <double>[320, 375, 402];
+    const scales = <double>[1.0, 1.5, 2.0];
+
+    for (final width in widths) {
+      for (final scale in scales) {
+        testWidgets(
+          'PayablesTab: reflow ${width.toInt()}pt escala ${(scale * 100).toInt()}% sem overflow',
+          (tester) async {
+            fake.payables.clear();
+            fake.payables[40] = FakePayable(40, 'Serviço de Nuvem AWS', 35000);
+
+            tester.view.physicalSize = Size(width * 3, 812 * 3);
+            tester.view.devicePixelRatio = 3;
+            tester.platformDispatcher.textScaleFactorTestValue = scale;
+            addTearDown(() {
+              tester.view.reset();
+              tester.platformDispatcher.clearTextScaleFactorTestValue();
+            });
+
+            await pump(
+              tester,
+              const Scaffold(body: PayablesTab(space: pf)),
+              physicalSize: Size(width * 3, 812 * 3),
+            );
+            await tester.pumpAndSettle();
+
+            expect(tester.takeException(), isNull);
+            expect(find.text('A pagar'), findsOneWidget);
+            expect(find.text('Nova conta a pagar'), findsOneWidget);
+            expect(
+              find.widgetWithText(ChoiceChip, 'Em aberto'),
+              findsOneWidget,
+            );
+
+            // Toca no botão de nova conta sem erro
+            await tester.tap(find.text('Nova conta a pagar'));
+            await tester.pumpAndSettle();
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
   });
 }

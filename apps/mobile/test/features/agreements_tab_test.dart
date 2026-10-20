@@ -71,11 +71,12 @@ void main() {
     required List<Map<String, dynamic>> agreements,
     int? totalCount,
     String initialFilter = 'open',
+    Size? physicalSize,
     Future<http.Response> Function(http.Request)? overrideHandler,
   }) async {
     requests = [];
     storage = MemorySessionStorage();
-    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.physicalSize = physicalSize ?? const Size(1170, 2532);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
 
@@ -258,5 +259,56 @@ void main() {
     expect(find.text('Parcela 1 vencida'), findsOneWidget);
     expect(find.text('Vencido no filtro'), findsOneWidget);
     expect(find.text('Restante total'), findsOneWidget);
+  });
+
+  group('Acessibilidade e Reflow em Contas a Receber (AC-MOB-001, 004, 005, 006)', () {
+    const viewports = <double>[320, 375, 402];
+    const scales = <double>[1.0, 1.5, 2.0];
+
+    for (final width in viewports) {
+      for (final scale in scales) {
+        testWidgets(
+          'largura ${width.toInt()}pt com escala ${(scale * 100).toInt()}%: sem overflow e ações funcionais',
+          (tester) async {
+            tester.view.physicalSize = Size(width * 3, 812 * 3);
+            tester.view.devicePixelRatio = 3;
+            tester.platformDispatcher.textScaleFactorTestValue = scale;
+            addTearDown(() {
+              tester.view.reset();
+              tester.platformDispatcher.clearTextScaleFactorTestValue();
+            });
+
+            await pumpTab(
+              tester,
+              physicalSize: Size(width * 3, 812 * 3),
+              agreements: [
+                agreementJson(
+                  id: 1,
+                  description: 'Venda de Software Enterprise',
+                  installments: [
+                    installmentJson(
+                      id: 10,
+                      number: 1,
+                      overdue: false,
+                      remaining: '1500.00',
+                    ),
+                  ],
+                ),
+              ],
+            );
+
+            expect(tester.takeException(), isNull);
+            expect(find.text('Contas a receber'), findsOneWidget);
+            expect(find.text('Nova conta a receber'), findsOneWidget);
+            expect(find.text('Em aberto'), findsOneWidget);
+
+            // Toca no botão de nova conta sem erro
+            await tester.tap(find.text('Nova conta a receber'));
+            await tester.pumpAndSettle();
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
   });
 }

@@ -64,6 +64,9 @@ class _PayablesTabState extends State<PayablesTab> {
   Widget build(BuildContext context) {
     final space = widget.space;
     final pending = _pending;
+    final textScaler = MediaQuery.textScalerOf(context);
+    final chipsHeight = (44.0 * textScaler.scale(1.0) + 8.0).clamp(52.0, 96.0);
+
     return Column(
       children: [
         if (pending != null)
@@ -85,7 +88,7 @@ class _PayablesTabState extends State<PayablesTab> {
               },
             ),
           ),
-        // Cabeçalho da aba A pagar com ação principal
+        // Cabeçalho da aba A pagar com ação principal (layout adaptativo)
         Padding(
           padding: const EdgeInsets.fromLTRB(
             AppTokens.p16,
@@ -93,44 +96,48 @@ class _PayablesTabState extends State<PayablesTab> {
             AppTokens.p16,
             0,
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
+          child: SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: AppTokens.p12,
+              runSpacing: AppTokens.p8,
+              children: [
+                Text(
                   'A pagar',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.2,
                   ),
                 ),
-              ),
-              FilledButton.tonalIcon(
-                onPressed: () => Navigator.of(context).push(
-                  spaceRoute(
-                    isPf: space.isPf,
-                    child: PayableFormScreen(space: space),
+                FilledButton.tonalIcon(
+                  onPressed: () => Navigator.of(context).push(
+                    spaceRoute(
+                      isPf: space.isPf,
+                      child: PayableFormScreen(space: space),
+                    ),
+                  ),
+                  icon: const AppIcon(AppIcons.add, size: 18),
+                  label: const Text('Nova conta a pagar'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 38),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-                icon: const AppIcon(AppIcons.add, size: 18),
-                label: const Text('Nova conta a pagar'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(0, 38),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         SizedBox(
-          height: 52,
+          height: chipsHeight,
           child: ListView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(
@@ -305,58 +312,58 @@ class PayableCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
 
-              // Bloco de Valores com destaque fintech
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
+              // Bloco de Valores com destaque fintech adaptativo com Wrap
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.start,
+                spacing: AppTokens.p16,
+                runSpacing: AppTokens.p8,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isPaid
+                            ? 'Total pago'
+                            : isCancelled
+                            ? 'Valor cancelado'
+                            : 'Restante a pagar',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: payable.overdue
+                              ? AppTokens.expense
+                              : theme.colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      if (isAwaiting)
                         Text(
+                          'Valor a informar',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: AppTokens.warning,
+                            letterSpacing: -0.2,
+                          ),
+                        )
+                      else
+                        MoneyText(
                           isPaid
-                              ? 'Total pago'
-                              : isCancelled
-                              ? 'Valor cancelado'
-                              : 'Restante a pagar',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: payable.overdue
-                                ? AppTokens.expense
-                                : theme.colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w500,
+                              ? payable.paid
+                              : (payable.remaining ??
+                                    payable.amount ??
+                                    const Money(0)),
+                          obscure: obscure,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.4,
+                            color: payable.overdue ? AppTokens.expense : null,
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        if (isAwaiting)
-                          Text(
-                            'Valor a informar',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: AppTokens.warning,
-                              letterSpacing: -0.2,
-                            ),
-                          )
-                        else
-                          MoneyText(
-                            isPaid
-                                ? payable.paid
-                                : (payable.remaining ??
-                                      payable.amount ??
-                                      const Money(0)),
-                            obscure: obscure,
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.4,
-                              color: payable.overdue ? AppTokens.expense : null,
-                            ),
-                          ),
-                      ],
-                    ),
+                    ],
                   ),
                   if (isPartial && payable.amount != null) ...[
                     Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Pago líquido',
@@ -380,7 +387,7 @@ class PayableCard extends StatelessWidget {
                       payable.amount != null &&
                       !isAwaiting) ...[
                     Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Valor total',

@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:bigdevz_finance/core/api_client.dart';
 import 'package:bigdevz_finance/core/money.dart';
 import 'package:bigdevz_finance/features/accounts/account.dart';
+import 'package:bigdevz_finance/features/accounts/account_card.dart';
+import 'package:bigdevz_finance/features/accounts/account_screen.dart';
 import 'package:bigdevz_finance/features/accounts/accounts_repository.dart';
 import 'package:bigdevz_finance/features/accounts/accounts_tab.dart';
 import 'package:bigdevz_finance/features/accounts/opening_adjustments.dart';
@@ -168,8 +170,12 @@ void main() {
   });
 
   group('telas', () {
-    Future<void> pump(WidgetTester tester, Widget home) async {
-      tester.view.physicalSize = const Size(1170, 2532);
+    Future<void> pump(
+      WidgetTester tester,
+      Widget home, {
+      Size? physicalSize,
+    }) async {
+      tester.view.physicalSize = physicalSize ?? const Size(1170, 2532);
       tester.view.devicePixelRatio = 3;
       addTearDown(tester.view.reset);
       final client = api();
@@ -421,6 +427,134 @@ void main() {
 
         // Posição Y deve ser idêntica na mesma escala e largura
         expect(posSingle.dy, equals(posMultiple.dy));
+      },
+    );
+
+    testWidgets(
+      'AccountCard: privacidade semântica oculta saldo no leitor de tela quando obscureBalance=true',
+      (tester) async {
+        final account = Account(
+          id: 1,
+          name: 'Nubank Principal',
+          balance: Money.parse('1500.00'),
+          openingBalance: Money.parse('1000.00'),
+          openingBalanceDate: '2026-01-01',
+        );
+
+        // Caso 1: Saldo mascarado (obscureBalance = true)
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: AccountCard(
+                space: pf,
+                account: account,
+                obscureBalance: true,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Nó semântico deve anunciar "saldo oculto" e não o valor real
+        expect(
+          find.bySemanticsLabel('Conta Nubank Principal, saldo oculto'),
+          findsOneWidget,
+        );
+        expect(find.bySemanticsLabel(RegExp(r'1\.500,00')), findsNothing);
+
+        // Caso 2: Saldo visível (obscureBalance = false)
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: AccountCard(
+                space: pf,
+                account: account,
+                obscureBalance: false,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.bySemanticsLabel('Conta Nubank Principal, saldo R\$ 1.500,00'),
+          findsOneWidget,
+        );
+
+        // Caso 3: Ação acessível de toque (onTap) preservada no nó semântico
+        var tapped = false;
+        final semantics = tester.semantics;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: AccountCard(
+                space: pf,
+                account: account,
+                onTap: () => tapped = true,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final nodeFinder = find.bySemanticsLabel(
+          'Conta Nubank Principal, saldo R\$ 1.500,00',
+        );
+        expect(nodeFinder, findsOneWidget);
+        semantics.tap(
+          find.semantics.byLabel('Conta Nubank Principal, saldo R\$ 1.500,00'),
+        );
+        expect(
+          tapped,
+          isTrue,
+          reason: 'SemanticsAction.tap deve disparar o callback onTap do nó acessível',
+        );
+      },
+    );
+
+    const widths = <double>[320, 375, 402];
+    const scales = <double>[1.0, 1.5, 2.0];
+
+    for (final width in widths) {
+      for (final scale in scales) {
+        testWidgets(
+          'AccountsTab: carrossel adaptativo ${width.toInt()}pt escala ${(scale * 100).toInt()}% sem overflow',
+          (tester) async {
+            tester.platformDispatcher.textScaleFactorTestValue = scale;
+            addTearDown(
+              tester.platformDispatcher.clearTextScaleFactorTestValue,
+            );
+            await pump(
+              tester,
+              const AccountsTab(space: pf),
+              physicalSize: Size(width * 3, 812 * 3),
+            );
+            await tester.pumpAndSettle();
+
+            expect(tester.takeException(), isNull);
+            expect(find.text('Carteira de Contas'), findsOneWidget);
+            expect(find.text('Nova conta'), findsOneWidget);
+            expect(find.byType(AccountCard), findsWidgets);
+          },
+        );
+      }
+    }
+
+    testWidgets(
+      'AccountCard no consumidor compartilhado (AccountScreen) sem regressão em 200%',
+      (tester) async {
+        tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await pump(
+          tester,
+          const AccountScreen(space: pf, accountId: 7),
+          physicalSize: const Size(375 * 3, 812 * 3),
+        );
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(find.byType(AccountCard), findsOneWidget);
+        expect(find.text('Saldo disponível'), findsOneWidget);
       },
     );
   });
