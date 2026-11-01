@@ -22,13 +22,16 @@
 
 ## 2. Estado Operacional Atual e Máquina de Estados
 
-- **Estado Operacional:** **`DOCUMENTACAO_EDITADA_AGUARDANDO_APROVACAO_DO_DIFF`** (Checkpoint `FINANCE-DOC-01.B.5-B`).
+- **Estado Operacional:** **`GOV_STANDARDIZED_BACKPRESSURE_GREEN`** (Checkpoint `GOV-01`).
 - **Discriminação de Componentes e Publicação:**
-  - **Código Mobile Flutter:** Publicado na branch `dev` via commit `da8545fdfef934c91c0ca764023043bf80a040e0`.
-  - **CI Remota (GitHub Actions CI #23):** Execução [Run 39365113034](https://github.com/jeannlucas/bigdevz-finance/actions/runs/39365113034) **aprovada** com veredito `success` em ambos os jobs (`api` e `mobile`).
-  - **Documentação do Projeto:** Modificada localmente e saneada nos 3 arquivos autorizados (`docs/ai/HANDOFF.md`, `README.md`, `ROADMAP.md`), aguardando aprovação soberana do diff.
-  - **Commit Documental:** **Pendente** de autorização humana.
-  - **Push Documental:** **Pendente** de autorização humana.
+  - **Governança e Engenharia Oficial:** Padronizada em `AGENTS.md` (Spec-Anchored, Backpressure Pré-Push com `make check`, Governança de Branches `dev`/`main`, Gestão de Portas, Fidelidade à Stack e Handoff Operacional).
+  - **Camada de Especificações L2:** Estruturada em `specs/README.md` e `specs/TEMPLATE.md`, ancorando a especificação `specs/financeiro/financeiro.md`.
+  - **Backpressure Pré-Push Local:** Script `scripts/check.sh` e `make check` espelhando 100% da pipeline do GitHub Actions CI com execução híbrida (PHP host ou container `bigdevz/finance-api:dev`).
+  - **Segurança Docker & .env:** `apps/api/Dockerfile` com multi-stage e `USER appuser`; `.dockerignore` bloqueando `.env*`; `docker-compose.yml` sem senhas utilizáveis embutidas.
+  - **Higienização e Limpeza:** Código morto (`app_components.dart`), planos efêmeros concluídos, resíduos de IA e capturas temporárias excluídos (liberando ~74 MB).
+  - **Integridade da Suíte Local (`make check`):** 100% verde com zero erros (13 testes de domínio, Pint 106 arquivos, Dart format 79 arquivos, Flutter test 162/162, API Laravel 84 testes / 1.139 asserções).
+  - **Commit de Governança:** Autorizado soberanamente por Jeann Lucas.
+  - **Push:** Pendente de autorização humana soberana.
 - **Branch Ativa:** `dev` (HEAD local e remoto `da8545fdfef934c91c0ca764023043bf80a040e0`, perfeitamente alinhados com `origin/dev`).
 - **Branch de Produção:** `origin/main` (`a9e6e8b`); branch local `main` (`42a3e39`, intocada e preservada neste ciclo).
 - **Integridade da Suíte e CI Oficial (GitHub Actions CI #23, Run ID [`39365113034`](https://github.com/jeannlucas/bigdevz-finance/actions/runs/39365113034)):**
@@ -551,3 +554,15 @@ Mantido no diretório local de ensaios `prints/finance-mob-01/` fora do controle
 - **Hardware Físico:** A validação interativa com leitores de tela em aparelhos físicos reais (TalkBack em Android e VoiceOver em iPhone) permanece pendente de homologação manual.
 - **Portão 2 Financeiro:** Nenhuma operação financeira com escrita foi executada; os fluxos de escrita permanecem sob bloqueio operacional aguardando autorização humana soberana.
 - **Estado Operacional Documental:** **`DOCUMENTACAO_EDITADA_AGUARDANDO_APROVACAO_DO_DIFF`** (Checkpoint `FINANCE-DOC-01.B.5-B`). Três documentos editados localmente; zero arquivos em staging; commit e push documentais pendentes.
+
+<!-- bigdevz-cli:start -->
+## Checkpoint automático do CLI
+
+- Data UTC: 2026-10-25T19:08:20.916840+00:00
+- Estado: idle
+- Branch: `dev`
+- Commit: `e8c1603f17e16e9f897ee563f29b2ad8a062121b`
+- Estado dos arquivos: `.git/ia-cli-checkpoint.json` (ou diretório Git do worktree).
+- Este registro não comprova testes nem substitui as decisões e o próximo passo descritos acima.
+- Ao retomar: confira Git, este handoff, processos pendentes e o checkpoint. Não descarte alterações.
+<!-- bigdevz-cli:end -->

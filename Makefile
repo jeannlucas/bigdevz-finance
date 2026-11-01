@@ -1,7 +1,14 @@
-.PHONY: check-environment test-domain up down migrate seed test-api lint-api smoke-api test mobile-deps test-mobile analyze-mobile run-ios run-android build-android-debug
+.PHONY: check check-fast check-environment test-domain up down migrate seed test-api lint-api smoke-api test mobile-deps test-mobile analyze-mobile run-ios run-android build-android-debug
 
 FLUTTER ?= $(shell command -v flutter 2>/dev/null || echo $(HOME)/development/flutter/bin/flutter)
 COMPOSE = docker compose
+
+check:
+	sh scripts/check.sh --full
+
+check-fast:
+	sh scripts/check.sh --fast
+
 
 check-environment:
 	sh scripts/check-environment.sh
