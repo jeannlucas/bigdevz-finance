@@ -15,19 +15,25 @@ class Money {
   factory Money.parse(String value) {
     final match = _api.firstMatch(value);
     if (match == null) throw FormatException('Valor monetário inválido', value);
-    final units = int.tryParse(match.group(2)!);
-    final centsUnit = int.tryParse(match.group(3)!);
-    if (units == null || centsUnit == null) {
+    final unitsStr = match.group(2)!;
+    final centsStr = match.group(3)!;
+    final bigUnits = BigInt.tryParse(unitsStr);
+    final centsUnit = int.tryParse(centsStr);
+    if (bigUnits == null || centsUnit == null) {
       throw FormatException('Valor monetário excede o limite suportado', value);
     }
     final isNeg = match.group(1) == '-';
     // No Dart (64 bits): teto positivo é 9223372036854775807, piso negativo é -9223372036854775808.
+    final maxUnits = BigInt.parse('92233720368547758');
     final maxCentsUnit = isNeg ? 8 : 7;
-    if (units > 92233720368547758 ||
-        (units == 92233720368547758 && centsUnit > maxCentsUnit)) {
+    if (bigUnits > maxUnits ||
+        (bigUnits == maxUnits && centsUnit > maxCentsUnit)) {
       throw FormatException('Valor monetário excede o limite suportado', value);
     }
-    final cents = isNeg ? -units * 100 - centsUnit : units * 100 + centsUnit;
+    final bigCents = isNeg
+        ? -bigUnits * BigInt.from(100) - BigInt.from(centsUnit)
+        : bigUnits * BigInt.from(100) + BigInt.from(centsUnit);
+    final cents = bigCents.toInt();
     return Money(cents);
   }
 

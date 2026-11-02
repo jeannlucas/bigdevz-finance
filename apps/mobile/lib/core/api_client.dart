@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -80,14 +79,17 @@ class ApiClient {
       throw const ApiException(
         'A API demorou para responder. Tente novamente.',
       );
-    } on SocketException {
-      throw const ApiException(
-        'Sem conexão com a API. Verifique a rede e o endereço configurado.',
-      );
     } on http.ClientException {
       throw const ApiException(
         'Sem conexão com a API. Verifique a rede e o endereço configurado.',
       );
+    } on Exception catch (e) {
+      if (e.toString().contains('SocketException')) {
+        throw const ApiException(
+          'Sem conexão com a API. Verifique a rede e o endereço configurado.',
+        );
+      }
+      rethrow;
     }
 
     final decoded = response.body.isEmpty
