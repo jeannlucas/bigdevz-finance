@@ -22,17 +22,15 @@
 
 ## 2. Estado Operacional Atual e Máquina de Estados
 
-- **Estado Operacional:** **`GOV_STANDARDIZED_BACKPRESSURE_GREEN`** (Checkpoint `GOV-01`).
+- **Estado Operacional:** **`HOMOLOGADO_LOCALMENTE_WEB_E_DEV`** (Checkpoint `FINANCE-WEB-01`).
 - **Discriminação de Componentes e Publicação:**
-  - **Governança e Engenharia Oficial:** Padronizada em `AGENTS.md` (Spec-Anchored, Backpressure Pré-Push com `make check`, Governança de Branches `dev`/`main`, Gestão de Portas, Fidelidade à Stack e Handoff Operacional).
-  - **Camada de Especificações L2:** Estruturada em `specs/README.md` e `specs/TEMPLATE.md`, ancorando a especificação `specs/financeiro/financeiro.md`.
-  - **Backpressure Pré-Push Local:** Script `scripts/check.sh` e `make check` espelhando 100% da pipeline do GitHub Actions CI com execução híbrida (PHP host ou container `bigdevz/finance-api:dev`).
-  - **Segurança Docker & .env:** `apps/api/Dockerfile` com multi-stage e `USER appuser`; `.dockerignore` bloqueando `.env*`; `docker-compose.yml` sem senhas utilizáveis embutidas.
-  - **Higienização e Limpeza:** Código morto (`app_components.dart`), planos efêmeros concluídos, resíduos de IA e capturas temporárias excluídos (liberando ~74 MB).
-  - **Integridade da Suíte Local (`make check`):** 100% verde com zero erros (13 testes de domínio, Pint 106 arquivos, Dart format 79 arquivos, Flutter test 162/162, API Laravel 84 testes / 1.139 asserções).
-  - **Commit de Governança:** Autorizado soberanamente por Jeann Lucas.
-  - **Push:** Pendente de autorização humana soberana.
-- **Branch Ativa:** `dev` (HEAD local e remoto `da8545fdfef934c91c0ca764023043bf80a040e0`, perfeitamente alinhados com `origin/dev`).
+  - **Suporte ao Flutter Web:** Scaffolding web (`apps/mobile/web/`) habilitado com favicons, identidade visual e metadados PWA da BigDev.Z.
+  - **Desacoplamento de Plataforma (`api_client.dart`):** Remoção de `dart:io`, tratando erros de rede de forma multiplataforma.
+  - **Compatibilidade JavaScript em `money.dart`:** Utilização de `BigInt` para parsing de limites evitando exceções de literal de 64 bits em `dart2js`.
+  - **Configuração de CORS na API Laravel (`cors.php`):** Habilitação de preflight `OPTIONS` e exposição do cabeçalho `Idempotency-Key`.
+  - **Integridade da Suíte Local (`scripts/check.sh --full`):** 100% verde com zero erros (13 testes de domínio PHP, Pint 108 arquivos, Dart format 80 arquivos, 166 testes Flutter, 86 testes Laravel em PostgreSQL real com 1.146 asserções).
+  - **Commit na `dev`:** `506d187` (`feat(web): adicionar suporte ao flutter web e configuracao de cors`).
+- **Branch Ativa:** `dev` (HEAD local `506d187`, à frente de `origin/dev` por 1 commit aguardando push soberano).
 - **Branch de Produção:** `origin/main` (`a9e6e8b`); branch local `main` (`42a3e39`, intocada e preservada neste ciclo).
 - **Integridade da Suíte e CI Oficial (GitHub Actions CI #23, Run ID [`39365113034`](https://github.com/jeannlucas/bigdevz-finance/actions/runs/39365113034)):**
   - **Mobile Flutter:** 162/162 testes unitários e de widget aprovados (0 falhas); `flutter analyze` 100% verde (0 issues); `dart format` 80 arquivos conformes (0 alterados).
@@ -554,6 +552,33 @@ Mantido no diretório local de ensaios `prints/finance-mob-01/` fora do controle
 - **Hardware Físico:** A validação interativa com leitores de tela em aparelhos físicos reais (TalkBack em Android e VoiceOver em iPhone) permanece pendente de homologação manual.
 - **Portão 2 Financeiro:** Nenhuma operação financeira com escrita foi executada; os fluxos de escrita permanecem sob bloqueio operacional aguardando autorização humana soberana.
 - **Estado Operacional Documental:** **`DOCUMENTACAO_EDITADA_AGUARDANDO_APROVACAO_DO_DIFF`** (Checkpoint `FINANCE-DOC-01.B.5-B`). Três documentos editados localmente; zero arquivos em staging; commit e push documentais pendentes.
+
+---
+
+## 13. Checkpoint FINANCE-WEB-01 (01/11/2026) — Habilitação do Flutter Web, Desacoplamento Multiplataforma e Configuração de CORS
+
+- **Objetivo**: Disponibilização da versão Web do BigDev.Z Finance sem atrito de lojas de aplicativos (Apple App Store / Google Play), reaproveitando 100% da lógica e telas existentes em Flutter, integrando com a mesma API Laravel e banco de dados PostgreSQL.
+- **Modo**: IMPLEMENTAÇÃO CONTROLADA EM BRANCH `feature/flutter-web` + FAST-FORWARD MERGE PARA `dev`.
+- **Branch Ativa**: `dev` (HEAD local: `506d187`).
+- **Arquitetura & Refinamentos Concluídos**:
+  1. **Desacoplamento de Plataforma em `api_client.dart`:** Remoção do `import 'dart:io'` e tratamento multiplataforma de `http.ClientException`, `TimeoutException` e desconexões.
+  2. **Compatibilidade JavaScript com `dart2js` em `money.dart`:** Substituição de literais inteiros de 64 bits (`92233720368547758`) por parsing arbitrário via `BigInt`, eliminando a falha de compilação web e mantendo o limite estrito de R$ 999 bilhões e agregados.
+  3. **Scaffolding Web Flutter (`apps/mobile/web/`):** Configuração de `index.html`, `manifest.json` e favicons oficiais da BigDev.Z com tema Azul Profundo (`#0A192F`).
+  4. **Configuração de CORS na API Laravel (`apps/api/config/cors.php`):** Habilitação de requisições preflight `OPTIONS` e liberação dos cabeçalhos `Idempotency-Key`, `Authorization` e `Content-Type`.
+  5. **Testes Automatizados Adicionados:**
+     - `apps/mobile/test/core/api_client_test.dart`: 4 novos testes unitários (166 testes mobile aprovados).
+     - `apps/api/tests/Feature/CorsPreflightTest.php`: 2 novos testes de integração (86 testes Laravel aprovados).
+- **Resultados das Suítes Automatizadas (`scripts/check.sh --full`):**
+  - Domínio Financeiro PHP: 13 testes aprovados (0 falhas).
+  - Análise Estática Dart: 0 issues (`No issues found!`).
+  - Laravel Pint: 108 arquivos conformes.
+  - Formatação Dart: 80 arquivos conformes.
+  - Suíte Flutter: 166 testes aprovados (0 falhas).
+  - API Laravel em PostgreSQL Real: 86 testes aprovados (1.146 asserções, 0 falhas).
+- **Validação Visual no Navegador:** Aplicativo executado localmente via servidor HTTP na porta 8085 e API na porta 8000, com login, alternância PF/PJ e privacidade demonstrados e aprovados pelo mantenedor Jeann Lucas.
+- **Commit Local Integrado:** `506d187` (`feat(web): adicionar suporte ao flutter web e configuracao de cors`).
+
+---
 
 <!-- bigdevz-cli:start -->
 ## Checkpoint automático do CLI

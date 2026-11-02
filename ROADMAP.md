@@ -4,7 +4,7 @@
 | --- | --- | --- |
 | Preparação | Concluída | Ferramentas, Git, dependências, PostgreSQL isolado e CI |
 | 1 | Concluída | Login, PF/PJ, contas, venda parcelada, recebimentos e saldos |
-| 2 | Em andamento | Concluídos: A pagar, parcelamentos, recorrências, faturas de cartão, estornos e gestão de contas. Próximos: transferências e empréstimos |
+| 2 | Em andamento | Concluídos: A pagar, parcelamentos, recorrências, faturas de cartão, estornos, gestão de contas e versão Web (Flutter Web). Próximos: transferências e empréstimos |
 | 3 | Planejada | Clientes, mensalidades e projetos por etapas |
 | 4 | Planejada | Construção, orçamento, compromissos e comprovantes |
 | 5 | Planejada | Extratos, relatórios, exportação e web refinada |
@@ -33,6 +33,7 @@
 | Central de Configurações e temas (Automático, Claro, Escuro) | Concluído com persistência segura de preferências no dispositivo |
 | Privacidade financeira expandida e mascaramento semântico de valores | Concluído no Dashboard, Contas, A receber e A pagar via MoneyText; acessibilidade semântica com `excludeSemantics` validada no AccountCard (Contas); 162 testes na CI; pendente de hardware físico |
 | Homologação nativa cruzada Android (API 36) e iOS (iPhone 17 Pro) | Validada tecnicamente com catálogo de evidências visuais |
+| Versão Web (Flutter Web + CORS) | Homologada localmente; build web compilado e verificado; compatibilidade total com API e suíte com 166 testes mobile e 86 testes de API |
 
 Estado detalhado, comandos executados e evidências: `docs/ai/HANDOFF.md`.
 Desenvolvimento segue no Simulador iOS e Emulador Android; iPhone físico só quando o simulador
