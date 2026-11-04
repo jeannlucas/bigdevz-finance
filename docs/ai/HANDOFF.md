@@ -22,20 +22,17 @@
 
 ## 2. Estado Operacional Atual e Máquina de Estados
 
-- **Estado Operacional:** **`HOMOLOGADO_LOCALMENTE_WEB_E_DEV`** (Checkpoint `FINANCE-WEB-01`).
+- **Estado Operacional:** **`HOMOLOGADO_LOCALMENTE_TRANSFERENCIAS`** (Checkpoint `FINANCE-TRF-01`).
 - **Discriminação de Componentes e Publicação:**
-  - **Suporte ao Flutter Web:** Scaffolding web (`apps/mobile/web/`) habilitado com favicons, identidade visual e metadados PWA da BigDev.Z.
-  - **Desacoplamento de Plataforma (`api_client.dart`):** Remoção de `dart:io`, tratando erros de rede de forma multiplataforma.
-  - **Compatibilidade JavaScript em `money.dart`:** Utilização de `BigInt` para parsing de limites evitando exceções de literal de 64 bits em `dart2js`.
-  - **Configuração de CORS na API Laravel (`cors.php`):** Habilitação de preflight `OPTIONS` e exposição do cabeçalho `Idempotency-Key`.
-  - **Integridade da Suíte Local (`scripts/check.sh --full`):** 100% verde com zero erros (13 testes de domínio PHP, Pint 108 arquivos, Dart format 80 arquivos, 166 testes Flutter, 86 testes Laravel em PostgreSQL real com 1.146 asserções).
-  - **Commit na `dev`:** `506d187` (`feat(web): adicionar suporte ao flutter web e configuracao de cors`).
-- **Branch Ativa:** `dev` (HEAD local `506d187`, à frente de `origin/dev` por 1 commit aguardando push soberano).
-- **Branch de Produção:** `origin/main` (`a9e6e8b`); branch local `main` (`42a3e39`, intocada e preservada neste ciclo).
-- **Integridade da Suíte e CI Oficial (GitHub Actions CI #23, Run ID [`39365113034`](https://github.com/jeannlucas/bigdevz-finance/actions/runs/39365113034)):**
-  - **Mobile Flutter:** 162/162 testes unitários e de widget aprovados (0 falhas); `flutter analyze` 100% verde (0 issues); `dart format` 80 arquivos conformes (0 alterados).
-  - **API Laravel:** 84 testes aprovados (1.139 asserções, 0 falhas) em PostgreSQL 18 real descartável; `php tests/domain.php` 13/13 testes aprovados (0 falhas); `vendor/bin/pint --test` 100% conforme.
-- **Escopo do Checkpoint:** Retificação final da cronologia dos checkpoints B.4-A e B.4-B, comprovação documental do comando `git checkout` no incidente Apple e gate de autorização humana para o commit documental do manifesto de três arquivos.
+  - **Transferências entre Contas:** Capability completa implementada no backend Laravel e no app Flutter (iOS, Android e Web).
+  - **Atomicidade & Concorrência:** Locks pessimistas ordenados por ID (`min` -> `max`) imunes a *deadlock*, movimentações espelhadas no livro razão (`account_movements`) e idempotência persistida com `Idempotency-Key`.
+  - **Interface Unificada:** `TransferFormScreen` com validações, dropdowns responsivos (`isExpanded: true`) e botão integrado na carteira de contas (`AccountsTab`).
+  - **Integridade da Suíte Local (`scripts/check.sh --full`):** 100% verde com zero erros (13 testes de domínio PHP, Pint 114 arquivos, Dart format 82 arquivos, 171 testes Flutter, 87 testes Laravel em PostgreSQL real com 1.222 asserções).
+  - **Commit na branch `feature/transferencias-entre-contas`:** `0a23756` (`feat(transfers): implementar transferencia entre contas com atomicidade e idempotencia`).
+- **Branch Ativa:** `feature/transferencias-entre-contas` (HEAD local `0a23756`).
+- **Branch de Desenvolvimento:** `dev` (`f3afafb`).
+- **Branch de Produção:** `origin/main` (`a9e6e8b`).
+- **Próximos Passos:** Merge soberano para `dev` e início da especificação/modelagem da capability de **Empréstimos**.
 
 ---
 
@@ -577,6 +574,28 @@ Mantido no diretório local de ensaios `prints/finance-mob-01/` fora do controle
   - API Laravel em PostgreSQL Real: 86 testes aprovados (1.146 asserções, 0 falhas).
 - **Validação Visual no Navegador:** Aplicativo executado localmente via servidor HTTP na porta 8085 e API na porta 8000, com login, alternância PF/PJ e privacidade demonstrados e aprovados pelo mantenedor Jeann Lucas.
 - **Commit Local Integrado:** `506d187` (`feat(web): adicionar suporte ao flutter web e configuracao de cors`).
+
+---
+
+## 14. Checkpoint FINANCE-TRF-01 (04/11/2026) — Transferências entre Contas, Atomicidade Contábil e Suporte Multiplataforma (iOS, Android, Web)
+
+- **Objetivo**: Implementação completa de transferências atômicas entre contas do mesmo espaço financeiro (PF ou PJ), garantindo precisão matemática sem float, locks pessimistas ordenados imunes a *deadlock*, idempotência e interface acessível multiplataforma.
+- **Modo**: IMPLEMENTAÇÃO CONTROLADA EM BRANCH `feature/transferencias-entre-contas`.
+- **Branch Ativa**: `feature/transferencias-entre-contas` (HEAD local: `0a23756`).
+- **Arquitetura & Refinamentos Concluídos**:
+  1. **Migration & Modelagem Contábil:** Criação da tabela `transfers` com restrições `CHECK`, FKs compostas e integração direta a `account_movements` (saída na origem e entrada no destino no mesmo commit) e `idempotency_keys`.
+  2. **Action Atômica `TransferFunds`:** Bloqueio pessimista com `lockForUpdate` ordenado por ID (`min(id)` depois `max(id)`), eliminando qualquer risco de concorrência ou deadlock.
+  3. **Regras de Negócio e Cheque Especial:** Suporte a saldo devedor na conta de origem até `-Money::MAX_CENTS` (conforme Decisão 0006), validação de marco de abertura e rejeição de contas arquivadas ou idênticas (HTTP 422).
+  4. **Proteção Multi-Tenant & IDOR:** Operações em contas alheias respondem estritamente `404 Not Found`.
+  5. **Interface Flutter Unificada:** `TransferFormScreen` com seleção de contas, máscara monetária sem float, dropdowns adaptativos com `isExpanded: true` e atalho integrado em `AccountsTab`.
+- **Resultados das Suítes Automatizadas (`scripts/check.sh --full`):**
+  - Domínio Financeiro PHP: 13 testes aprovados (0 falhas).
+  - Análise Estática Dart: 0 issues (`No issues found!`).
+  - Laravel Pint: 114 arquivos conformes (0 issues).
+  - Formatação Dart: 82 arquivos conformes (0 pendências).
+  - Suíte Flutter: 171 testes aprovados (0 falhas).
+  - API Laravel em PostgreSQL Real: 87 testes aprovados (1.222 asserções, 0 falhas).
+- **Commit Local Criado:** `0a23756` (`feat(transfers): implementar transferencia entre contas com atomicidade e idempotencia`).
 
 ---
 
