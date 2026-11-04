@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\ReceiptController;
 use App\Http\Controllers\Api\ReceiptReversalController;
 use App\Http\Controllers\Api\RecurrenceController;
 use App\Http\Controllers\Api\SpaceController;
+use App\Http\Controllers\Api\TransferController;
 use Illuminate\Support\Facades\Route;
 
 // IDs são numéricos e cabem em BIGINT; o resto vira 404 antes do banco.
@@ -19,7 +20,7 @@ Route::pattern('account', '[1-9][0-9]{0,17}');
 Route::pattern('agreement', '[1-9][0-9]{0,17}');
 Route::pattern('installment', '[1-9][0-9]{0,17}');
 Route::pattern('receipt', '[1-9][0-9]{0,17}');
-foreach (['payable', 'payment', 'recurrence', 'card'] as $parameter) {
+foreach (['payable', 'payment', 'recurrence', 'card', 'transfer'] as $parameter) {
     Route::pattern($parameter, '[1-9][0-9]{0,17}');
 }
 
@@ -39,6 +40,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/accounts/{account}/archive', [AccountController::class, 'archive']);
         Route::post('/accounts/{account}/unarchive', [AccountController::class, 'unarchive']);
         Route::post('/accounts/{account}/opening-adjustment', [AccountController::class, 'adjustOpening']);
+        Route::get('/transfers', [TransferController::class, 'index']);
+        Route::post('/transfers', [TransferController::class, 'store']);
+        Route::get('/transfers/{transfer}', [TransferController::class, 'show']);
         Route::get('/agreements', [AgreementController::class, 'index']);
         Route::post('/agreements', [AgreementController::class, 'store']);
         Route::get('/agreements/{agreement}', [AgreementController::class, 'show']);

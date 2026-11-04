@@ -8,6 +8,7 @@ import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import '../auth/auth_models.dart';
 import '../settings/preferences_controller.dart';
+import '../transfers/transfer_form_screen.dart';
 import 'account.dart';
 import 'account_card.dart';
 import 'account_form_screen.dart';
@@ -102,26 +103,63 @@ class _AccountsTabState extends State<AccountsTab> {
                               ),
                           ],
                         ),
-                        FilledButton.tonalIcon(
-                          onPressed: () => Navigator.of(context).push(
-                            spaceRoute(
-                              isPf: space.isPf,
-                              child: AccountFormScreen(space: space),
+                        Wrap(
+                          spacing: AppTokens.p8,
+                          runSpacing: AppTokens.p8,
+                          children: [
+                            if (active.length >= 2)
+                              FilledButton.tonalIcon(
+                                key: const ValueKey(
+                                  'accounts_tab_transfer_button',
+                                ),
+                                onPressed: () => Navigator.of(context).push(
+                                  spaceRoute(
+                                    isPf: space.isPf,
+                                    child: TransferFormScreen(
+                                      space: space,
+                                      accounts: accounts,
+                                    ),
+                                  ),
+                                ),
+                                icon: const AppIcon(
+                                  AppIcons.transfer,
+                                  size: 16,
+                                ),
+                                label: const Text('Transferir'),
+                                style: FilledButton.styleFrom(
+                                  minimumSize: const Size(0, 36),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  textStyle: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            FilledButton.tonalIcon(
+                              onPressed: () => Navigator.of(context).push(
+                                spaceRoute(
+                                  isPf: space.isPf,
+                                  child: AccountFormScreen(space: space),
+                                ),
+                              ),
+                              icon: const AppIcon(AppIcons.add, size: 16),
+                              label: const Text('Nova conta'),
+                              style: FilledButton.styleFrom(
+                                minimumSize: const Size(0, 36),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                textStyle: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
-                          ),
-                          icon: const AppIcon(AppIcons.add, size: 16),
-                          label: const Text('Nova conta'),
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size(0, 36),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            textStyle: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                          ],
                         ),
                       ],
                     ),

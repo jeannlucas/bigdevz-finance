@@ -41,10 +41,13 @@ class IdempotentOperations
 
     public const PAYMENT_CORRECTION = 'payment_correction';
 
+    public const TRANSFER = 'transfer';
+
     /** Colunas que apontam o registro criado por uma chave concluída. */
     public const REFS = [
         'receipt_id', 'receipt_reversal_id', 'account_opening_adjustment_id',
         'payable_id', 'payable_plan_id', 'recurrence_id', 'payment_id', 'payment_reversal_id',
+        'transfer_id',
     ];
 
     /** Impressão do conteúdo: operação, alvo (parcela ou recebimento) e campos. */
