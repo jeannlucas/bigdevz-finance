@@ -35,6 +35,7 @@
 | Homologação nativa cruzada Android (API 36) e iOS (iPhone 17 Pro) | Validada tecnicamente com catálogo de evidências visuais |
 | Versão Web (Flutter Web + CORS) | Homologada localmente; build web compilado e verificado; compatibilidade total com API e suíte com 166 testes mobile e 86 testes de API |
 | Transferências entre contas (atômica, sem float, deadlock-free, mobile e web) | Concluído e integrado na dev (checkpoint FINANCE-TRF-01); 171 testes mobile e 87 testes de API |
+| Empréstimos tomados e concedidos (saldo devedor, desembolso atômico, sem float, mobile e web) | Concluído na branch feature/emprestimos (checkpoint FINANCE-EMP-01); 176 testes mobile e 95 testes de API |
 
 Estado detalhado, comandos executados e evidências: `docs/ai/HANDOFF.md`.
 Desenvolvimento segue no Simulador iOS e Emulador Android; iPhone físico só quando o simulador

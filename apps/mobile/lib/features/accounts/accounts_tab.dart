@@ -7,6 +7,7 @@ import '../../ui/app_tokens.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import '../auth/auth_models.dart';
+import '../loans/loans_screen.dart';
 import '../settings/preferences_controller.dart';
 import '../transfers/transfer_form_screen.dart';
 import 'account.dart';
@@ -138,6 +139,28 @@ class _AccountsTabState extends State<AccountsTab> {
                                   ),
                                 ),
                               ),
+                            FilledButton.tonalIcon(
+                              key: const ValueKey('accounts_tab_loans_button'),
+                              onPressed: () => Navigator.of(context).push(
+                                spaceRoute(
+                                  isPf: space.isPf,
+                                  child: LoansScreen(space: space),
+                                ),
+                              ),
+                              icon: const AppIcon(AppIcons.loan, size: 16),
+                              label: const Text('Empréstimos'),
+                              style: FilledButton.styleFrom(
+                                minimumSize: const Size(0, 36),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                textStyle: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
                             FilledButton.tonalIcon(
                               onPressed: () => Navigator.of(context).push(
                                 spaceRoute(

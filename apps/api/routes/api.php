@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AgreementController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CardController;
 use App\Http\Controllers\Api\InstallmentController;
+use App\Http\Controllers\Api\LoanController;
 use App\Http\Controllers\Api\PayableController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ReceiptController;
@@ -43,6 +44,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/transfers', [TransferController::class, 'index']);
         Route::post('/transfers', [TransferController::class, 'store']);
         Route::get('/transfers/{transfer}', [TransferController::class, 'show']);
+        Route::get('/loans', [LoanController::class, 'index']);
+        Route::post('/loans', [LoanController::class, 'store']);
+        Route::get('/loans/{loan}', [LoanController::class, 'show']);
         Route::get('/agreements', [AgreementController::class, 'index']);
         Route::post('/agreements', [AgreementController::class, 'store']);
         Route::get('/agreements/{agreement}', [AgreementController::class, 'show']);

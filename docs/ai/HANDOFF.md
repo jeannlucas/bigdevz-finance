@@ -22,17 +22,23 @@
 
 ## 2. Estado Operacional Atual e Máquina de Estados
 
-- **Estado Operacional:** **`HOMOLOGADO_LOCALMENTE_TRANSFERENCIAS`** (Checkpoint `FINANCE-TRF-01`).
+- **Estado Operacional:** **`HOMOLOGADO_LOCALMENTE_EMPRESTIMOS`** (Checkpoint `FINANCE-EMP-01`).
 - **Discriminação de Componentes e Publicação:**
-  - **Transferências entre Contas:** Capability completa implementada no backend Laravel e no app Flutter (iOS, Android e Web).
-  - **Atomicidade & Concorrência:** Locks pessimistas ordenados por ID (`min` -> `max`) imunes a *deadlock*, movimentações espelhadas no livro razão (`account_movements`) e idempotência persistida com `Idempotency-Key`.
-  - **Interface Unificada:** `TransferFormScreen` com validações, dropdowns responsivos (`isExpanded: true`) e botão integrado na carteira de contas (`AccountsTab`).
-  - **Integridade da Suíte Local (`scripts/check.sh --full`):** 100% verde com zero erros (13 testes de domínio PHP, Pint 114 arquivos, Dart format 82 arquivos, 171 testes Flutter, 87 testes Laravel em PostgreSQL real com 1.222 asserções).
-  - **Commit na branch `feature/transferencias-entre-contas`:** `0a23756` (`feat(transfers): implementar transferencia entre contas com atomicidade e idempotencia`).
-- **Branch Ativa:** `feature/transferencias-entre-contas` (HEAD local `0a23756`).
-- **Branch de Desenvolvimento:** `dev` (`f3afafb`).
-- **Branch de Produção:** `origin/main` (`a9e6e8b`).
-- **Próximos Passos:** Merge soberano para `dev` e início da especificação/modelagem da capability de **Empréstimos**.
+  - **Empréstimos (Tomados e Concedidos):** Capability completa implementada no backend Laravel e no app Flutter (iOS, Android e Web).
+  - **Modelagem Patrimonial:** Entidade `Loan` com classificação bipolar (`taken` / `granted`), integração atômica opcional de desembolso no livro contábil (`account_movements`), e geração nativa de obrigações amortizáveis (`PayablePlan`/`Payable` para tomados; `Agreement`/`Installment` para concedidos).
+  - **Atomicidade & Concorrência:** Locks pessimistas (`lockForUpdate`) na conta de desembolso, validações cronológicas estritas contra `opening_balance_date` e `first_due_date`, proteção IDOR em isolamento multi-tenant (`404`), e idempotência persistida com `Idempotency-Key` (`200` replayed / `409` conflict).
+  - **Interface Unificada:** `LoansScreen` com visual fintech, cards de acompanhamento com badges, barra de progresso, filtros de status/tipo, modal de detalhes completo e formulário `LoanFormScreen` com cálculo em tempo real de juros/encargos e semântica acessível em viewports de 320pt a 200% de escala de texto.
+  - **Integridade da Suíte Local (`scripts/check.sh --full`):** 100% verde com ZERO erros:
+    - 13 testes de domínio PHP puro (precisão monetária, bcadd, arredondamento e datas).
+    - Laravel Pint 120 arquivos aprovados sem violações de estilo.
+    - Análise estática Dart (`flutter analyze`) com ZERO issues.
+    - Formatação Dart 87 arquivos formatados conforme padrão.
+    - 176 testes automatizados Flutter (widgets, fluxos, responsividade e reflow) 100% aprovados.
+    - Suíte completa de integração Laravel em PostgreSQL real (`bigdevz_finance_test`) com 1.355 asserções e 0 falhas.
+- **Branch Ativa:** `feature/emprestimos` (a partir de `dev` em `30de7b9`).
+- **Branch de Desenvolvimento:** `dev` (`30de7b9`).
+- **Branch de Produção:** `main` (`a9e6e8b`).
+- **Próximos Passos:** Homologação humana de Jeann Lucas para commit e merge da branch `feature/emprestimos` na `dev`.
 
 ---
 
