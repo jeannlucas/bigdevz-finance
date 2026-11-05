@@ -22,16 +22,20 @@
 
 ## 2. Estado Operacional Atual e Máquina de Estados
 
-- **Estado Operacional:** **`PRODUCAO_PUBLICADA_LIVE`** (Checkpoint `FINANCE-PROD-01`).
+- **Estado Operacional:** **`DESENVOLVIMENTO_LOCAL_FEATURE`** (Checkpoint `FINANCE-EXECUTIVE-ACCOUNTS-01`, `FINANCE-ACCOUNTS-REDESIGN-01`, `FINANCE-WIZARD-01`, `FINANCE-MODAL-01`, `FINANCE-BANKS-01` e `FINANCE-EXTRATO-01`).
+- **Feature Ativa:** Layout Executivo Financeiro na Carteira de Contas (`AccountsTab` - Opção 2):
+  1. Hero KPI Card no topo com Saldo Total Consolidado em destaque, contagem de contas e ações rápidas (`[Transferir]`, `[+ Nova conta]`).
+  2. Eliminação da redundância de cartões plásticos gigantes no topo, acabando com a sobrecarga vertical em carteiras de 4 a 15+ contas.
+  3. Lista/Tabela analítica de contas como elemento central com badges de logos oficiais dos bancos, tipo de conta (`Corrente`, `Poupança`, etc.) e saldos disponíveis.
+  4. Suíte completa com 187 testes Flutter e 109 testes Laravel passando 100% verde com zero erros.
+- **Ambiente de Desenvolvimento Local:**
+  - API Laravel 13 Docker ativa em `http://127.0.0.1:8000/api`.
+  - PostgreSQL 17 Docker ativo em `127.0.0.1:5440`.
+  - Frontend Flutter Web Server ativo em `http://127.0.0.1:8085`.
 - **Discriminação de Componentes e Publicação:**
   - **Deploy em Produção na VPS (`bigdevz` / `179.198.113.104`):**
-    - Subdomínio `finance.bigdevz.com` configurado com apontamento `A` no HostGator e propagado em DNS autoritativo, Google DNS e Cloudflare.
-    - Certificado SSL Let's Encrypt emitido e instalado automaticamente pelo Caddy.
-    - Frontend Flutter Web SPA em Release servido com HTTPS (`HTTP/2 200`) e fallback de rotas SPA.
-    - Backend Laravel 13 isolado em Docker (`127.0.0.1:8510`) com PostgreSQL 17 dedicado em volume `bigdevz-finance_postgres-data`.
-    - Todas as migrations executadas com sucesso.
-    - Health check de API operacional em `https://finance.bigdevz.com/api/up` (`{"status":"ok"}`).
-- **Branch Ativa:** `dev` (em sincronia com `origin/dev`).
+    - Subdomínio `finance.bigdevz.com` intocado e preservado operacionalmente com SSL válido.
+- **Branch Ativa:** `feature/web-desktop-extrato` (a partir de `dev`).
 - **Branch de Produção:** `main`.
 
 ---

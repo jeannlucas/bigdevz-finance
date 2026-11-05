@@ -15,6 +15,7 @@ import 'features/loans/loans_repository.dart';
 import 'features/payables/payable_creations.dart';
 import 'features/payables/payables_repository.dart';
 import 'features/settings/preferences_controller.dart';
+import 'features/statement/statement_repository.dart';
 import 'features/summary/summary.dart';
 
 /// Monta as dependências do app; os testes trocam cliente HTTP e armazenamento.
@@ -36,6 +37,7 @@ Widget buildApp({
       ),
       Provider(create: (_) => AgreementsRepository(api)),
       Provider(create: (_) => LoansRepository(api)),
+      Provider(create: (_) => StatementRepository(api)),
       Provider(create: (_) => PayablesRepository(api)),
       Provider(
         create: (context) => PayableCreations(

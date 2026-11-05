@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\ReceiptController;
 use App\Http\Controllers\Api\ReceiptReversalController;
 use App\Http\Controllers\Api\RecurrenceController;
 use App\Http\Controllers\Api\SpaceController;
+use App\Http\Controllers\Api\StatementController;
 use App\Http\Controllers\Api\TransferController;
 use Illuminate\Support\Facades\Route;
 
@@ -36,6 +37,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/spaces', [SpaceController::class, 'index']);
     Route::prefix('/spaces/{space}')->group(function () {
         Route::get('/summary', [SpaceController::class, 'summary']);
+        Route::get('/statement', [StatementController::class, 'index']);
         Route::get('/accounts', [AccountController::class, 'index']);
         Route::post('/accounts', [AccountController::class, 'store']);
         Route::get('/accounts/{account}', [AccountController::class, 'show']);

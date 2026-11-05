@@ -6,6 +6,7 @@ import '../../ui/app_brand.dart';
 import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
 import '../../ui/widgets.dart';
+import '../accounts/account_form_screen.dart';
 import '../auth/auth_models.dart';
 import '../settings/preferences_controller.dart';
 import 'summary.dart';
@@ -149,7 +150,13 @@ class _SummaryTabState extends State<SummaryTab> {
                 archivedCount: summary.archivedAccountsCount,
                 isDark: isDark,
                 space: space,
-                onTap: () => widget.onOpenTab(3),
+                onTap: () {
+                  if (summary.accountsCount == 0) {
+                    showAccountFormModal(context, space: space);
+                  } else {
+                    widget.onOpenTab(3);
+                  }
+                },
               ),
               const SizedBox(height: 24),
             ],

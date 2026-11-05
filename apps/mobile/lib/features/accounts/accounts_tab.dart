@@ -7,49 +7,37 @@ import '../../ui/app_tokens.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import '../auth/auth_models.dart';
-import '../loans/loans_screen.dart';
 import '../settings/preferences_controller.dart';
 import '../transfers/transfer_form_screen.dart';
 import 'account.dart';
-import 'account_card.dart';
 import 'account_form_screen.dart';
 import 'account_screen.dart';
 import 'accounts_repository.dart';
+import 'bank_catalog.dart';
 
-/// Carteira de contas do espaço com visual fintech.
-/// Topo: PageView com os cartões em destaque (gradiente, marca-d'água do gorila oficial).
-/// Abaixo: Totalizador consolidado e lista completa de todas as contas ativas e arquivadas.
-class AccountsTab extends StatefulWidget {
+/// Carteira de contas do espaço com layout executivo financeiro (Opção 2).
+/// Topo: Hero KPI com Saldo Total Consolidado, contagem de contas e ações rápidas (Transferir / Nova conta).
+/// Abaixo: Tabela/Lista Inteligente com as logos oficiais dos bancos, tipos de conta e saldos.
+class AccountsTab extends StatelessWidget {
   const AccountsTab({super.key, required this.space});
 
   final Space space;
 
   @override
-  State<AccountsTab> createState() => _AccountsTabState();
-}
-
-class _AccountsTabState extends State<AccountsTab> {
-  int _activeCardIndex = 0;
-  late final PageController _pageController = PageController(
-    viewportFraction: 0.92,
-  );
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final space = widget.space;
     return LoadView<List<Account>>(
       load: () => context.read<AccountsRepository>().list(space.id),
       isEmpty: (accounts) => accounts.isEmpty,
-      empty: (context, _) => const EmptyState(
+      empty: (context, _) => EmptyState(
         icon: AppIcons.accounts,
         title: 'Nenhuma conta neste espaço',
-        message: 'Cadastre uma conta com o saldo inicial e a data de referência. Recebimentos posteriores atualizam o saldo.',
+        message: 'Cadastre uma conta com o saldo inicial e a data de referência. Recebimentos e pagamentos posteriores atualizam o saldo.',
+        action: FilledButton.icon(
+          key: const ValueKey('accounts_empty_create_button'),
+          onPressed: () => showAccountFormModal(context, space: space),
+          icon: const AppIcon(AppIcons.add, size: 18),
+          label: const Text('Cadastrar primeira conta'),
+        ),
       ),
       builder: (context, accounts, refresh) {
         final theme = Theme.of(context);
@@ -59,201 +47,12 @@ class _AccountsTabState extends State<AccountsTab> {
         final archived = accounts.where((a) => a.isArchived).toList();
         final total = Money(accounts.fold(0, (t, a) => t + a.balance.cents));
 
-        // Lista para os cartões de topo (prioriza ativas, inclui arquivadas se não houver ativas)
-        final cardList = active.isNotEmpty ? active : accounts;
-        final textScaler = MediaQuery.textScalerOf(context);
-        final cardCarouselHeight = textScaler.scale(210.0).clamp(210.0, 440.0);
-
         return RefreshIndicator(
           onRefresh: refresh,
           child: ListView(
             padding: const EdgeInsets.fromLTRB(0, AppTokens.p16, 0, 96),
             children: [
-              // CARTEIRA EM DESTAQUE (PAGEVIEW)
-              if (cardList.isNotEmpty) ...[
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppTokens.p16,
-                  ),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: Wrap(
-                      alignment: WrapAlignment.spaceBetween,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: AppTokens.p12,
-                      runSpacing: AppTokens.p8,
-                      children: [
-                        Wrap(
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          spacing: 8,
-                          children: [
-                            Text(
-                              'Carteira de Contas',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: -0.2,
-                              ),
-                            ),
-                            if (cardList.length > 1)
-                              Text(
-                                '${_activeCardIndex + 1} de ${cardList.length}',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                          ],
-                        ),
-                        Wrap(
-                          spacing: AppTokens.p8,
-                          runSpacing: AppTokens.p8,
-                          children: [
-                            if (active.length >= 2)
-                              FilledButton.tonalIcon(
-                                key: const ValueKey(
-                                  'accounts_tab_transfer_button',
-                                ),
-                                onPressed: () => Navigator.of(context).push(
-                                  spaceRoute(
-                                    isPf: space.isPf,
-                                    child: TransferFormScreen(
-                                      space: space,
-                                      accounts: accounts,
-                                    ),
-                                  ),
-                                ),
-                                icon: const AppIcon(
-                                  AppIcons.transfer,
-                                  size: 16,
-                                ),
-                                label: const Text('Transferir'),
-                                style: FilledButton.styleFrom(
-                                  minimumSize: const Size(0, 36),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 6,
-                                  ),
-                                  textStyle: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            FilledButton.tonalIcon(
-                              key: const ValueKey('accounts_tab_loans_button'),
-                              onPressed: () => Navigator.of(context).push(
-                                spaceRoute(
-                                  isPf: space.isPf,
-                                  child: LoansScreen(space: space),
-                                ),
-                              ),
-                              icon: const AppIcon(AppIcons.loan, size: 16),
-                              label: const Text('Empréstimos'),
-                              style: FilledButton.styleFrom(
-                                minimumSize: const Size(0, 36),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
-                                ),
-                                textStyle: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            FilledButton.tonalIcon(
-                              onPressed: () => Navigator.of(context).push(
-                                spaceRoute(
-                                  isPf: space.isPf,
-                                  child: AccountFormScreen(space: space),
-                                ),
-                              ),
-                              icon: const AppIcon(AppIcons.add, size: 16),
-                              label: const Text('Nova conta'),
-                              style: FilledButton.styleFrom(
-                                minimumSize: const Size(0, 36),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
-                                ),
-                                textStyle: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: cardCarouselHeight,
-                  child: PageView.builder(
-                    controller: _pageController,
-                    itemCount: cardList.length,
-                    onPageChanged: (index) {
-                      setState(() => _activeCardIndex = index);
-                    },
-                    itemBuilder: (context, index) {
-                      final item = cardList[index];
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        child: AccountCard(
-                          space: space,
-                          account: item,
-                          isHighlighted: index == _activeCardIndex,
-                          obscureBalance: obscure,
-                          onTap: () => Navigator.of(context).push(
-                            spaceRoute(
-                              isPf: space.isPf,
-                              child: AccountScreen(
-                                space: space,
-                                accountId: item.id,
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                // Área reservada abaixo do cartão (32 pixels lógicos) com indicadores
-                // para listas compactas (<= 6) e privilegiando o indicador textual em listas grandes
-                SizedBox(
-                  height: 32,
-                  child: (cardList.length > 1 && cardList.length <= 6)
-                      ? Center(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: List.generate(
-                              cardList.length,
-                              (i) => AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 3,
-                                ),
-                                width: (i == _activeCardIndex) ? 18 : 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: (i == _activeCardIndex)
-                                      ? theme.colorScheme.primary
-                                      : theme
-                                            .colorScheme
-                                            .surfaceContainerHighest,
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                              ),
-                            ),
-                          ),
-                        )
-                      : null,
-                ),
-              ],
-
-              // TOTALIZADOR CONSOLIDADO
+              // PAINEL EXECUTIVO HERO KPI: SALDO TOTAL CONSOLIDADO E AÇÕES
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppTokens.p16),
                 child: Card(
@@ -262,6 +61,98 @@ class _AccountsTabState extends State<AccountsTab> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Cabeçalho do Card: Ícone, Título e Ações
+                        SizedBox(
+                          width: double.infinity,
+                          child: Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: AppTokens.p12,
+                            runSpacing: AppTokens.p8,
+                            children: [
+                              Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 8,
+                                children: [
+                                  AppIcon(
+                                    AppIcons.accounts,
+                                    size: 20,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                  Text(
+                                    'Carteira de Contas',
+                                    style: theme.textTheme.titleMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: -0.2,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                              Wrap(
+                                spacing: AppTokens.p8,
+                                runSpacing: AppTokens.p8,
+                                children: [
+                                  if (active.length >= 2)
+                                    FilledButton.tonalIcon(
+                                      key: const ValueKey(
+                                        'accounts_tab_transfer_button',
+                                      ),
+                                      onPressed: () =>
+                                          Navigator.of(context).push(
+                                            spaceRoute(
+                                              isPf: space.isPf,
+                                              child: TransferFormScreen(
+                                                space: space,
+                                                accounts: accounts,
+                                              ),
+                                            ),
+                                          ),
+                                      icon: const AppIcon(
+                                        AppIcons.transfer,
+                                        size: 16,
+                                      ),
+                                      label: const Text('Transferir'),
+                                      style: FilledButton.styleFrom(
+                                        minimumSize: const Size(0, 36),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        textStyle: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  FilledButton.icon(
+                                    key: const ValueKey(
+                                      'accounts_tab_new_account_button',
+                                    ),
+                                    onPressed: () => showAccountFormModal(
+                                      context,
+                                      space: space,
+                                    ),
+                                    icon: const AppIcon(AppIcons.add, size: 16),
+                                    label: const Text('Nova conta'),
+                                    style: FilledButton.styleFrom(
+                                      minimumSize: const Size(0, 36),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      textStyle: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                         Text(
                           obscure
                               ? r'Saldo total: R$ ••••••••'
@@ -288,19 +179,36 @@ class _AccountsTabState extends State<AccountsTab> {
 
               const SizedBox(height: 16),
 
-              // LISTA COMPLETA DE CONTAS ATIVAS
+              // LISTA ANALÍTICA COMPLETA DE CONTAS
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppTokens.p16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Todas as contas',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: AppTokens.p8,
+                      runSpacing: AppTokens.p4,
+                      children: [
+                        Text(
+                          'Todas as contas',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: theme.colorScheme.onSurfaceVariant,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                        Text(
+                          '${active.length} ${active.length == 1 ? 'conta' : 'contas'}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
+                    const SizedBox(height: 10),
                     for (final account in active) ...[
                       _AccountTile(
                         space: space,
@@ -311,14 +219,15 @@ class _AccountsTabState extends State<AccountsTab> {
                     ],
                     if (archived.isNotEmpty) ...[
                       const SizedBox(height: 16),
-                      Row(
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
                         children: [
                           const AppIcon(
                             AppIcons.archive,
                             size: 18,
                             color: AppTokens.neutral,
                           ),
-                          const SizedBox(width: 8),
                           Text(
                             'Arquivadas',
                             style: theme.textTheme.titleSmall?.copyWith(
@@ -360,6 +269,71 @@ class _AccountTile extends StatelessWidget {
   final Account account;
   final bool obscure;
 
+  Widget _buildLeading(ThemeData theme) {
+    final bank = BankCatalog.findByAccountName(account.name);
+    if (bank != null) {
+      return Container(
+        width: 44,
+        height: 44,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.all(5),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppTokens.r12),
+          border: Border.all(
+            color: Colors.black.withValues(alpha: 0.08),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Image.asset(
+          bank.assetPath,
+          width: 32,
+          height: 32,
+          fit: BoxFit.contain,
+        ),
+      );
+    }
+
+    return CircleAvatar(
+      radius: 22,
+      backgroundColor: account.isArchived
+          ? theme.colorScheme.surfaceContainerHighest
+          : theme.colorScheme.primaryContainer,
+      child: AppIcon(
+        account.isArchived ? AppIcons.archive : AppIcons.accounts,
+        color: account.isArchived
+            ? theme.colorScheme.onSurfaceVariant
+            : theme.colorScheme.onPrimaryContainer,
+        size: 20,
+      ),
+    );
+  }
+
+  String _formatSubtitle() {
+    if (account.isArchived) return 'Conta arquivada';
+    final lower = account.name.toLowerCase();
+    String? modalidade;
+    if (lower.contains('poupança') || lower.contains('poupanca')) {
+      modalidade = 'Poupança';
+    } else if (lower.contains('salário') || lower.contains('salario')) {
+      modalidade = 'Salário';
+    } else if (lower.contains('investimento') || lower.contains('pagamento')) {
+      modalidade = 'Investimento';
+    } else if (lower.contains('corrente')) {
+      modalidade = 'Corrente';
+    }
+    return modalidade != null
+        ? '$modalidade · Saldo disponível'
+        : 'Saldo disponível';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -383,20 +357,7 @@ class _AccountTile extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        CircleAvatar(
-                          backgroundColor: account.isArchived
-                              ? theme.colorScheme.surfaceContainerHighest
-                              : theme.colorScheme.primaryContainer,
-                          child: AppIcon(
-                            account.isArchived
-                                ? AppIcons.archive
-                                : AppIcons.accounts,
-                            color: account.isArchived
-                                ? theme.colorScheme.onSurfaceVariant
-                                : theme.colorScheme.onPrimaryContainer,
-                            size: 20,
-                          ),
-                        ),
+                        _buildLeading(theme),
                         const SizedBox(width: AppTokens.p12),
                         Expanded(
                           child: Column(
@@ -409,9 +370,7 @@ class _AccountTile extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                account.isArchived
-                                    ? 'Conta arquivada'
-                                    : 'Saldo disponível',
+                                _formatSubtitle(),
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),
@@ -436,20 +395,7 @@ class _AccountTile extends StatelessWidget {
                 )
               : Row(
                   children: [
-                    CircleAvatar(
-                      backgroundColor: account.isArchived
-                          ? theme.colorScheme.surfaceContainerHighest
-                          : theme.colorScheme.primaryContainer,
-                      child: AppIcon(
-                        account.isArchived
-                            ? AppIcons.archive
-                            : AppIcons.accounts,
-                        color: account.isArchived
-                            ? theme.colorScheme.onSurfaceVariant
-                            : theme.colorScheme.onPrimaryContainer,
-                        size: 20,
-                      ),
-                    ),
+                    _buildLeading(theme),
                     const SizedBox(width: AppTokens.p12),
                     Expanded(
                       child: Column(
@@ -460,9 +406,7 @@ class _AccountTile extends StatelessWidget {
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                           Text(
-                            account.isArchived
-                                ? 'Conta arquivada'
-                                : 'Saldo disponível',
+                            _formatSubtitle(),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),

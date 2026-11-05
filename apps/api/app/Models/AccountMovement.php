@@ -31,6 +31,36 @@ class AccountMovement extends Model
         ];
     }
 
+    /** @return BelongsTo<Account, $this> */
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
+    }
+
+    /** @return BelongsTo<Receipt, $this> */
+    public function receipt(): BelongsTo
+    {
+        return $this->belongsTo(Receipt::class);
+    }
+
+    /** @return BelongsTo<ReceiptReversal, $this> */
+    public function receiptReversal(): BelongsTo
+    {
+        return $this->belongsTo(ReceiptReversal::class);
+    }
+
+    /** @return BelongsTo<Payment, $this> */
+    public function payment(): BelongsTo
+    {
+        return $this->belongsTo(Payment::class);
+    }
+
+    /** @return BelongsTo<PaymentReversal, $this> */
+    public function paymentReversal(): BelongsTo
+    {
+        return $this->belongsTo(PaymentReversal::class);
+    }
+
     /** @return BelongsTo<Transfer, $this> */
     public function transfer(): BelongsTo
     {
@@ -41,5 +71,15 @@ class AccountMovement extends Model
     public function loanDisbursement(): BelongsTo
     {
         return $this->belongsTo(Loan::class, 'loan_disbursement_id');
+    }
+
+    public function isCredit(): bool
+    {
+        return $this->amount_cents > 0;
+    }
+
+    public function isDebit(): bool
+    {
+        return $this->amount_cents < 0;
     }
 }
