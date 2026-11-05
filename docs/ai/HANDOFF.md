@@ -22,23 +22,17 @@
 
 ## 2. Estado Operacional Atual e Máquina de Estados
 
-- **Estado Operacional:** **`HOMOLOGADO_LOCALMENTE_EMPRESTIMOS`** (Checkpoint `FINANCE-EMP-01`).
+- **Estado Operacional:** **`PRODUCAO_PUBLICADA_LIVE`** (Checkpoint `FINANCE-PROD-01`).
 - **Discriminação de Componentes e Publicação:**
-  - **Empréstimos (Tomados e Concedidos):** Capability completa implementada no backend Laravel e no app Flutter (iOS, Android e Web).
-  - **Modelagem Patrimonial:** Entidade `Loan` com classificação bipolar (`taken` / `granted`), integração atômica opcional de desembolso no livro contábil (`account_movements`), e geração nativa de obrigações amortizáveis (`PayablePlan`/`Payable` para tomados; `Agreement`/`Installment` para concedidos).
-  - **Atomicidade & Concorrência:** Locks pessimistas (`lockForUpdate`) na conta de desembolso, validações cronológicas estritas contra `opening_balance_date` e `first_due_date`, proteção IDOR em isolamento multi-tenant (`404`), e idempotência persistida com `Idempotency-Key` (`200` replayed / `409` conflict).
-  - **Interface Unificada:** `LoansScreen` com visual fintech, cards de acompanhamento com badges, barra de progresso, filtros de status/tipo, modal de detalhes completo e formulário `LoanFormScreen` com cálculo em tempo real de juros/encargos e semântica acessível em viewports de 320pt a 200% de escala de texto.
-  - **Integridade da Suíte Local (`scripts/check.sh --full`):** 100% verde com ZERO erros:
-    - 13 testes de domínio PHP puro (precisão monetária, bcadd, arredondamento e datas).
-    - Laravel Pint 120 arquivos aprovados sem violações de estilo.
-    - Análise estática Dart (`flutter analyze`) com ZERO issues.
-    - Formatação Dart 87 arquivos formatados conforme padrão.
-    - 176 testes automatizados Flutter (widgets, fluxos, responsividade e reflow) 100% aprovados.
-    - Suíte completa de integração Laravel em PostgreSQL real (`bigdevz_finance_test`) com 1.355 asserções e 0 falhas.
-- **Branch Ativa:** `feature/emprestimos` (a partir de `dev` em `30de7b9`).
-- **Branch de Desenvolvimento:** `dev` (`30de7b9`).
-- **Branch de Produção:** `main` (`a9e6e8b`).
-- **Próximos Passos:** Homologação humana de Jeann Lucas para commit e merge da branch `feature/emprestimos` na `dev`.
+  - **Deploy em Produção na VPS (`bigdevz` / `179.198.113.104`):**
+    - Subdomínio `finance.bigdevz.com` configurado com apontamento `A` no HostGator e propagado em DNS autoritativo, Google DNS e Cloudflare.
+    - Certificado SSL Let's Encrypt emitido e instalado automaticamente pelo Caddy.
+    - Frontend Flutter Web SPA em Release servido com HTTPS (`HTTP/2 200`) e fallback de rotas SPA.
+    - Backend Laravel 13 isolado em Docker (`127.0.0.1:8510`) com PostgreSQL 17 dedicado em volume `bigdevz-finance_postgres-data`.
+    - Todas as migrations executadas com sucesso.
+    - Health check de API operacional em `https://finance.bigdevz.com/api/up` (`{"status":"ok"}`).
+- **Branch Ativa:** `dev` (em sincronia com `origin/dev`).
+- **Branch de Produção:** `main`.
 
 ---
 
@@ -143,10 +137,18 @@ Os comandos reais de verificação aprovados na última auditoria de consolidaç
 
 Roteiro de continuidade operacional para **Google Antigravity** e **OpenAI Codex**:
 
-1. **Staging Seletivo e Commit Local (FINANCE-DOCS-03 — Fase B):** Realizar o staging dos 10 arquivos homologados e criar o commit local com a mensagem imperativa `docs: aprimorar governança open source e política de marca`, mantendo arquivos de ambiente iOS rigorosamente preservados fora do staging.
-2. **Auditoria e Portão de Publicação (FINANCE-DOCS-04):** Submeter o commit criado à autorização do mantenedor para push controlado na branch `dev` e acompanhamento da CI no GitHub Actions.
-3. **Continuidade de Funcionalidades:** Retomada das pendências da aba de Resumo e testes de concorrência com base limpa e governança profissional consolidada.
-4. **Atualização Contínua deste Documento:** Qualquer nova sessão com trabalho material deve encerrar atualizando as seções 2, 4 e 8 deste arquivo [`docs/ai/HANDOFF.md`](HANDOFF.md).
+1. **Proteção Rigorosa do Ambiente Live em Produção (`https://finance.bigdevz.com`):**
+   - Com o BigDev.Z Finance publicado em produção com usuários ativos realizando testes reais, todo novo desenvolvimento DEVE operar sob isolamento estrito:
+     - Criação de branches dedicadas a partir da `dev` (ex: `feature/clientes`, `feature/projetos`).
+     - Zero intervenções manuais ou mutações descontroladas na base de produção da VPS.
+     - Banco de dados local de testes (`bigdevz_finance_test`) estritamente descartável e isolado.
+     - Quality gate determinístico (`scripts/check.sh --full`) obrigatório antes de qualquer solicitação de commit/merge.
+2. **Início da Etapa 3 do Roadmap (Negócio & Clientes):**
+   - Planejamento e especificação (L2 em `specs/clientes/`) para Gestão de Clientes, Contratos/Mensalidades recorrentes e Projetos por etapas.
+3. **Soberania Git Inegociável:**
+   - Nenhum commit, merge ou push ocorre sem autorização prévia, expressa e soberana do mantenedor Jeann Lucas.
+4. **Atualização Contínua deste Documento:**
+   - Manter as seções 2 e checkpoints históricos atualizados a cada novo ciclo de entrega.
 
 
 ## Registro de Homologação — Checkpoint FINANCE-QA-01 (15/10/2026)
@@ -602,6 +604,53 @@ Mantido no diretório local de ensaios `prints/finance-mob-01/` fora do controle
   - Suíte Flutter: 171 testes aprovados (0 falhas).
   - API Laravel em PostgreSQL Real: 87 testes aprovados (1.222 asserções, 0 falhas).
 - **Commit Local Criado:** `0a23756` (`feat(transfers): implementar transferencia entre contas com atomicidade e idempotencia`).
+
+---
+
+## 15. Checkpoint FINANCE-EMP-01 (04/11/2026) — Módulo de Empréstimos Tomados e Concedidos, Desembolso Atômico e Amortização
+
+- **Objetivo**: Implementação completa do módulo de empréstimos tomados e concedidos, com classificação bipolar (`taken` / `granted`), integração contábil atômica de desembolso (`account_movements`) e geração nativa de obrigações amortizáveis (`PayablePlan`/`Payable` para tomados; `Agreement`/`Installment` para concedidos).
+- **Modo**: IMPLEMENTAÇÃO CONTROLADA EM BRANCH `feature/emprestimos` + FAST-FORWARD MERGE PARA `dev`.
+- **Branch Ativa**: `dev` (HEAD local e remoto: `6bf986d`).
+- **Arquitetura & Refinamentos Concluídos**:
+  1. **Modelagem Patrimonial Exata:** Tabela `loans` com chaves estrangeiras compostas `(id, space_id)`, restrições `CHECK` contra valores não positivos ou excedentes a `Money::MAX_CENTS` e flags de desembolso imediato.
+  2. **Atomicidade e Concorrência:** Action `CreateLoan` operando sob transação com locks pessimistas (`lockForUpdate`) na conta bancária de desembolso, garantindo consistência estrita de saldos e auditoria patrimonial.
+  3. **Idempotência Persistida e Proteção IDOR:** Cabeçalho `Idempotency-Key` com deduplicação de requisições (`200` replayed / `409` conflict) e isolamento multi-tenant intransigente (`404 Not Found` para espaços não autorizados).
+  4. **Interface Flutter Multiplataforma (iOS, Android, Web):**
+     - `LoansScreen`: listagem com filtros por status (`active`, `settled`, `cancelled`) e tipo (`taken`, `granted`), cards com barra de progresso de amortização, tags coloridas e modal de detalhes completo.
+     - `LoanFormScreen`: formulário adaptativo com suporte a taxas de juros, multas/encargos, cálculo dinâmico da parcela estimada e validação de acessibilidade em 320pt a 200% de escala de texto.
+  5. **Especificação Permanente:** Documentada e ancorada em `specs/emprestimos/emprestimos.md`.
+- **Resultados das Suítes Automatizadas (`scripts/check.sh --full`):**
+  - Domínio Financeiro PHP: 13 testes aprovados (0 falhas).
+  - Análise Estática Dart: 0 issues (`No issues found!`).
+  - Laravel Pint: 120 arquivos conformes (0 issues).
+  - Formatação Dart: 87 arquivos conformes (0 pendências).
+  - Suíte Flutter: 176 testes aprovados (0 falhas).
+  - API Laravel em PostgreSQL Real: 95 testes aprovados (1.355 asserções, 0 falhas).
+- **Commit Integrado na `dev`:** `6bf986d` (`feat(loans): implementar modulo de emprestimos tomados e concedidos com desembolso e amortizacao`).
+
+---
+
+## 16. Checkpoint FINANCE-PROD-01 (04/11/2026) — Publicação em Produção (Go-Live na VPS), Flutter Web SPA e Health Check
+
+- **Objetivo**: Publicação do BigDev.Z Finance em ambiente de produção na VPS com alta disponibilidade, segurança e monitoramento contínuo.
+- **Ambiente de Produção (VPS `bigdevz` / `179.198.113.104`):**
+  - **Domínio Canônico:** `https://finance.bigdevz.com` com certificado SSL Let's Encrypt gerenciado automaticamente pelo Caddy.
+  - **Frontend:** Flutter Web SPA compilado em Release, servido via HTTP/2 com fallback de rotas SPA.
+  - **Backend:** Laravel 13 em container Docker isolado (`127.0.0.1:8510`) com PHP 8.4 e dependências otimizadas (`config:cache`, `route:cache`).
+  - **Banco de Dados:** PostgreSQL 17 dedicado em volume persistente `bigdevz-finance_postgres-data`.
+- **Infraestrutura e Rotas Adicionadas:**
+  - `GET /api/up`: Endpoint de health check com status HTTP 200 (`{"status":"ok"}`) para sondagem pelo Caddy e ferramentas de monitoramento.
+  - `Artisan user:create`: Comando seguro no `console.php` para provisionamento inicial de usuários sem bypass de hash de senha ou regras de espaço.
+  - `UpHealthCheckTest`: Teste de integração automatizado na suíte de testes da API.
+- **Resultados das Suítes Automatizadas (`scripts/check.sh --full`):**
+  - Domínio Financeiro PHP: 13 testes aprovados (0 falhas).
+  - Análise Estática Dart: 0 issues (`No issues found!`).
+  - Laravel Pint: 121 arquivos conformes (0 issues).
+  - Formatação Dart: 87 arquivos conformes (0 pendências).
+  - Suíte Flutter: 176 testes aprovados (0 falhas).
+  - API Laravel em PostgreSQL Real: 96 testes aprovados (1.357 asserções, 0 falhas).
+- **Estado Operacional:** `PRODUCAO_PUBLICADA_LIVE`. Monitoramento ativo com usuários em fase de testes reais.
 
 ---
 

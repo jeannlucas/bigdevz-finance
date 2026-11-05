@@ -25,6 +25,8 @@ foreach (['payable', 'payment', 'recurrence', 'card', 'transfer'] as $parameter)
     Route::pattern($parameter, '[1-9][0-9]{0,17}');
 }
 
+Route::get('/up', fn () => response()->json(['status' => 'ok']));
+
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
 
 Route::middleware('auth:sanctum')->group(function () {
