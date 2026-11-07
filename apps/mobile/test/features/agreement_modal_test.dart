@@ -122,23 +122,36 @@ void main() {
           return http.Response(jsonEncode(accountsResponse), 200);
         }
         if (request.url.path.contains('/receipts')) {
+          final isSecond =
+              requests.where((r) => r.url.path.contains('/receipts')).length >
+              1;
+          final instId = isSecond ? 102 : 101;
+          final instNum = isSecond ? 2 : 1;
           return http.Response(
             jsonEncode({
               'data': {
                 'receipt': {
-                  'id': 999,
-                  'installment_id': 101,
+                  'id': isSecond ? 1000 : 999,
+                  'installment_id': instId,
                   'account_id': 10,
                   'amount': '1000.00',
                   'received_on': '2026-03-10',
                   'kind': 'pix',
                 },
                 'installment': {
-                  'id': 101,
+                  'id': instId,
+                  'agreement_id': 5,
+                  'number': instNum,
+                  'due_date': '2026-03-10',
+                  'amount': '1000.00',
+                  'received': '1000.00',
                   'remaining': '0.00',
                   'status': 'paid',
+                  'overdue': false,
                 },
+                'agreement': {'remaining': isSecond ? '0.00' : '1000.00'},
                 'account': {'id': 10, 'balance': '2500.00'},
+                'replayed': false,
               },
             }),
             201,
@@ -182,6 +195,111 @@ void main() {
       // Agora deve estar na tela de formulário de baixa dentro do modal
       expect(find.text('Baixar Parcela 1'), findsOneWidget);
       expect(find.text('Confirmar recebimento'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'AgreementActionModal permite selecionar múltiplas parcelas e realizar baixa em lote',
+    (tester) async {
+      tester.view.physicalSize = const Size(1080, 1920);
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.reset);
+
+      final client = MockClient((request) async {
+        requests.add(request);
+        if (request.url.path.contains('/agreements/5')) {
+          return http.Response(jsonEncode(agreementResponse), 200);
+        }
+        if (request.url.path.contains('/accounts')) {
+          return http.Response(jsonEncode(accountsResponse), 200);
+        }
+        if (request.url.path.contains('/receipts')) {
+          final isSecond =
+              requests.where((r) => r.url.path.contains('/receipts')).length >
+              1;
+          final instId = isSecond ? 102 : 101;
+          final instNum = isSecond ? 2 : 1;
+          return http.Response(
+            jsonEncode({
+              'data': {
+                'receipt': {
+                  'id': isSecond ? 1000 : 999,
+                  'installment_id': instId,
+                  'account_id': 10,
+                  'amount': '1000.00',
+                  'received_on': '2026-03-10',
+                  'kind': 'pix',
+                },
+                'installment': {
+                  'id': instId,
+                  'agreement_id': 5,
+                  'number': instNum,
+                  'due_date': '2026-03-10',
+                  'amount': '1000.00',
+                  'received': '1000.00',
+                  'remaining': '0.00',
+                  'status': 'paid',
+                  'overdue': false,
+                },
+                'agreement': {'remaining': isSecond ? '0.00' : '1000.00'},
+                'account': {'id': 10, 'balance': '2500.00'},
+                'replayed': false,
+              },
+            }),
+            201,
+          );
+        }
+        return http.Response('{"message": "Not found"}', 404);
+      });
+
+      final api = ApiClient(baseUrl: 'http://api.test/api', client: client);
+
+      await tester.pumpWidget(
+        buildTestWidget(
+          api: api,
+          child: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () =>
+                  showAgreementModal(context, space: pf, agreementId: 5),
+              child: const Text('Abrir Modal'),
+            ),
+          ),
+        ),
+      );
+
+      // Abre o modal
+      await tester.tap(find.text('Abrir Modal'));
+      await tester.pumpAndSettle();
+
+      // Encontra opção de "Selecionar todas"
+      final selectAllButton = find.text('Selecionar todas');
+      expect(selectAllButton, findsOneWidget);
+
+      await tester.tap(selectAllButton);
+      await tester.pumpAndSettle();
+
+      // Botão de baixa múltipla deve aparecer com o total das 2 parcelas (R$ 2.000,00)
+      final batchBaixaButton = find.textContaining('Baixar selecionadas (2)');
+      expect(batchBaixaButton, findsOneWidget);
+
+      await tester.tap(batchBaixaButton);
+      await tester.pumpAndSettle();
+
+      // Deve exibir a tela unificada de baixa em lote
+      expect(find.text('Baixar 2 parcelas'), findsOneWidget);
+      expect(find.text('Confirmar recebimento das 2 parcelas'), findsOneWidget);
+
+      // Confirma o recebimento em lote
+      await tester.tap(find.text('Confirmar recebimento das 2 parcelas'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+
+      // Deve ter enviado 2 requisições de recebimento para a API
+      final receiptRequests = requests
+          .where((r) => r.url.path.contains('/receipts'))
+          .toList();
+      expect(receiptRequests.length, 2);
     },
   );
 }

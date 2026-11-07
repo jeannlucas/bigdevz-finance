@@ -19,6 +19,7 @@ class AccountMovement extends Model
         'payment_reversal_id',
         'transfer_id',
         'loan_disbursement_id',
+        'category_id',
         'amount_cents',
         'effective_date',
     ];
@@ -28,7 +29,14 @@ class AccountMovement extends Model
         return [
             'amount_cents' => 'integer',
             'effective_date' => 'date:Y-m-d',
+            'category_id' => 'integer',
         ];
+    }
+
+    /** @return BelongsTo<Category, $this> */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
     }
 
     /** @return BelongsTo<Account, $this> */

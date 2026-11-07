@@ -12,6 +12,7 @@ import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import '../auth/auth_models.dart';
 import '../auth/session_controller.dart';
+import '../categories/category_picker_field.dart';
 import 'agreement_screen.dart';
 import 'agreements_repository.dart';
 
@@ -81,6 +82,7 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
   final _description = TextEditingController();
   final _total = TextEditingController();
   final _count = TextEditingController(text: '1');
+  int? _selectedCategoryId;
   DateTime _firstDue = DateUtils.dateOnly(DateTime.now());
   bool _saving = false;
   ApiException? _error;
@@ -117,6 +119,7 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
         total: Money.fromInput(_total.text)!,
         installmentCount: int.parse(_count.text),
         firstDueDate: toApiDate(_firstDue),
+        categoryId: _selectedCategoryId,
       );
       if (!mounted) return;
       context.read<SessionController>().dataChanged();
@@ -192,6 +195,13 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
         validator: (value) => (Money.fromInput(value ?? '')?.cents ?? 0) > 0
             ? null
             : 'Informe o valor total.',
+      ),
+      const SizedBox(height: 16),
+      CategoryPickerField(
+        spaceId: widget.space.id,
+        type: 'income',
+        selectedCategoryId: _selectedCategoryId,
+        onChanged: (catId) => setState(() => _selectedCategoryId = catId),
       ),
       const SizedBox(height: 16),
       if (isDesktop)

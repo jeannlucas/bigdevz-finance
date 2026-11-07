@@ -7,6 +7,7 @@ import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
 import '../accounts/account.dart';
 import '../accounts/bank_catalog.dart';
+import '../categories/category.dart';
 import 'summary.dart';
 
 /// Painel executivo de gráficos e inteligência visual financeira do BigDev.Z Finance.
@@ -48,13 +49,24 @@ class ExecutiveDashboardCharts extends StatelessWidget {
           onTapPayables: onOpenPayables,
         );
 
+        final categoryCard = CategoryDistributionDonutCard(
+          categories: summary.categories,
+          obscure: obscure,
+        );
+
         if (isWidescreen) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          return Column(
             children: [
-              Expanded(child: bankCard),
-              const SizedBox(width: AppTokens.p16),
-              Expanded(child: cashFlowCard),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: bankCard),
+                  const SizedBox(width: AppTokens.p16),
+                  Expanded(child: cashFlowCard),
+                ],
+              ),
+              const SizedBox(height: AppTokens.p16),
+              categoryCard,
             ],
           );
         }
@@ -64,6 +76,8 @@ class ExecutiveDashboardCharts extends StatelessWidget {
             bankCard,
             const SizedBox(height: AppTokens.p16),
             cashFlowCard,
+            const SizedBox(height: AppTokens.p16),
+            categoryCard,
           ],
         );
       },
@@ -610,5 +624,300 @@ class CashFlowThermometerCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Card de gráfico Donut exibindo a distribuição por categoria (Despesas e Receitas).
+class CategoryDistributionDonutCard extends StatefulWidget {
+  const CategoryDistributionDonutCard({
+    super.key,
+    required this.categories,
+    required this.obscure,
+  });
+
+  final CategoriesSummary categories;
+  final bool obscure;
+
+  @override
+  State<CategoryDistributionDonutCard> createState() =>
+      _CategoryDistributionDonutCardState();
+}
+
+class _CategoryDistributionDonutCardState
+    extends State<CategoryDistributionDonutCard> {
+  bool _showExpenses = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final items = _showExpenses
+        ? widget.categories.expenses
+        : widget.categories.incomes;
+    final int totalCents = items.fold(0, (sum, it) => sum + it.totalCents);
+
+    return Container(
+      padding: const EdgeInsets.all(AppTokens.p16),
+      decoration: BoxDecoration(
+        color: isDark ? AppTokens.darkSurface : AppTokens.lightSurface,
+        borderRadius: BorderRadius.circular(AppTokens.r16),
+        border: Border.all(
+          color: isDark ? AppTokens.darkBorder : AppTokens.lightBorder,
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AppTokens.brandPrimary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(AppTokens.r8),
+                ),
+                alignment: Alignment.center,
+                child: const Icon(
+                  Icons.pie_chart_rounded,
+                  size: 18,
+                  color: AppTokens.brandPrimary,
+                ),
+              ),
+              const SizedBox(width: AppTokens.p8),
+              Expanded(
+                child: Text(
+                  'Distribuição por Categoria',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: isDark
+                        ? AppTokens.darkTextPrimary
+                        : AppTokens.lightTextPrimary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment<bool>(
+                    value: true,
+                    label: Text('Despesas', style: TextStyle(fontSize: 11)),
+                  ),
+                  ButtonSegment<bool>(
+                    value: false,
+                    label: Text('Receitas', style: TextStyle(fontSize: 11)),
+                  ),
+                ],
+                selected: {_showExpenses},
+                onSelectionChanged: (set) =>
+                    setState(() => _showExpenses = set.first),
+                style: const ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTokens.p16),
+          if (items.isEmpty || totalCents <= 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppTokens.p20),
+              child: Center(
+                child: Text(
+                  _showExpenses
+                      ? 'Nenhuma despesa categorizada.'
+                      : 'Nenhuma receita categorizada.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: isDark
+                        ? AppTokens.darkTextSecondary
+                        : AppTokens.lightTextSecondary,
+                  ),
+                ),
+              ),
+            )
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= 480;
+                final donut = SizedBox(
+                  width: 90,
+                  height: 90,
+                  child: CustomPaint(
+                    painter: _CategoryDonutChartPainter(
+                      items: items,
+                      totalCents: totalCents,
+                      backgroundColor: isDark
+                          ? AppTokens.darkBorder
+                          : AppTokens.lightBorder,
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${items.length}',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: isDark
+                              ? AppTokens.darkTextPrimary
+                              : AppTokens.lightTextPrimary,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+
+                final legend = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: items.map((item) {
+                    final percent = totalCents > 0
+                        ? (item.totalCents * 100 / totalCents).round()
+                        : 0;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3.0),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              color: item.colorValue,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: AppTokens.p8),
+                          Icon(
+                            Category.iconToMaterial(item.icon),
+                            size: 14,
+                            color: item.colorValue,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              item.name,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: isDark
+                                    ? AppTokens.darkTextPrimary
+                                    : AppTokens.lightTextPrimary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: AppTokens.p8),
+                          Text(
+                            '$percent%',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: isDark
+                                  ? AppTokens.darkTextSecondary
+                                  : AppTokens.lightTextSecondary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(width: AppTokens.p8),
+                          Text(
+                            widget.obscure ? '••••' : item.total.brl,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: isDark
+                                  ? AppTokens.darkTextPrimary
+                                  : AppTokens.lightTextPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                );
+
+                if (isWide) {
+                  return Row(
+                    children: [
+                      donut,
+                      const SizedBox(width: AppTokens.p24),
+                      Expanded(child: legend),
+                    ],
+                  );
+                }
+
+                return Column(
+                  children: [
+                    Center(child: donut),
+                    const SizedBox(height: AppTokens.p16),
+                    legend,
+                  ],
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryDonutChartPainter extends CustomPainter {
+  _CategoryDonutChartPainter({
+    required this.items,
+    required this.totalCents,
+    required this.backgroundColor,
+  });
+
+  final List<CategorySummaryItem> items;
+  final int totalCents;
+  final Color backgroundColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - 14) / 2;
+    const strokeWidth = 10.0;
+
+    final bgPaint = Paint()
+      ..color = backgroundColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+
+    canvas.drawCircle(center, radius, bgPaint);
+
+    if (totalCents <= 0 || items.isEmpty) return;
+
+    double startAngle = -math.pi / 2;
+
+    for (final item in items) {
+      final sweepAngle = (item.totalCents / totalCents) * 2 * math.pi;
+      final paint = Paint()
+        ..color = item.colorValue
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round;
+
+      final adjustedSweep = items.length > 1
+          ? math.max(0.01, sweepAngle - 0.06)
+          : sweepAngle;
+
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle + (items.length > 1 ? 0.03 : 0),
+        adjustedSweep,
+        false,
+        paint,
+      );
+
+      startAngle += sweepAngle;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CategoryDonutChartPainter oldDelegate) {
+    return oldDelegate.totalCents != totalCents ||
+        oldDelegate.items.length != items.length;
   }
 }

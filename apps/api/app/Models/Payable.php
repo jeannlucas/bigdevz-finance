@@ -22,7 +22,7 @@ class Payable extends Model
 
     protected $fillable = [
         'space_id', 'kind', 'description', 'payee', 'amount_cents', 'paid_cents', 'due_date',
-        'plan_id', 'installment_number', 'recurrence_id', 'card_id', 'cycle',
+        'plan_id', 'installment_number', 'recurrence_id', 'card_id', 'cycle', 'category_id',
     ];
 
     protected function casts(): array
@@ -35,7 +35,14 @@ class Payable extends Model
             'cycle' => 'date:Y-m-d',
             'edited_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            'category_id' => 'integer',
         ];
+    }
+
+    /** @return BelongsTo<Category, $this> */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
     }
 
     /** @return BelongsTo<PayablePlan, $this> */

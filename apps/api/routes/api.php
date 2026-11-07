@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\AgreementController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CardController;
+use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\InstallmentController;
 use App\Http\Controllers\Api\LoanController;
 use App\Http\Controllers\Api\PayableController;
@@ -22,7 +23,8 @@ Route::pattern('account', '[1-9][0-9]{0,17}');
 Route::pattern('agreement', '[1-9][0-9]{0,17}');
 Route::pattern('installment', '[1-9][0-9]{0,17}');
 Route::pattern('receipt', '[1-9][0-9]{0,17}');
-foreach (['payable', 'payment', 'recurrence', 'card', 'transfer'] as $parameter) {
+Route::pattern('category', '[1-9][0-9]{0,17}');
+foreach (['payable', 'payment', 'recurrence', 'card', 'transfer', 'loan'] as $parameter) {
     Route::pattern($parameter, '[1-9][0-9]{0,17}');
 }
 
@@ -78,5 +80,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/cards', [CardController::class, 'store']);
         Route::post('/cards/{card}/archive', [CardController::class, 'archive']);
         Route::post('/cards/{card}/unarchive', [CardController::class, 'unarchive']);
+
+        // Categorias.
+        Route::get('/categories', [CategoryController::class, 'index']);
+        Route::post('/categories', [CategoryController::class, 'store']);
+        Route::patch('/categories/{category}', [CategoryController::class, 'update']);
+        Route::delete('/categories/{category}', [CategoryController::class, 'destroy']);
     });
 });

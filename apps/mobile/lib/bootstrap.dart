@@ -11,6 +11,7 @@ import 'features/agreements/agreements_repository.dart';
 import 'features/agreements/receipt_attempts.dart';
 import 'features/auth/auth_repository.dart';
 import 'features/auth/session_controller.dart';
+import 'features/categories/categories_repository.dart';
 import 'features/loans/loans_repository.dart';
 import 'features/payables/payable_creations.dart';
 import 'features/payables/payables_repository.dart';
@@ -29,6 +30,7 @@ Widget buildApp({
     providers: [
       Provider.value(value: api),
       Provider(create: (_) => AccountsRepository(api)),
+      Provider(create: (_) => CategoriesRepository(api)),
       Provider(
         create: (context) => OpeningAdjustments(
           repository: context.read<AccountsRepository>(),

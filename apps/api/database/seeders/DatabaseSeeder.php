@@ -47,6 +47,8 @@ class DatabaseSeeder extends Seeder
 
     private function seedPersonalSpace(User $user, Space $space): void
     {
+        $this->seedCategories($space);
+
         // 1. Contas Bancárias PF com saldos expressivos e diversificados
         $nubank = $space->accounts()->firstOrCreate(
             ['name' => 'Nubank Principal'],
@@ -232,6 +234,8 @@ class DatabaseSeeder extends Seeder
 
     private function seedCorporateSpace(User $user, Space $space): void
     {
+        $this->seedCategories($space);
+
         // 1. Contas Bancárias PJ corporativas
         $itauPj = $space->accounts()->firstOrCreate(
             ['name' => 'Itaú Empresas'],
@@ -428,6 +432,66 @@ class DatabaseSeeder extends Seeder
                 'seed-pj-pay-contab',
                 CreatePayable::fingerprint(IdempotentOperations::PAYABLE, $space, $pj6Data),
             );
+        }
+    }
+
+    private function seedCategories(Space $space): void
+    {
+        if ($space->categories()->exists()) {
+            return;
+        }
+
+        if ($space->kind === Space::PF) {
+            $incomes = [
+                ['name' => 'Salário', 'icon' => 'work', 'color' => '#0F8A5F'],
+                ['name' => 'Investimentos & Rendimentos', 'icon' => 'trending_up', 'color' => '#1E5BB8'],
+                ['name' => 'Vendas & Extras', 'icon' => 'monetization_on', 'color' => '#4CAF50'],
+                ['name' => 'Outras Receitas', 'icon' => 'add_circle', 'color' => '#00897B'],
+            ];
+            $expenses = [
+                ['name' => 'Moradia & Aluguel', 'icon' => 'home', 'color' => '#E57373'],
+                ['name' => 'Alimentação', 'icon' => 'restaurant', 'color' => '#FFB74D'],
+                ['name' => 'Transporte', 'icon' => 'directions_car', 'color' => '#64B5F6'],
+                ['name' => 'Saúde & Cuidados', 'icon' => 'health_and_safety', 'color' => '#81C784'],
+                ['name' => 'Educação', 'icon' => 'school', 'color' => '#BA68C8'],
+                ['name' => 'Lazer & Assinaturas', 'icon' => 'local_activity', 'color' => '#4DD0E1'],
+                ['name' => 'Outras Despesas', 'icon' => 'more_horiz', 'color' => '#90A4AE'],
+            ];
+        } else {
+            $incomes = [
+                ['name' => 'Vendas de Produtos', 'icon' => 'shopping_cart', 'color' => '#0F8A5F'],
+                ['name' => 'Prestação de Serviços', 'icon' => 'business_center', 'color' => '#1E5BB8'],
+                ['name' => 'Receitas Financeiras', 'icon' => 'trending_up', 'color' => '#4CAF50'],
+                ['name' => 'Outras Entradas', 'icon' => 'add_circle', 'color' => '#00897B'],
+            ];
+            $expenses = [
+                ['name' => 'Folha & Pró-labore', 'icon' => 'group', 'color' => '#E57373'],
+                ['name' => 'Fornecedores', 'icon' => 'local_shipping', 'color' => '#FFB74D'],
+                ['name' => 'Impostos & Taxas', 'icon' => 'account_balance', 'color' => '#F06292'],
+                ['name' => 'Infraestrutura & Nuvem', 'icon' => 'cloud', 'color' => '#64B5F6'],
+                ['name' => 'Marketing & Vendas', 'icon' => 'campaign', 'color' => '#BA68C8'],
+                ['name' => 'Outras Despesas Operacionais', 'icon' => 'more_horiz', 'color' => '#90A4AE'],
+            ];
+        }
+
+        foreach ($incomes as $inc) {
+            $space->categories()->create([
+                'name' => $inc['name'],
+                'icon' => $inc['icon'],
+                'color' => $inc['color'],
+                'type' => 'income',
+                'is_default' => true,
+            ]);
+        }
+
+        foreach ($expenses as $exp) {
+            $space->categories()->create([
+                'name' => $exp['name'],
+                'icon' => $exp['icon'],
+                'color' => $exp['color'],
+                'type' => 'expense',
+                'is_default' => true,
+            ]);
         }
     }
 }

@@ -1,4 +1,5 @@
 import '../../core/money.dart';
+import '../categories/category.dart';
 
 enum PayableStatus {
   open('Em aberto'),
@@ -38,6 +39,8 @@ class Payable {
     this.recurrenceId,
     this.cardName,
     this.cancelReason,
+    this.categoryId,
+    this.category,
     this.payments = const [],
     this.changes = const [],
   });
@@ -65,6 +68,10 @@ class Payable {
       recurrenceId: json['recurrence_id'] as int?,
       cardName: card?['name'] as String?,
       cancelReason: json['cancel_reason'] as String?,
+      categoryId: json['category_id'] as int?,
+      category: json['category'] != null
+          ? Category.fromJson(json['category'] as Map<String, dynamic>)
+          : null,
       payments: (json['payments'] as List? ?? const [])
           .map((item) => Payment.fromJson(item as Map<String, dynamic>))
           .toList(),
@@ -93,6 +100,8 @@ class Payable {
   final int? recurrenceId;
   final String? cardName;
   final String? cancelReason;
+  final int? categoryId;
+  final Category? category;
   final List<Payment> payments;
   final List<PayableChange> changes;
 

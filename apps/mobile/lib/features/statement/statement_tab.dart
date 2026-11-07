@@ -7,6 +7,7 @@ import '../../ui/app_tokens.dart';
 import '../accounts/account.dart';
 import '../accounts/accounts_repository.dart';
 import '../auth/auth_models.dart';
+import '../categories/category_badge.dart';
 import '../settings/preferences_controller.dart';
 import 'statement_entry.dart';
 import 'statement_repository.dart';
@@ -439,6 +440,10 @@ class _StatementTile extends StatelessWidget {
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
+                if (entry.category != null) ...[
+                  const SizedBox(height: 4),
+                  CategoryBadge(category: entry.category!, compact: true),
+                ],
               ],
             ),
           ),

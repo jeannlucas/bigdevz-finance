@@ -65,7 +65,7 @@ class GenerateObligations
 
         return $this->insert(array_map(fn (array $cycle) => $this->row(
             $recurrence->space_id, Payable::RECURRING, $recurrence->description, $recurrence->payee, $recurrence->amount_cents, $cycle['due_date'],
-        ) + ['recurrence_id' => $recurrence->id, 'cycle' => $cycle['cycle']], $cycles));
+        ) + ['recurrence_id' => $recurrence->id, 'cycle' => $cycle['cycle'], 'category_id' => $recurrence->category_id], $cycles));
     }
 
     /**

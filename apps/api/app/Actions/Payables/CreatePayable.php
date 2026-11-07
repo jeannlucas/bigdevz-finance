@@ -45,9 +45,14 @@ class CreatePayable
     public function single(User $user, Space $space, array $data, string $key, string $fingerprint): KeyedResult
     {
         return $this->keys->run($user, $space, $key, IdempotentOperations::PAYABLE, $fingerprint, function () use ($space, $data) {
+            $categoryId = isset($data['category_id']) ? (int) $data['category_id'] : null;
+            if ($categoryId !== null) {
+                $space->categories()->where('type', 'expense')->findOrFail($categoryId);
+            }
             $payable = Payable::create([
                 'space_id' => $space->id, 'kind' => Payable::SINGLE, 'description' => $data['description'],
                 'payee' => $data['payee'] ?? null, 'amount_cents' => Money::toCents($data['amount']), 'due_date' => $data['due_date'],
+                'category_id' => $categoryId,
             ]);
 
             return ['payable_id' => $payable->id];
@@ -58,11 +63,16 @@ class CreatePayable
     public function installments(User $user, Space $space, array $data, string $key, string $fingerprint): KeyedResult
     {
         return $this->keys->run($user, $space, $key, IdempotentOperations::PAYABLE, $fingerprint, function () use ($space, $data) {
+            $categoryId = isset($data['category_id']) ? (int) $data['category_id'] : null;
+            if ($categoryId !== null) {
+                $space->categories()->where('type', 'expense')->findOrFail($categoryId);
+            }
             $schedule = self::schedule($data['total'], (int) $data['installment_count'], $data['first_due_date']);
             $plan = PayablePlan::create([
                 'space_id' => $space->id, 'description' => $data['description'], 'payee' => $data['payee'] ?? null,
                 'total_cents' => Money::toCents($data['total']), 'installment_count' => (int) $data['installment_count'],
                 'first_due_date' => $data['first_due_date'],
+                'category_id' => $categoryId,
             ]);
             foreach ($schedule as $item) {
                 Payable::create([
@@ -70,6 +80,7 @@ class CreatePayable
                     'description' => $data['description'], 'payee' => $data['payee'] ?? null,
                     'amount_cents' => Money::toCents($item['amount']), 'due_date' => $item['due_date'],
                     'plan_id' => $plan->id, 'installment_number' => $item['number'],
+                    'category_id' => $categoryId,
                 ]);
             }
 
@@ -89,6 +100,10 @@ class CreatePayable
     public function recurrence(User $user, Space $space, array $data, string $key, string $fingerprint): KeyedResult
     {
         return $this->keys->run($user, $space, $key, IdempotentOperations::RECURRENCE, $fingerprint, function () use ($space, $data) {
+            $categoryId = isset($data['category_id']) ? (int) $data['category_id'] : null;
+            if ($categoryId !== null) {
+                $space->categories()->where('type', 'expense')->findOrFail($categoryId);
+            }
             $plan = self::initialPlan($data['start_date'], $data['end_date'] ?? null, $data['approved_until']);
             if ($data['approved_until'] > GenerateObligations::horizon()) {
                 throw ValidationException::withMessages([
@@ -106,6 +121,7 @@ class CreatePayable
                 'amount_cents' => Money::toCents($data['amount']), 'start_date' => $data['start_date'],
                 'reference_day' => (int) substr($data['start_date'], 8, 2), 'end_date' => $data['end_date'] ?? null,
                 'initial_until' => $data['approved_until'],
+                'category_id' => $categoryId,
             ]);
             $this->generate->forRecurrence(Recurrence::query()->lockForUpdate()->findOrFail($recurrence->id), $data['approved_until']);
 

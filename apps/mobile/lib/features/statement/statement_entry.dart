@@ -1,4 +1,5 @@
 import '../../core/money.dart';
+import '../categories/category.dart';
 
 enum StatementDirection {
   credit,
@@ -20,6 +21,8 @@ class StatementEntry {
     required this.type,
     required this.description,
     this.createdAt,
+    this.categoryId,
+    this.category,
   });
 
   factory StatementEntry.fromJson(Map<String, dynamic> json) => StatementEntry(
@@ -35,6 +38,10 @@ class StatementEntry {
     type: (json['type'] as String?) ?? 'movement',
     description: (json['description'] as String?) ?? 'Movimentação',
     createdAt: json['created_at'] as String?,
+    categoryId: json['category_id'] as int?,
+    category: json['category'] != null
+        ? Category.fromJson(json['category'] as Map<String, dynamic>)
+        : null,
   );
 
   final int id;
@@ -47,4 +54,6 @@ class StatementEntry {
   final String type;
   final String description;
   final String? createdAt;
+  final int? categoryId;
+  final Category? category;
 }

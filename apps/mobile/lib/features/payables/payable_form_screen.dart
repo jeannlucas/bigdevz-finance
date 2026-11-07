@@ -10,6 +10,7 @@ import '../../ui/widgets.dart';
 import '../agreements/receipt_attempt.dart' show ReceiptAttemptState;
 import '../auth/auth_models.dart';
 import '../auth/session_controller.dart';
+import '../categories/category_picker_field.dart';
 import 'payable.dart';
 import 'payable_creations.dart';
 import 'payables_repository.dart';
@@ -91,6 +92,7 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
   final _payee = TextEditingController();
   final _amount = TextEditingController();
   final _count = TextEditingController(text: '2');
+  int? _selectedCategoryId;
   late DateTime _date = DateUtils.dateOnly(widget.today ?? DateTime.now());
   DateTime? _endDate;
   _Kind _kind = _Kind.single;
@@ -143,6 +145,7 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
     final common = {
       'description': _description.text.trim(),
       'payee': _payee.text.trim().isEmpty ? null : _payee.text.trim(),
+      if (_selectedCategoryId != null) 'category_id': _selectedCategoryId,
     };
     return switch (_kind) {
       _Kind.single => {
@@ -532,6 +535,13 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
                 );
               },
             ),
+          ),
+          const SizedBox(height: 12),
+          CategoryPickerField(
+            spaceId: widget.space.id,
+            type: 'expense',
+            selectedCategoryId: _selectedCategoryId,
+            onChanged: (catId) => setState(() => _selectedCategoryId = catId),
           ),
           const SizedBox(height: 12),
           if (isDesktop && _kind == _Kind.single)

@@ -58,10 +58,16 @@ class AgreementController extends Controller
             'total' => ['required', new MoneyAmount],
             'installment_count' => ['required', 'integer', 'between:1,1200'],
             'first_due_date' => ['required', 'date_format:Y-m-d'],
+            'category_id' => ['nullable', 'integer'],
         ]);
 
         $agreement = $createAgreement->handle(
-            $space, $data['description'], $data['total'], (int) $data['installment_count'], $data['first_due_date'],
+            $space,
+            $data['description'],
+            $data['total'],
+            (int) $data['installment_count'],
+            $data['first_due_date'],
+            isset($data['category_id']) ? (int) $data['category_id'] : null,
         );
 
         return (new AgreementResource($agreement->load('installments')))->withInstallments()->response()->setStatusCode(201);

@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class SpaceController extends Controller
 {
@@ -39,6 +40,10 @@ class SpaceController extends Controller
             'overdue_installments' => $installments->filter(fn ($item) => $item->isOverdue())->count(),
             // A pagar: previsto, separado do saldo (obrigação não reduz saldo).
             'payables' => $this->payables($space),
+            'categories_summary' => [
+                'expenses' => $this->expenseCategoriesSummary($space),
+                'incomes' => $this->incomeCategoriesSummary($space),
+            ],
         ]]);
     }
 
@@ -64,5 +69,73 @@ class SpaceController extends Controller
             'awaiting_amount_count' => $space->payables()->whereNull('cancelled_at')->whereNull('amount_cents')->count(),
             'today' => $today,
         ];
+    }
+
+    private function expenseCategoriesSummary(Space $space): array
+    {
+        return DB::table('payables')
+            ->leftJoin('categories', 'payables.category_id', '=', 'categories.id')
+            ->where('payables.space_id', $space->id)
+            ->whereNull('payables.cancelled_at')
+            ->whereNotNull('payables.amount_cents')
+            ->select(
+                DB::raw('COALESCE(categories.id, 0) as id'),
+                DB::raw("COALESCE(categories.name, 'Outros / Sem categoria') as name"),
+                DB::raw("COALESCE(categories.icon, 'category') as icon"),
+                DB::raw("COALESCE(categories.color, '#6B7280') as color"),
+                DB::raw('COALESCE(SUM(payables.amount_cents), 0) as total_cents')
+            )
+            ->groupBy(
+                DB::raw('COALESCE(categories.id, 0)'),
+                DB::raw("COALESCE(categories.name, 'Outros / Sem categoria')"),
+                DB::raw("COALESCE(categories.icon, 'category')"),
+                DB::raw("COALESCE(categories.color, '#6B7280')")
+            )
+            ->havingRaw('COALESCE(SUM(payables.amount_cents), 0) > 0')
+            ->orderByDesc('total_cents')
+            ->get()
+            ->map(fn ($row) => [
+                'id' => (int) $row->id,
+                'name' => $row->name,
+                'icon' => $row->icon,
+                'color' => $row->color,
+                'total' => Money::formatAggregate((int) $row->total_cents),
+                'total_cents' => (int) $row->total_cents,
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function incomeCategoriesSummary(Space $space): array
+    {
+        return DB::table('agreements')
+            ->leftJoin('categories', 'agreements.category_id', '=', 'categories.id')
+            ->where('agreements.space_id', $space->id)
+            ->select(
+                DB::raw('COALESCE(categories.id, 0) as id'),
+                DB::raw("COALESCE(categories.name, 'Outros / Sem categoria') as name"),
+                DB::raw("COALESCE(categories.icon, 'category') as icon"),
+                DB::raw("COALESCE(categories.color, '#6B7280') as color"),
+                DB::raw('COALESCE(SUM(agreements.total_cents), 0) as total_cents')
+            )
+            ->groupBy(
+                DB::raw('COALESCE(categories.id, 0)'),
+                DB::raw("COALESCE(categories.name, 'Outros / Sem categoria')"),
+                DB::raw("COALESCE(categories.icon, 'category')"),
+                DB::raw("COALESCE(categories.color, '#6B7280')")
+            )
+            ->havingRaw('COALESCE(SUM(agreements.total_cents), 0) > 0')
+            ->orderByDesc('total_cents')
+            ->get()
+            ->map(fn ($row) => [
+                'id' => (int) $row->id,
+                'name' => $row->name,
+                'icon' => $row->icon,
+                'color' => $row->color,
+                'total' => Money::formatAggregate((int) $row->total_cents),
+                'total_cents' => (int) $row->total_cents,
+            ])
+            ->values()
+            ->all();
     }
 }

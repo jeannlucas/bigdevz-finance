@@ -22,31 +22,28 @@
 
 ## 2. Estado Operacional Atual e Máquina de Estados
 
-- **Estado Operacional:** **`DESENVOLVIMENTO_LOCAL_FEATURE`** (Checkpoint `FINANCE-CHROME-MODAL-RENDER-FIX-01`, `FINANCE-CARD-BILL-AND-MODAL-FIX-01`, `FINANCE-MODAL-ACTION-FLOWS-01`, `FINANCE-DASHBOARD-CHARTS-AND-SEED-01`, `FINANCE-UNIFY-LOANS-NAV-01`, `FINANCE-DESKTOP-TOPBAR-01` e `FINANCE-USER-PROFILE-NOTIFICATIONS-01`).
-- **Feature Ativa:** Resolução Completa da Renderização em Branco nos Modais do Google Chrome:
-  1. Diagnóstico Conclusivo via Inspeção ao Vivo no Google Chrome:
-     - O agente acessou a janela e aba ativa do usuário no Google Chrome (`window id 250823709`, URL `http://127.0.0.1:8085/`) e extraiu screenshots em alta resolução diretamente do CanvasKit shadow DOM (`flt-glass-pane.shadowRoot canvas.toDataURL()`).
-     - Reproduziu com exatidão a falha relatada pelo usuário (cabeçalho renderizava, mas o corpo do modal ficava vazio abaixo do divisor).
-     - Identificou a causa raiz matemática/layout: no `theme.dart`, `filledButtonTheme` definia `minimumSize: const Size.fromHeight(48)`. No Flutter Web CanvasKit, quando botões `FilledButton` / `FilledButton.icon` eram renderizados dentro de `Row` horizontal dentro de sliver/ListView sem largura/altura rígida definida no próprio botão, a medição intrínseca disparava uma asserção de layout em `RenderFlex`, fazendo o `RenderViewport` do Flutter falhar silenciosamente e omitir todo o corpo do sliver.
-     - Além disso, o servidor de desenvolvimento `flutter run -d web-server` antigo em segundo plano estava servindo bundles em cache sem recompilar as novas rotas.
-  2. Correções Aplicadas:
-     - Em `agreement_modal.dart` e `payable_modal.dart`, adicionou `minimumSize: const Size(110, 38)` explícito nos botões de baixa e `minimumSize: const Size(double.infinity, 48)` nos botões de formulário, blindando a renderização contra restrições cruzadas da flexbox.
-     - Reiniciou o daemon do servidor Flutter Web limpo e forçou recarga completa no Google Chrome.
-     - Validação visual completa no Google Chrome:
-       - Modal de Contas a Receber: Exibindo Card Executivo de Totais, Barra de Progresso, lista de parcelas com tags de vencimento e botão interativo "Dar baixa".
-       - Modal de Contas a Pagar / Faturas de Cartão: Exibindo resumo completo da dívida/fatura, valor restante, vencimento, situação ("Em aberto") e botão "Dar baixa no pagamento", além do fluxo inline de confirmação com seleção de conta e data sem sair da tela.
-  2. Gráficos de Inteligência Visual no Dashboard (`ExecutiveDashboardCharts`):
-     - `BankDistributionDonutCard`: Gráfico Donut de alta precisão desenhado via `CustomPainter` (`_DonutChartPainter`), exibindo a distribuição patrimonial por banco com as cores institucionais do `BankCatalog`, percentuais determinísticos e respeito ao modo de privacidade (`••••`).
-     - `CashFlowThermometerCard`: Termômetro comparativo de fluxo de caixa confrontando Entradas totais (recebidas + a receber) vs Saídas & Compromissos (pagos + em aberto + vencidos), acompanhado do Badge Executivo de Margem Projetada (Superávit / Déficit).
-  2. Povoamento Rico do Banco de Dados Local (`apps/api/database/seeders/DatabaseSeeder.php`):
-     - Usuário: `Jeann Lucas` (`demo@example.com`).
-     - Espaço PF: 4 contas bancárias (Nubank R$ 8.450,20, Itaú Personalité R$ 14.800,00, Inter Investimentos R$ 32.500,00, Dinheiro R$ 650,00), 3 acordos a receber (com parcela recebida e parcela vencida para testar alertas) e 6 obrigações a pagar (com contas pagas, vincendas e vencidas para acionamento do sininho).
-     - Espaço PJ: 3 contas bancárias corporativas (Itaú Empresas R$ 85.400,00, Cora R$ 42.100,00, BTG Pactual R$ 150.000,00), acordos corporativos com parcelas recebidas e pendentes, e obrigações a pagar incluindo folha de pagamento, DAS Simples vencido e infraestrutura AWS.
-  3. Navegação Desktop e Top Bar Moderna com Perfil e Notificações:
-     - Top Bar executiva com 3 zonas no Desktop Web (`_DesktopTopBar`), substituindo a barra lateral esquerda.
-     - Badge do usuário com avatar em gradiente, iniciais e chevron elegante (`⌄`), abrindo o modal de edição de nome via `PATCH /me`.
-     - Sininho de notificações inteligente com contagem em tempo real e atalhos rápidos.
-  4. Suíte completa com 201 testes Flutter e 113 testes Laravel passando 100% verde com zero erros.
+- **Estado Operacional:** **`DESENVOLVIMENTO_LOCAL_FEATURE`** (Checkpoint `FINANCE-CATEGORIAS-E-BAIXA-MULTIPLA-01`, `FINANCE-CHROME-MODAL-RENDER-FIX-01`, `FINANCE-CARD-BILL-AND-MODAL-FIX-01`, `FINANCE-MODAL-ACTION-FLOWS-01`, `FINANCE-DASHBOARD-CHARTS-AND-SEED-01`, `FINANCE-UNIFY-LOANS-NAV-01`, `FINANCE-DESKTOP-TOPBAR-01` e `FINANCE-USER-PROFILE-NOTIFICATIONS-01`).
+- **Feature Ativa:** Baixa Múltipla (Acordos & Obrigações), Categorias Financeiras e Ajuste Fino de Layout (Eliminação de Espaços Vazios):
+  1. **Eliminação de Espaços Vazios em Modais e Telas:**
+     - Modais adaptativos em `agreement_modal.dart` e `payable_modal.dart` agora utilizam `ConstrainedBox(maxHeight: 0.85 * h)` com `Column(mainAxisSize: MainAxisSize.min)` e `Flexible(child: ListView(shrinkWrap: true))`.
+     - Layout abraça o conteúdo com precisão sem deixar áreas vazias ou fundos mortos, rolando perfeitamente caso o conteúdo exceda o viewport.
+  2. **Baixa Múltipla no Modal de Parcelas do Acordo:**
+     - Seleção individual por checkbox e ação "Selecionar todas / Desmarcar todas".
+     - Barra de ação verde com somatório em tempo real (`Baixar selecionadas (N) • R$ ...`).
+     - Formulário dedicado de baixa em lote sequencial e idempotente com indicador de progresso e tratamento singular/plural.
+  3. **Baixa Múltipla na Listagem Geral de Contas a Pagar:**
+     - Modo de seleção em lote via botão no topo da listagem (`Selecionar várias`).
+     - Checkboxes dinâmicos nos cartões e barra flutuante inferior.
+     - Modal de quitação em lote (`batch_payable_modal.dart`) com seleção de conta de origem e data, idempotência persistida por parcela e feedback em tempo real.
+  4. **Módulo Completo de Categorias Financeiras:**
+     - Especificação canônica em `specs/categorias/categorias.md` (`AC-CAT-001` a `AC-CAT-006`).
+     - Backend API (Laravel 13): Migration com FK composta `category_id`, relacionamentos nos models, `CategoryController` (CRUD isolado por tenant), `CategoryResource`, seed de categorias PF/PJ e agregação de despesas/receitas por categoria no endpoint `/summary`.
+     - Frontend (Flutter): Model `Category`, `CategoriesRepository`, `CategoryBadge`, `CategoryPickerField` (com criação rápida em modal), integração nos formulários de criação e visualização de cartões/extratos.
+     - Dashboard Analytics: Card com gráfico Donut de distribuição de despesas e receitas por categoria com paleta dinâmica e seletor segmentado.
+  5. **Backpressure 100% Verde:**
+     - 215 testes Flutter passando.
+     - 119 testes de integração da API Laravel passando (1.424 asserções).
+     - Lint e formatação aprovados (`pint` e `dart format`).
 - **Ambiente de Desenvolvimento Local:**
   - API Laravel 13 Docker ativa em `http://127.0.0.1:8000/api`.
   - PostgreSQL 18 Docker ativo em `127.0.0.1:5440`.

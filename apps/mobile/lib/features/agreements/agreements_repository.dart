@@ -46,12 +46,14 @@ class AgreementsRepository {
     required Money total,
     required int installmentCount,
     required String firstDueDate,
+    int? categoryId,
   }) async => Agreement.fromJson(
     (await _api.post('/spaces/$spaceId/agreements', {
           'description': description,
           'total': total.toApi(),
           'installment_count': installmentCount,
           'first_due_date': firstDueDate,
+          'category_id': ?categoryId,
         }))['data']
         as Map<String, dynamic>,
   );

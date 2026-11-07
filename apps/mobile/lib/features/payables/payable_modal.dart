@@ -11,6 +11,7 @@ import '../accounts/accounts_repository.dart';
 import '../agreements/receipt_attempts.dart';
 import '../auth/auth_models.dart';
 import '../auth/session_controller.dart';
+import '../categories/category_badge.dart';
 import 'payable.dart';
 import 'payables_repository.dart';
 
@@ -40,9 +41,11 @@ Future<void> showPayableModal(
           borderRadius: BorderRadius.circular(AppTokens.r20),
         ),
         clipBehavior: Clip.antiAlias,
-        child: SizedBox(
-          width: 640,
-          height: 600,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 640,
+            maxHeight: MediaQuery.sizeOf(dialogContext).height * 0.85,
+          ),
           child: _PayableModalContent(
             space: space,
             payableId: payableId,
@@ -62,8 +65,10 @@ Future<void> showPayableModal(
           top: Radius.circular(AppTokens.r24),
         ),
       ),
-      builder: (sheetContext) => FractionallySizedBox(
-        heightFactor: 0.88,
+      builder: (sheetContext) => ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.9,
+        ),
         child: _PayableModalContent(
           space: space,
           payableId: payableId,
@@ -394,13 +399,11 @@ class _PayableModalContentState extends State<_PayableModalContent> {
 
     final payable = _payable!;
 
-    return SizedBox.expand(
-      child: _isEditingBill
-          ? _buildEditBillForm(context, payable)
-          : _isPaying
-          ? _buildPaymentForm(context, payable)
-          : _buildPayableView(context, payable),
-    );
+    return _isEditingBill
+        ? _buildEditBillForm(context, payable)
+        : _isPaying
+        ? _buildPaymentForm(context, payable)
+        : _buildPayableView(context, payable);
   }
 
   /// Visão geral da Conta a Pagar / Fatura
@@ -417,6 +420,7 @@ class _PayableModalContentState extends State<_PayableModalContent> {
 
     return Column(
       key: const ValueKey('payable-view'),
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Cabeçalho
@@ -466,15 +470,27 @@ class _PayableModalContentState extends State<_PayableModalContent> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      isCardBill
-                          ? 'Fatura de Cartão de Crédito'
-                          : payable.payee != null && payable.payee!.isNotEmpty
-                          ? 'Credor: ${payable.payee}'
-                          : 'Conta a pagar',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      children: [
+                        Text(
+                          isCardBill
+                              ? 'Fatura de Cartão de Crédito'
+                              : payable.payee != null &&
+                                    payable.payee!.isNotEmpty
+                              ? 'Credor: ${payable.payee}'
+                              : 'Conta a pagar',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        if (payable.category != null)
+                          CategoryBadge(
+                            category: payable.category!,
+                            compact: true,
+                          ),
+                      ],
                     ),
                   ],
                 ),
@@ -491,8 +507,9 @@ class _PayableModalContentState extends State<_PayableModalContent> {
         const Divider(height: 1),
 
         // Conteúdo
-        Expanded(
+        Flexible(
           child: ListView(
+            shrinkWrap: true,
             padding: const EdgeInsets.all(AppTokens.p20),
             children: [
               // Card de Valores
@@ -850,6 +867,7 @@ class _PayableModalContentState extends State<_PayableModalContent> {
 
     return Column(
       key: const ValueKey('edit-bill-form'),
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Topo com voltar e fechar
@@ -890,8 +908,9 @@ class _PayableModalContentState extends State<_PayableModalContent> {
         const Divider(height: 1),
 
         // Formulário
-        Expanded(
+        Flexible(
           child: ListView(
+            shrinkWrap: true,
             padding: const EdgeInsets.all(AppTokens.p20),
             children: [
               if (_submitError != null) ...[
@@ -1047,6 +1066,7 @@ class _PayableModalContentState extends State<_PayableModalContent> {
 
     return Column(
       key: const ValueKey('payment-form'),
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Topo com voltar e fechar
@@ -1087,10 +1107,11 @@ class _PayableModalContentState extends State<_PayableModalContent> {
         const Divider(height: 1),
 
         // Formulário
-        Expanded(
+        Flexible(
           child: Form(
             key: _formKey,
             child: ListView(
+              shrinkWrap: true,
               padding: const EdgeInsets.all(AppTokens.p20),
               children: [
                 if (_submitError != null) ...[

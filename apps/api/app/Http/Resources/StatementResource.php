@@ -15,11 +15,14 @@ class StatementResource extends JsonResource
         $direction = $this->amount_cents >= 0 ? 'credit' : 'debit';
         $type = $this->resolveType();
         $description = $this->resolveDescription($type);
+        $category = $this->category ?? $this->receipt?->installment?->agreement?->category ?? $this->payment?->payable?->category;
 
         return [
             'id' => $this->id,
             'account_id' => $this->account_id,
             'account_name' => $this->account?->name ?? 'Conta',
+            'category_id' => $category?->id,
+            'category' => $category ? new CategoryResource($category) : null,
             'effective_date' => $this->effective_date->toDateString(),
             'amount' => Money::fromCents(abs($this->amount_cents)),
             'raw_amount_cents' => $this->amount_cents,

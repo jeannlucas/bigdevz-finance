@@ -7,6 +7,7 @@ import 'package:bigdevz_finance/features/agreements/receipt_attempt.dart'
 import 'package:bigdevz_finance/features/auth/auth_models.dart';
 import 'package:bigdevz_finance/features/auth/auth_repository.dart';
 import 'package:bigdevz_finance/features/auth/session_controller.dart';
+import 'package:bigdevz_finance/features/categories/categories_repository.dart';
 import 'package:bigdevz_finance/features/payables/payable_creations.dart';
 import 'package:bigdevz_finance/features/payables/payable_form_screen.dart';
 import 'package:bigdevz_finance/features/payables/payables_repository.dart';
@@ -176,6 +177,7 @@ void main() {
         MultiProvider(
           providers: [
             Provider.value(value: PayablesRepository(client)),
+            Provider.value(value: CategoriesRepository(client)),
             Provider(
               create: (context) => PayableCreations(
                 repository: context.read<PayablesRepository>(),
@@ -222,10 +224,9 @@ void main() {
     Future<FilledButton> button(WidgetTester tester, String label) async {
       final btnFinder = find.widgetWithText(FilledButton, label);
       for (var i = 0; i < 20 && btnFinder.evaluate().isEmpty; i++) {
-        await tester.drag(
-          scrollable(),
+        await tester.dragFrom(
+          tester.getTopLeft(scrollable()) + const Offset(10, 100),
           const Offset(0, -300),
-          warnIfMissed: false,
         );
         await tester.pumpAndSettle();
       }
@@ -235,10 +236,9 @@ void main() {
         return tester.widget<FilledButton>(btnFinder.last);
       }
       for (var i = 0; i < 20 && btnFinder.evaluate().isEmpty; i++) {
-        await tester.drag(
-          scrollable(),
+        await tester.dragFrom(
+          tester.getTopLeft(scrollable()) + const Offset(10, 100),
           const Offset(0, 300),
-          warnIfMissed: false,
         );
         await tester.pumpAndSettle();
       }

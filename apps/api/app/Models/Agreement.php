@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Agreement extends Model
 {
-    protected $fillable = ['description', 'total_cents', 'installment_count', 'first_due_date'];
+    protected $fillable = ['description', 'total_cents', 'installment_count', 'first_due_date', 'category_id'];
 
     protected function casts(): array
     {
@@ -16,6 +16,7 @@ class Agreement extends Model
             'total_cents' => 'integer',
             'installment_count' => 'integer',
             'first_due_date' => 'date:Y-m-d',
+            'category_id' => 'integer',
         ];
     }
 
@@ -23,6 +24,12 @@ class Agreement extends Model
     public function space(): BelongsTo
     {
         return $this->belongsTo(Space::class);
+    }
+
+    /** @return BelongsTo<Category, $this> */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
     }
 
     /** @return HasMany<Installment, $this> */

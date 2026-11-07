@@ -73,7 +73,11 @@ class PayableController extends Controller
         $space = $this->space($request, $space);
         $key = $this->idempotencyKey($request);
         $kind = $request->input('kind');
-        $common = ['description' => ['required', 'string', 'max:120'], 'payee' => ['nullable', 'string', 'max:120']];
+        $common = [
+            'description' => ['required', 'string', 'max:120'],
+            'payee' => ['nullable', 'string', 'max:120'],
+            'category_id' => ['nullable', 'integer'],
+        ];
         [$operation, $rules] = match ($kind) {
             'installment' => [IdempotentOperations::PAYABLE, $common + [
                 'total' => ['required', new MoneyAmount],

@@ -7,6 +7,7 @@ import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
 import '../../ui/widgets.dart';
 import '../auth/auth_models.dart';
+import '../categories/category_badge.dart';
 import '../settings/preferences_controller.dart';
 import 'agreement.dart';
 import 'agreement_form_screen.dart';
@@ -407,6 +408,10 @@ class AgreementCard extends StatelessWidget {
                     ),
                 ],
               ),
+              if (agreement.category != null) ...[
+                const SizedBox(height: 6),
+                CategoryBadge(category: agreement.category!, compact: true),
+              ],
               const SizedBox(height: 12),
 
               // Bloco de Valores: Restante a receber como Herói principal (layout adaptativo)

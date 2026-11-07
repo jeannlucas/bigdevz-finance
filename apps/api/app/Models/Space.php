@@ -67,4 +67,10 @@ class Space extends Model
     {
         return $this->hasMany(Payment::class);
     }
+
+    /** @return HasMany<Category, $this> */
+    public function categories(): HasMany
+    {
+        return $this->hasMany(Category::class);
+    }
 }

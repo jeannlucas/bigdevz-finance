@@ -1,4 +1,5 @@
 import '../../core/money.dart';
+import '../categories/category.dart';
 
 class Agreement {
   const Agreement({
@@ -12,6 +13,8 @@ class Agreement {
     required this.overdueInstallments,
     required this.nextDueDate,
     required this.installments,
+    this.categoryId,
+    this.category,
   });
 
   factory Agreement.fromJson(Map<String, dynamic> json) => Agreement(
@@ -24,6 +27,10 @@ class Agreement {
     paidInstallments: json['paid_installments'] as int,
     overdueInstallments: json['overdue_installments'] as int,
     nextDueDate: json['next_due_date'] as String?,
+    categoryId: json['category_id'] as int?,
+    category: json['category'] != null
+        ? Category.fromJson(json['category'] as Map<String, dynamic>)
+        : null,
     installments: (json['installments'] as List? ?? const [])
         .map((item) => Installment.fromJson(item as Map<String, dynamic>))
         .toList(),
@@ -38,6 +45,8 @@ class Agreement {
   final int paidInstallments;
   final int overdueInstallments;
   final String? nextDueDate;
+  final int? categoryId;
+  final Category? category;
   final List<Installment> installments;
 }
 

@@ -961,6 +961,58 @@ void main() {
       },
     );
 
+    testWidgets(
+      'PayablesTab: permite selecionar múltiplas contas e realizar pagamento em lote',
+      (tester) async {
+        fake.payables.clear();
+        fake.payables[40] = FakePayable(40, 'Internet Fibra', 12000);
+        fake.payables[41] = FakePayable(41, 'Energia Elétrica', 25000);
+
+        await pump(
+          tester,
+          const Scaffold(body: PayablesTab(space: pf)),
+          physicalSize: const Size(1200, 1800),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Internet Fibra'), findsOneWidget);
+        expect(find.text('Energia Elétrica'), findsOneWidget);
+
+        // Ativa modo de seleção
+        final selectBtn = find.text('Selecionar várias');
+        expect(selectBtn, findsOneWidget);
+        await tester.tap(selectBtn);
+        await tester.pumpAndSettle();
+
+        // Clica no botão de selecionar todas
+        final selectAllBtn = find.text('Selecionar todas');
+        expect(selectAllBtn, findsOneWidget);
+        await tester.tap(selectAllBtn);
+        await tester.pumpAndSettle();
+
+        // Barra inferior exibe "Pagar selecionadas (2) • R$ 370,00"
+        final batchPayBtn = find.textContaining('Pagar selecionadas (2)');
+        expect(batchPayBtn, findsOneWidget);
+
+        await tester.tap(batchPayBtn);
+        await tester.pumpAndSettle();
+
+        // Abre o modal de pagamento em lote
+        expect(find.text('Pagar 2 contas'), findsOneWidget);
+        expect(find.text('Confirmar pagamento de 2 contas'), findsOneWidget);
+
+        // Confirma o pagamento em lote
+        await tester.tap(find.text('Confirmar pagamento de 2 contas'));
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 2));
+        await tester.pumpAndSettle();
+
+        // Ambas as contas devem ter sido pagas
+        expect(fake.payables[40]!.paidCents, 12000);
+        expect(fake.payables[41]!.paidCents, 25000);
+      },
+    );
+
     const widths = <double>[320, 375, 402];
     const scales = <double>[1.0, 1.5, 2.0];
 

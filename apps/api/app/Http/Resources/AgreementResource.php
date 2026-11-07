@@ -25,6 +25,8 @@ class AgreementResource extends JsonResource
         return [
             'id' => $this->id,
             'space_id' => $this->space_id,
+            'category_id' => $this->category_id,
+            'category' => $this->whenLoaded('category', fn () => new CategoryResource($this->category)),
             'description' => $this->description,
             'total' => Money::fromCents($this->total_cents),
             'installment_count' => $this->installment_count,
