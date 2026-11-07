@@ -33,6 +33,25 @@ class CategoriesRepository {
     return Category.fromJson(json['data'] as Map<String, dynamic>);
   }
 
+  Future<Category> update(
+    int spaceId,
+    int categoryId, {
+    String? name,
+    String? icon,
+    String? color,
+  }) async {
+    final body = <String, Object?>{
+      'name': ?name,
+      'icon': ?icon,
+      'color': ?color,
+    };
+    final json = await _api.patch(
+      '/spaces/$spaceId/categories/$categoryId',
+      body,
+    );
+    return Category.fromJson(json['data'] as Map<String, dynamic>);
+  }
+
   Future<void> delete(int spaceId, int categoryId) async {
     await _api.delete('/spaces/$spaceId/categories/$categoryId');
   }

@@ -8,6 +8,7 @@ import '../accounts/account.dart';
 import '../accounts/accounts_repository.dart';
 import '../auth/auth_models.dart';
 import '../categories/category_badge.dart';
+import '../categories/category_filter_chip.dart';
 import '../settings/preferences_controller.dart';
 import 'statement_entry.dart';
 import 'statement_repository.dart';
@@ -29,6 +30,7 @@ class _StatementTabState extends State<StatementTab> {
 
   int? _selectedAccountId;
   String _selectedDirection = 'all'; // 'all', 'credit', 'debit'
+  int? _selectedCategoryId;
 
   @override
   void initState() {
@@ -42,6 +44,7 @@ class _StatementTabState extends State<StatementTab> {
     if (oldWidget.space.id != widget.space.id) {
       _selectedAccountId = null;
       _selectedDirection = 'all';
+      _selectedCategoryId = null;
       _load();
     }
   }
@@ -61,6 +64,7 @@ class _StatementTabState extends State<StatementTab> {
         widget.space.id,
         accountId: _selectedAccountId,
         direction: _selectedDirection == 'all' ? null : _selectedDirection,
+        categoryId: _selectedCategoryId,
       );
 
       final results = await Future.wait([accountsFuture, statementFuture]);
@@ -229,6 +233,14 @@ class _StatementTabState extends State<StatementTab> {
               setState(() => _selectedDirection = 'debit');
               _load();
             }
+          },
+        ),
+        CategoryFilterChip(
+          spaceId: widget.space.id,
+          selectedCategoryId: _selectedCategoryId,
+          onChanged: (catId) {
+            setState(() => _selectedCategoryId = catId);
+            _load();
           },
         ),
         if (_accounts.isNotEmpty)

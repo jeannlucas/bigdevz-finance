@@ -20,6 +20,7 @@ class StatementController extends Controller
             'from' => ['nullable', 'date_format:Y-m-d'],
             'to' => ['nullable', 'date_format:Y-m-d'],
             'direction' => ['nullable', 'in:credit,debit'],
+            'category_id' => ['nullable', 'integer'],
         ]);
 
         if ($request->filled('account_id')) {
@@ -32,9 +33,10 @@ class StatementController extends Controller
             ->whereHas('account', fn ($q) => $q->where('space_id', $space->id))
             ->with([
                 'account',
-                'receipt.installment.agreement',
+                'category',
+                'receipt.installment.agreement.category',
                 'receiptReversal',
-                'payment.payable',
+                'payment.payable.category',
                 'paymentReversal',
                 'transfer.sourceAccount',
                 'transfer.destinationAccount',
@@ -43,6 +45,15 @@ class StatementController extends Controller
 
         if ($request->filled('account_id')) {
             $query->where('account_id', $request->integer('account_id'));
+        }
+
+        if ($request->filled('category_id')) {
+            $catId = $request->integer('category_id');
+            $query->where(function ($q) use ($catId) {
+                $q->where('category_id', $catId)
+                    ->orWhereHas('payment.payable', fn ($pq) => $pq->where('category_id', $catId))
+                    ->orWhereHas('receipt.installment.agreement', fn ($aq) => $aq->where('category_id', $catId));
+            });
         }
 
         if ($request->filled('from')) {

@@ -98,16 +98,11 @@ class AccountsTab extends StatelessWidget {
                                       key: const ValueKey(
                                         'accounts_tab_transfer_button',
                                       ),
-                                      onPressed: () =>
-                                          Navigator.of(context).push(
-                                            spaceRoute(
-                                              isPf: space.isPf,
-                                              child: TransferFormScreen(
-                                                space: space,
-                                                accounts: accounts,
-                                              ),
-                                            ),
-                                          ),
+                                      onPressed: () => showTransferFormModal(
+                                        context,
+                                        space: space,
+                                        accounts: accounts,
+                                      ),
                                       icon: const AppIcon(
                                         AppIcons.transfer,
                                         size: 16,

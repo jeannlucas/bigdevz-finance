@@ -36,7 +36,10 @@ Future<void> showPayableFormModal(
         clipBehavior: Clip.antiAlias,
         insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 620, maxHeight: 780),
+          constraints: BoxConstraints(
+            maxWidth: 620,
+            maxHeight: MediaQuery.sizeOf(dialogContext).height * 0.85,
+          ),
           child: PayableFormScreen(space: space, today: today, asModal: true),
         ),
       ),

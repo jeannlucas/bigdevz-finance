@@ -66,7 +66,13 @@ Future<void> showAccountFormModal(
         clipBehavior: Clip.antiAlias,
         insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 580, maxHeight: 720),
+          constraints: BoxConstraints(
+            maxWidth: 580,
+            maxHeight: (MediaQuery.sizeOf(dialogContext).height * 0.85).clamp(
+              480.0,
+              720.0,
+            ),
+          ),
           child: AccountFormScreen(space: space, asModal: true),
         ),
       ),

@@ -8,6 +8,7 @@ import '../../ui/app_tokens.dart';
 import '../../ui/widgets.dart';
 import '../auth/auth_models.dart';
 import '../categories/category_badge.dart';
+import '../categories/category_filter_chip.dart';
 import '../settings/preferences_controller.dart';
 import 'agreement.dart';
 import 'agreement_form_screen.dart';
@@ -44,6 +45,7 @@ class _AgreementsTabState extends State<AgreementsTab> {
   };
 
   late String _filter;
+  int? _selectedCategoryId;
   bool _canScrollLeft = false;
   bool _canScrollRight = false;
 
@@ -190,6 +192,13 @@ class _AgreementsTabState extends State<AgreementsTab> {
                         onSelected: (_) => _selectFilter(value),
                       ),
                     ),
+                  CategoryFilterChip(
+                    spaceId: space.id,
+                    type: 'income',
+                    selectedCategoryId: _selectedCategoryId,
+                    onChanged: (catId) =>
+                        setState(() => _selectedCategoryId = catId),
+                  ),
                 ],
               ),
               // Gradiente / seta sutil à esquerda
@@ -259,10 +268,13 @@ class _AgreementsTabState extends State<AgreementsTab> {
         ),
         Expanded(
           child: LoadView<AgreementsListResult>(
-            key: ValueKey('agreements-$_filter-${space.id}'),
+            key: ValueKey(
+              'agreements-$_filter-${space.id}-$_selectedCategoryId',
+            ),
             load: () => context.read<AgreementsRepository>().list(
               space.id,
               status: _filter,
+              categoryId: _selectedCategoryId,
             ),
             isEmpty: (result) => result.items.isEmpty,
             emptyWithData: (context, result, _) {

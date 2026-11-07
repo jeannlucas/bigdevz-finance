@@ -17,9 +17,12 @@ class AgreementsRepository {
   Future<AgreementsListResult> list(
     int spaceId, {
     String status = 'open',
+    int? categoryId,
   }) async {
+    final query = <String>['status=$status'];
+    if (categoryId != null) query.add('category_id=$categoryId');
     final response = await _api.get(
-      '/spaces/$spaceId/agreements?status=$status',
+      '/spaces/$spaceId/agreements?${query.join('&')}',
     );
     final data = (response['data'] as List)
         .map((item) => Agreement.fromJson(item as Map<String, dynamic>))
@@ -32,7 +35,9 @@ class AgreementsRepository {
   Future<List<Agreement>> listItems(
     int spaceId, {
     String status = 'open',
-  }) async => (await list(spaceId, status: status)).items;
+    int? categoryId,
+  }) async =>
+      (await list(spaceId, status: status, categoryId: categoryId)).items;
 
   Future<Agreement> find(int spaceId, int agreementId) async =>
       Agreement.fromJson(

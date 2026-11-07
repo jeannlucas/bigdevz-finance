@@ -22,27 +22,21 @@
 
 ## 2. Estado Operacional Atual e Máquina de Estados
 
-- **Estado Operacional:** **`DESENVOLVIMENTO_LOCAL_FEATURE`** (Checkpoint `FINANCE-CATEGORIAS-E-BAIXA-MULTIPLA-01`, `FINANCE-CHROME-MODAL-RENDER-FIX-01`, `FINANCE-CARD-BILL-AND-MODAL-FIX-01`, `FINANCE-MODAL-ACTION-FLOWS-01`, `FINANCE-DASHBOARD-CHARTS-AND-SEED-01`, `FINANCE-UNIFY-LOANS-NAV-01`, `FINANCE-DESKTOP-TOPBAR-01` e `FINANCE-USER-PROFILE-NOTIFICATIONS-01`).
-- **Feature Ativa:** Baixa Múltipla (Acordos & Obrigações), Categorias Financeiras e Ajuste Fino de Layout (Eliminação de Espaços Vazios):
+- **Estado Operacional:** **`DESENVOLVIMENTO_LOCAL_FEATURE`** (Checkpoint `FINANCE-CATEGORIAS-FILTROS-MODAIS-01`, `FINANCE-CATEGORIAS-E-BAIXA-MULTIPLA-01`, `FINANCE-CHROME-MODAL-RENDER-FIX-01`).
+- **Feature Ativa:** Filtros por Categoria, Gerenciamento de Categorias e Ajuste Fino de Layout (Eliminação Total de Espaços Ociosos em Modais):
   1. **Eliminação de Espaços Vazios em Modais e Telas:**
-     - Modais adaptativos em `agreement_modal.dart` e `payable_modal.dart` agora utilizam `ConstrainedBox(maxHeight: 0.85 * h)` com `Column(mainAxisSize: MainAxisSize.min)` e `Flexible(child: ListView(shrinkWrap: true))`.
-     - Layout abraça o conteúdo com precisão sem deixar áreas vazias ou fundos mortos, rolando perfeitamente caso o conteúdo exceda o viewport.
-  2. **Baixa Múltipla no Modal de Parcelas do Acordo:**
-     - Seleção individual por checkbox e ação "Selecionar todas / Desmarcar todas".
-     - Barra de ação verde com somatório em tempo real (`Baixar selecionadas (N) • R$ ...`).
-     - Formulário dedicado de baixa em lote sequencial e idempotente com indicador de progresso e tratamento singular/plural.
-  3. **Baixa Múltipla na Listagem Geral de Contas a Pagar:**
-     - Modo de seleção em lote via botão no topo da listagem (`Selecionar várias`).
-     - Checkboxes dinâmicos nos cartões e barra flutuante inferior.
-     - Modal de quitação em lote (`batch_payable_modal.dart`) com seleção de conta de origem e data, idempotência persistida por parcela e feedback em tempo real.
-  4. **Módulo Completo de Categorias Financeiras:**
-     - Especificação canônica em `specs/categorias/categorias.md` (`AC-CAT-001` a `AC-CAT-006`).
-     - Backend API (Laravel 13): Migration com FK composta `category_id`, relacionamentos nos models, `CategoryController` (CRUD isolado por tenant), `CategoryResource`, seed de categorias PF/PJ e agregação de despesas/receitas por categoria no endpoint `/summary`.
-     - Frontend (Flutter): Model `Category`, `CategoriesRepository`, `CategoryBadge`, `CategoryPickerField` (com criação rápida em modal), integração nos formulários de criação e visualização de cartões/extratos.
-     - Dashboard Analytics: Card com gráfico Donut de distribuição de despesas e receitas por categoria com paleta dinâmica e seletor segmentado.
-  5. **Backpressure 100% Verde:**
-     - 215 testes Flutter passando.
-     - 119 testes de integração da API Laravel passando (1.424 asserções).
+     - Modais adaptativos em `agreement_modal.dart`, `payable_modal.dart`, `agreement_form_screen.dart`, `account_form_screen.dart`, `transfer_form_screen.dart` e `categories_screen.dart`.
+     - Utilização estrita de `ConstrainedBox(maxHeight: 0.85 * h)` combinada com `Column(mainAxisSize: MainAxisSize.min)` e `ListView(shrinkWrap: true)` ou `SingleChildScrollView`.
+     - O layout abraça o conteúdo com precisão sem deixar áreas vazias ou vácuos verticais, com rolagem automática se a lista de itens crescer.
+  2. **Filtros por Categoria nas Listagens (A pagar, A receber e Extrato):**
+     - Backend API com suporte a `category_id` nas rotas de `/payables`, `/agreements` e `/statements` (com busca profunda de movimentações por obrigação/acordo).
+     - Componente reutilizável `CategoryFilterChip` integrado nas três abas com badge visual e seletor rápido.
+  3. **Tela de Gerenciamento de Categorias:**
+     - Implementada em `categories_screen.dart` com listagem por tipo (Despesas/Receitas), proteção contra exclusão de categorias padrão, edição e criação com seletor de 15 cores e 18 ícones.
+     - Atalho direto na Top Bar desktop ao lado do sino de notificações e nas Configurações.
+  4. **Backpressure 100% Verde:**
+     - 216 testes Flutter passando.
+     - 121 testes de integração da API Laravel passando (1.438 asserções).
      - Lint e formatação aprovados (`pint` e `dart format`).
 - **Ambiente de Desenvolvimento Local:**
   - API Laravel 13 Docker ativa em `http://127.0.0.1:8000/api`.

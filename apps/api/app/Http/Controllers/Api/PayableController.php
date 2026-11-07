@@ -32,9 +32,18 @@ class PayableController extends Controller
     public function index(Request $request, string $space): AnonymousResourceCollection
     {
         $space = $this->space($request, $space);
-        $status = $request->validate(['status' => ['nullable', Rule::in(self::STATUSES)]])['status'] ?? 'all';
+        $data = $request->validate([
+            'status' => ['nullable', Rule::in(self::STATUSES)],
+            'category_id' => ['nullable', 'integer'],
+        ]);
+        $status = $data['status'] ?? 'all';
         $today = GenerateObligations::today();
-        $query = $space->payables()->with(['card', 'plan'])->orderBy('due_date')->orderBy('id');
+        $query = $space->payables()->with(['card', 'plan', 'category'])->orderBy('due_date')->orderBy('id');
+
+        if (! empty($data['category_id'])) {
+            $query->where('category_id', $data['category_id']);
+        }
+
         match ($status) {
             'open' => $query->whereNull('cancelled_at')->whereNotNull('amount_cents')->whereColumn('paid_cents', '<', 'amount_cents'),
             'overdue' => $query->whereNull('cancelled_at')->whereNotNull('amount_cents')->whereColumn('paid_cents', '<', 'amount_cents')->where('due_date', '<', $today),

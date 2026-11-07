@@ -142,6 +142,44 @@ void main() {
 
       await expectLater(repo.delete(1, 50), completes);
     });
+
+    test('update sends PATCH and returns updated category', () async {
+      final client = MockClient((request) async {
+        expect(request.method, 'PATCH');
+        expect(request.url.path, '/spaces/1/categories/50');
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body['name'], 'Freelance Renovado');
+        expect(body['color'], '#4CAF50');
+        return http.Response(
+          jsonEncode({
+            'data': {
+              'id': 50,
+              'space_id': 1,
+              'name': 'Freelance Renovado',
+              'type': 'income',
+              'icon': 'work',
+              'color': '#4CAF50',
+              'is_default': false,
+            },
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final api = ApiClient(baseUrl: 'http://test', client: client);
+      final repo = CategoriesRepository(api);
+
+      final updated = await repo.update(
+        1,
+        50,
+        name: 'Freelance Renovado',
+        color: '#4CAF50',
+      );
+      expect(updated.id, 50);
+      expect(updated.name, 'Freelance Renovado');
+      expect(updated.color, '#4CAF50');
+    });
   });
 
   group('Category Widgets', () {

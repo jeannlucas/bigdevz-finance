@@ -35,9 +35,11 @@ class Category {
   bool get isIncome => type == 'income';
   bool get isExpense => type == 'expense';
 
-  Color get colorValue {
+  Color get colorValue => colorHexToColor(color, isIncome: isIncome);
+
+  static Color colorHexToColor(String colorHex, {bool isIncome = false}) {
     try {
-      final hex = color.replaceAll('#', '');
+      final hex = colorHex.replaceAll('#', '');
       if (hex.length == 6) {
         return Color(int.parse('FF$hex', radix: 16));
       }

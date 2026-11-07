@@ -10,6 +10,7 @@ import '../agreements/agreements_tab.dart';
 import '../auth/auth_models.dart';
 import '../auth/profile_edit_dialog.dart';
 import '../auth/session_controller.dart';
+import '../categories/categories_screen.dart';
 import '../payables/payables_tab.dart';
 import '../settings/preferences_controller.dart';
 import '../settings/settings_screen.dart';
@@ -153,6 +154,8 @@ class _HomeShellState extends State<HomeShell> {
                       summary: _summary,
                       onNavigate: _handleNavigation,
                     ),
+                    onOpenCategories: () =>
+                        showCategoriesManagementModal(context, space: space),
                     onEditProfile: () => showProfileEditDialog(context),
                     onOpenSettings: () {
                       Navigator.of(context).push(
@@ -208,6 +211,8 @@ class _HomeShellState extends State<HomeShell> {
                     onSelected: (action) {
                       if (action == 'edit_profile') {
                         showProfileEditDialog(context);
+                      } else if (action == 'categories') {
+                        showCategoriesManagementModal(context, space: space);
                       } else if (action == 'settings') {
                         Navigator.of(context).push(
                           spaceRoute(
@@ -254,6 +259,16 @@ class _HomeShellState extends State<HomeShell> {
                             AppIcon(AppIcons.edit, size: 18),
                             SizedBox(width: 8),
                             Text('Editar perfil'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'categories',
+                        child: Row(
+                          children: [
+                            Icon(Icons.category_outlined, size: 18),
+                            SizedBox(width: 8),
+                            Text('Categorias'),
                           ],
                         ),
                       ),
@@ -357,6 +372,7 @@ class _DesktopTopBar extends StatelessWidget {
     required this.notificationCount,
     required this.onDestinationSelected,
     required this.onOpenNotifications,
+    required this.onOpenCategories,
     required this.onEditProfile,
     required this.onOpenSettings,
     required this.onLogout,
@@ -368,6 +384,7 @@ class _DesktopTopBar extends StatelessWidget {
   final int notificationCount;
   final ValueChanged<int> onDestinationSelected;
   final VoidCallback onOpenNotifications;
+  final VoidCallback onOpenCategories;
   final VoidCallback onEditProfile;
   final VoidCallback onOpenSettings;
   final VoidCallback onLogout;
@@ -449,6 +466,12 @@ class _DesktopTopBar extends StatelessWidget {
             _NotificationBellButton(
               count: notificationCount,
               onTap: onOpenNotifications,
+            ),
+            const SizedBox(width: AppTokens.p4),
+            IconButton(
+              tooltip: 'Categorias',
+              icon: const Icon(Icons.category_outlined, size: 20),
+              onPressed: onOpenCategories,
             ),
             const SizedBox(width: AppTokens.p4),
             IconButton(

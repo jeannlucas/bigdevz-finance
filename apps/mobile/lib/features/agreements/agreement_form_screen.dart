@@ -33,7 +33,10 @@ Future<void> showAgreementFormModal(
         clipBehavior: Clip.antiAlias,
         insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 580),
+          constraints: BoxConstraints(
+            maxWidth: 580,
+            maxHeight: MediaQuery.sizeOf(dialogContext).height * 0.85,
+          ),
           child: SingleChildScrollView(
             child: AgreementFormScreen(space: space, asModal: true),
           ),

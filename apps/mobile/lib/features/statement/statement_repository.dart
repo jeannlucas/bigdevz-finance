@@ -12,6 +12,7 @@ class StatementRepository {
     String? from,
     String? to,
     String? direction,
+    int? categoryId,
   }) async {
     final queryParams = <String>[];
     if (accountId != null) {
@@ -25,6 +26,9 @@ class StatementRepository {
     }
     if (direction != null && direction.isNotEmpty && direction != 'all') {
       queryParams.add('direction=$direction');
+    }
+    if (categoryId != null) {
+      queryParams.add('category_id=$categoryId');
     }
 
     final qs = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';

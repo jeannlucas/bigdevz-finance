@@ -10,6 +10,7 @@ import '../../ui/widgets.dart';
 import '../auth/auth_models.dart';
 import '../auth/session_controller.dart';
 import '../categories/category_badge.dart';
+import '../categories/category_filter_chip.dart';
 import '../settings/preferences_controller.dart';
 import 'cards_screen.dart';
 import 'batch_payable_modal.dart';
@@ -47,6 +48,7 @@ class _PayablesTabState extends State<PayablesTab> {
   };
 
   late String _filter = widget.initialFilter;
+  int? _selectedCategoryId;
   PendingCreation? _pending;
   bool _selectionMode = false;
   final Set<int> _selectedPayableIds = {};
@@ -195,6 +197,13 @@ class _PayablesTabState extends State<PayablesTab> {
                     onSelected: (_) => setState(() => _filter = value),
                   ),
                 ),
+              CategoryFilterChip(
+                spaceId: space.id,
+                type: 'expense',
+                selectedCategoryId: _selectedCategoryId,
+                onChanged: (catId) =>
+                    setState(() => _selectedCategoryId = catId),
+              ),
               ActionChip(
                 avatar: const AppIcon(AppIcons.card, size: 16),
                 label: const Text('Cartões e recorrências'),
@@ -210,10 +219,11 @@ class _PayablesTabState extends State<PayablesTab> {
         ),
         Expanded(
           child: LoadView<List<Payable>>(
-            key: ValueKey('payables-$_filter'),
+            key: ValueKey('payables-$_filter-$_selectedCategoryId'),
             load: () => context.read<PayablesRepository>().list(
               space.id,
               status: _filter,
+              categoryId: _selectedCategoryId,
             ),
             isEmpty: (items) => items.isEmpty,
             empty: (context, _) => EmptyState(
