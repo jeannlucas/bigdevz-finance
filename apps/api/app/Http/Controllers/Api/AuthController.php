@@ -44,4 +44,22 @@ class AuthController extends Controller
 
         return response()->json(['data' => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email]]);
     }
+
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'min:2', 'max:255'],
+        ]);
+
+        $user = $request->user();
+        $user->update(['name' => trim($data['name'])]);
+
+        return response()->json([
+            'data' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ],
+        ]);
+    }
 }

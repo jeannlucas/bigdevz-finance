@@ -100,150 +100,168 @@ class InstallmentScreen extends StatelessWidget {
           };
           return RefreshIndicator(
             onRefresh: refresh,
-            child: ListView(
-              padding: const EdgeInsets.all(AppTokens.p16),
-              children: [
-                SpaceBadge(space),
-                const SizedBox(height: 16),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppTokens.p20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 720),
+                child: ListView(
+                  padding: const EdgeInsets.all(AppTokens.p16),
+                  children: [
+                    SpaceBadge(space),
+                    const SizedBox(height: 16),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppTokens.p20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Text(
-                                'Parcela ${installment.number}/${installment.installmentCount ?? '?'}',
-                                style: theme.textTheme.titleLarge?.copyWith(
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Parcela ${installment.number}/${installment.installmentCount ?? '?'}',
+                                    style: theme.textTheme.titleLarge?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                                installmentStatusChip(installment),
+                              ],
+                            ),
+                            if (installment.agreementDescription != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                installment.agreementDescription!,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 4),
+                            Text(
+                              'Vencimento ${formatDateBr(installment.dueDate)}',
+                              style: theme.textTheme.bodySmall,
+                            ),
+                            const Divider(height: 28),
+                            _Row(
+                              label: 'Valor da parcela',
+                              child: MoneyText(installment.amount),
+                            ),
+                            _Row(
+                              label: 'Recebido',
+                              child: MoneyText(installment.received),
+                            ),
+                            _Row(
+                              label: 'Falta receber',
+                              child: MoneyText(
+                                installment.remaining,
+                                style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.w700,
+                                  color: installment.remaining.isZero
+                                      ? AppTokens.income
+                                      : null,
                                 ),
                               ),
                             ),
-                            installmentStatusChip(installment),
                           ],
                         ),
-                        if (installment.agreementDescription != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            installment.agreementDescription!,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Tentativa sem confirmação bloqueia novo recebimento nesta
+                    // parcela até ser verificada.
+                    if (pending != null)
+                      PendingReceiptCard(
+                        key: ValueKey(pending.idempotencyKey),
+                        attempt: pending,
+                        onSettled: (outcome) => _settled(context, outcome),
+                      )
+                    else if (!installment.remaining.isZero)
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(50),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppTokens.r12),
                           ),
-                        ],
-                        const SizedBox(height: 4),
+                        ),
+                        icon: const AppIcon(AppIcons.receipt, size: 20),
+                        label: const Text(
+                          'Registrar recebimento',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                          ),
+                        ),
+                        onPressed: () async {
+                          final outcome = await Navigator.of(context)
+                              .push<ReceiptAttemptOutcome>(
+                                spaceRoute(
+                                  isPf: space.isPf,
+                                  child: ReceiptFormScreen(
+                                    space: space,
+                                    installment: installment,
+                                    accounts: accounts,
+                                  ),
+                                ),
+                              );
+                          if (outcome != null && context.mounted) {
+                            _settled(context, outcome);
+                          }
+                        },
+                      ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        const AppIcon(AppIcons.receipt, size: 18),
+                        const SizedBox(width: 8),
                         Text(
-                          'Vencimento ${formatDateBr(installment.dueDate)}',
-                          style: theme.textTheme.bodySmall,
-                        ),
-                        const Divider(height: 28),
-                        _Row(
-                          label: 'Valor da parcela',
-                          child: MoneyText(installment.amount),
-                        ),
-                        _Row(
-                          label: 'Recebido',
-                          child: MoneyText(installment.received),
-                        ),
-                        _Row(
-                          label: 'Falta receber',
-                          child: MoneyText(
-                            installment.remaining,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: installment.remaining.isZero
-                                  ? AppTokens.income
-                                  : null,
-                            ),
+                          'Recebimentos',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Tentativa sem confirmação bloqueia novo recebimento nesta
-                // parcela até ser verificada.
-                if (pending != null)
-                  PendingReceiptCard(
-                    key: ValueKey(pending.idempotencyKey),
-                    attempt: pending,
-                    onSettled: (outcome) => _settled(context, outcome),
-                  )
-                else if (!installment.remaining.isZero)
-                  FilledButton.icon(
-                    icon: const AppIcon(AppIcons.receipt, size: 18),
-                    label: const Text('Registrar recebimento'),
-                    onPressed: () async {
-                      final outcome = await Navigator.of(context)
-                          .push<ReceiptAttemptOutcome>(
-                            spaceRoute(
-                              isPf: space.isPf,
-                              child: ReceiptFormScreen(
-                                space: space,
-                                installment: installment,
-                                accounts: accounts,
-                              ),
-                            ),
-                          );
-                      if (outcome != null && context.mounted) {
-                        _settled(context, outcome);
-                      }
-                    },
-                  ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    const AppIcon(AppIcons.receipt, size: 18),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Recebimentos',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                    const SizedBox(height: 8),
+                    if (installment.receipts.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Text(
+                          'Nenhum recebimento registrado.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      )
+                    else
+                      for (final receipt in installment.receipts)
+                        ReceiptTile(
+                          receipt: receipt,
+                          accountName:
+                              accountNames[receipt.accountId] ?? 'Conta',
+                          // Operação pendente na parcela bloqueia estorno e
+                          // correção até ser verificada.
+                          onCorrect: pending != null || receipt.isReversed
+                              ? null
+                              : () => _openFix(
+                                  context,
+                                  installment,
+                                  receipt,
+                                  accounts,
+                                  correction: true,
+                                ),
+                          onReverse: pending != null || receipt.isReversed
+                              ? null
+                              : () => _openFix(
+                                  context,
+                                  installment,
+                                  receipt,
+                                  accounts,
+                                  correction: false,
+                                ),
+                        ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                if (installment.receipts.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      'Nenhum recebimento registrado.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  )
-                else
-                  for (final receipt in installment.receipts)
-                    ReceiptTile(
-                      receipt: receipt,
-                      accountName: accountNames[receipt.accountId] ?? 'Conta',
-                      // Operação pendente na parcela bloqueia estorno e
-                      // correção até ser verificada.
-                      onCorrect: pending != null || receipt.isReversed
-                          ? null
-                          : () => _openFix(
-                              context,
-                              installment,
-                              receipt,
-                              accounts,
-                              correction: true,
-                            ),
-                      onReverse: pending != null || receipt.isReversed
-                          ? null
-                          : () => _openFix(
-                              context,
-                              installment,
-                              receipt,
-                              accounts,
-                              correction: false,
-                            ),
-                    ),
-              ],
+              ),
             ),
           );
         },

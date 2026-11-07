@@ -5,6 +5,8 @@ import '../../core/config.dart';
 import '../../ui/app_brand.dart';
 import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
+import '../auth/session_controller.dart';
+import '../categories/categories_screen.dart';
 import 'preferences_controller.dart';
 
 /// Central de Configurações do BigDev.Z Finance:
@@ -113,7 +115,33 @@ class SettingsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 24),
 
-          // SEÇÃO C: SOBRE O APLICATIVO
+          // SEÇÃO C: CATEGORIAS FINANCEIRAS
+          _SectionHeader(
+            title: 'Categorias',
+            subtitle: 'Personalize as categorias de receitas e despesas.',
+            icon: AppIcons.wallet,
+          ),
+          const SizedBox(height: 10),
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: ListTile(
+              leading: const Icon(Icons.category_rounded),
+              title: const Text('Gerenciar Categorias'),
+              subtitle: const Text(
+                'Visualizar, criar e editar categorias deste espaço',
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () {
+                final space = context.read<SessionController?>()?.activeSpace;
+                if (space != null) {
+                  showCategoriesManagementModal(context, space: space);
+                }
+              },
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // SEÇÃO D: SOBRE O APLICATIVO
           _SectionHeader(
             title: 'Sobre o aplicativo',
             subtitle: 'Informações do BigDev.Z Finance.',

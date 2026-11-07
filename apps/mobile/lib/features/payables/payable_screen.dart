@@ -183,167 +183,189 @@ class PayableScreen extends StatelessWidget {
           final free = pending == null;
           return RefreshIndicator(
             onRefresh: refresh,
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                SpaceBadge(space),
-                const SizedBox(height: 16),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 720),
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    SpaceBadge(space),
+                    const SizedBox(height: 16),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Text(
-                                payable.description,
-                                style: theme.textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                            payableStatusChip(payable),
-                          ],
-                        ),
-                        Text(
-                          '${payable.kindLabel} · vence ${formatDateBr(payable.dueDate)}'
-                          '${payable.payee == null ? '' : '\n${payable.payee}'}',
-                        ),
-                        if (payable.cancelReason != null)
-                          Text('Cancelada: ${payable.cancelReason}'),
-                        const Divider(height: 32),
-                        _Line(
-                          'Valor',
-                          payable.amount == null
-                              ? const Text('Valor a informar')
-                              : MoneyText(payable.amount!),
-                        ),
-                        _Line('Pago (líquido)', MoneyText(payable.paid)),
-                        _Line(
-                          'Falta pagar',
-                          payable.remaining == null
-                              ? const Text('—')
-                              : MoneyText(
-                                  payable.remaining!,
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    payable.description,
+                                    style: theme.textTheme.titleLarge?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
                                 ),
+                                payableStatusChip(payable),
+                              ],
+                            ),
+                            Text(
+                              '${payable.kindLabel} · vence ${formatDateBr(payable.dueDate)}'
+                              '${payable.payee == null ? '' : '\n${payable.payee}'}',
+                            ),
+                            if (payable.cancelReason != null)
+                              Text('Cancelada: ${payable.cancelReason}'),
+                            const Divider(height: 32),
+                            _Line(
+                              'Valor',
+                              payable.amount == null
+                                  ? const Text('Valor a informar')
+                                  : MoneyText(payable.amount!),
+                            ),
+                            _Line('Pago (líquido)', MoneyText(payable.paid)),
+                            _Line(
+                              'Falta pagar',
+                              payable.remaining == null
+                                  ? const Text('—')
+                                  : MoneyText(
+                                      payable.remaining!,
+                                      style: theme.textTheme.titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (pending != null)
-                  PendingReceiptCard(
-                    key: ValueKey(pending.idempotencyKey),
-                    attempt: pending,
-                    onSettled: (outcome) => _settled(context, outcome),
-                  ),
-                if (free && payable.canPay)
-                  FilledButton.icon(
-                    icon: const Icon(Icons.payments_outlined),
-                    label: const Text('Registrar pagamento'),
-                    onPressed: () => _push(
-                      context,
-                      PaymentFormScreen(
-                        space: space,
-                        payable: payable,
-                        accounts: accounts,
                       ),
                     ),
-                  ),
-                if (free && !payable.isCancelled) ...[
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.edit_outlined),
-                    label: Text(
-                      payable.isCardBill
-                          ? 'Informar total da fatura'
-                          : 'Editar esta conta',
-                    ),
-                    onPressed: () => _push(
-                      context,
-                      PayableEditScreen(space: space, payable: payable),
-                    ),
-                  ),
-                ],
-                if (free && !payable.isCancelled && payable.paid.isZero) ...[
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.block),
-                    label: const Text('Cancelar conta a pagar'),
-                    onPressed: () => _cancel(context, payable),
-                  ),
-                ],
-                if (payable.recurrenceId != null) ...[
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.update),
-                    label: const Text('Alterar ocorrências futuras'),
-                    onPressed: () => _editFuture(context, payable),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.event_busy),
-                    label: const Text('Encerrar recorrência aqui'),
-                    onPressed: () => _endRecurrence(context, payable),
-                  ),
-                ],
-                const SizedBox(height: 24),
-                Text('Pagamentos', style: theme.textTheme.titleMedium),
-                const SizedBox(height: 8),
-                if (payable.payments.isEmpty)
-                  Text(
-                    'Nenhum pagamento registrado.',
-                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
-                  ),
-                for (final payment in payable.payments)
-                  _PaymentTile(
-                    payment: payment,
-                    accountName: names[payment.accountId] ?? 'Conta',
-                    onCorrect: free && !payment.isReversed
-                        ? () => _push(
-                            context,
-                            PaymentFixScreen(
-                              space: space,
-                              payable: payable,
-                              original: payment,
-                              accounts: accounts,
-                              correction: true,
-                            ),
-                          )
-                        : null,
-                    onReverse: free && !payment.isReversed
-                        ? () => _push(
-                            context,
-                            PaymentFixScreen(
-                              space: space,
-                              payable: payable,
-                              original: payment,
-                              accounts: accounts,
-                              correction: false,
-                            ),
-                          )
-                        : null,
-                  ),
-                if (payable.changes.isNotEmpty) ...[
-                  const SizedBox(height: 24),
-                  Text('Histórico', style: theme.textTheme.titleMedium),
-                  for (final change in payable.changes)
-                    ListTile(
-                      dense: true,
-                      leading: const Icon(Icons.history),
-                      title: Text(change.label),
-                      subtitle: change.reason == null
-                          ? null
-                          : Text('Motivo: ${change.reason}'),
-                    ),
-                ],
-              ],
+                    const SizedBox(height: 16),
+                    if (pending != null)
+                      PendingReceiptCard(
+                        key: ValueKey(pending.idempotencyKey),
+                        attempt: pending,
+                        onSettled: (outcome) => _settled(context, outcome),
+                      ),
+                    if (free && payable.canPay)
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(50),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        icon: const Icon(Icons.payments_outlined),
+                        label: const Text(
+                          'Registrar pagamento',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                          ),
+                        ),
+                        onPressed: () => _push(
+                          context,
+                          PaymentFormScreen(
+                            space: space,
+                            payable: payable,
+                            accounts: accounts,
+                          ),
+                        ),
+                      ),
+                    if (free && !payable.isCancelled) ...[
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.edit_outlined),
+                        label: Text(
+                          payable.isCardBill
+                              ? 'Informar total da fatura'
+                              : 'Editar esta conta',
+                        ),
+                        onPressed: () => _push(
+                          context,
+                          PayableEditScreen(space: space, payable: payable),
+                        ),
+                      ),
+                    ],
+                    if (free &&
+                        !payable.isCancelled &&
+                        payable.paid.isZero) ...[
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.block),
+                        label: const Text('Cancelar conta a pagar'),
+                        onPressed: () => _cancel(context, payable),
+                      ),
+                    ],
+                    if (payable.recurrenceId != null) ...[
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.update),
+                        label: const Text('Alterar ocorrências futuras'),
+                        onPressed: () => _editFuture(context, payable),
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.event_busy),
+                        label: const Text('Encerrar recorrência aqui'),
+                        onPressed: () => _endRecurrence(context, payable),
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    Text('Pagamentos', style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    if (payable.payments.isEmpty)
+                      Text(
+                        'Nenhum pagamento registrado.',
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    for (final payment in payable.payments)
+                      _PaymentTile(
+                        payment: payment,
+                        accountName: names[payment.accountId] ?? 'Conta',
+                        onCorrect: free && !payment.isReversed
+                            ? () => _push(
+                                context,
+                                PaymentFixScreen(
+                                  space: space,
+                                  payable: payable,
+                                  original: payment,
+                                  accounts: accounts,
+                                  correction: true,
+                                ),
+                              )
+                            : null,
+                        onReverse: free && !payment.isReversed
+                            ? () => _push(
+                                context,
+                                PaymentFixScreen(
+                                  space: space,
+                                  payable: payable,
+                                  original: payment,
+                                  accounts: accounts,
+                                  correction: false,
+                                ),
+                              )
+                            : null,
+                      ),
+                    if (payable.changes.isNotEmpty) ...[
+                      const SizedBox(height: 24),
+                      Text('Histórico', style: theme.textTheme.titleMedium),
+                      for (final change in payable.changes)
+                        ListTile(
+                          dense: true,
+                          leading: const Icon(Icons.history),
+                          title: Text(change.label),
+                          subtitle: change.reason == null
+                              ? null
+                              : Text('Motivo: ${change.reason}'),
+                        ),
+                    ],
+                  ],
+                ),
+              ),
             ),
           );
         },

@@ -6,6 +6,7 @@ import '../../ui/app_tokens.dart';
 import '../../ui/widgets.dart';
 import '../auth/auth_models.dart';
 import 'account.dart';
+import 'bank_catalog.dart';
 
 /// Cartão financeiro institucional para contas bancárias.
 /// Aplica a direção fintech: gradiente nobre, geometria de luz discreta,
@@ -38,9 +39,15 @@ class AccountCard extends StatelessWidget {
       isArchived: isArchived,
     );
 
+    final semanticLabel = obscureBalance
+        ? 'Conta ${account.name}, saldo oculto'
+        : 'Conta ${account.name}, saldo ${account.balance.brl}';
+
     return Semantics(
-      label: 'Conta ${account.name}, saldo ${account.balance.brl}',
+      label: semanticLabel,
       button: onTap != null,
+      onTap: onTap,
+      excludeSemantics: true,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -97,7 +104,8 @@ class AccountCard extends StatelessWidget {
                     color: Colors.white,
                   ),
 
-                  // Conteúdo do cartão
+                  // Conteúdo do cartão (nós semânticos descendentes excluídos nativamente
+                  // pelo excludeSemantics: true no nó pai)
                   Padding(
                     padding: const EdgeInsets.all(AppTokens.p20),
                     child: Column(
@@ -105,90 +113,162 @@ class AccountCard extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         // Cabeçalho do cartão: Nome e Status
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(
-                                  AppTokens.r10,
-                                ),
-                              ),
-                              child: AppIcon(
-                                isArchived
-                                    ? AppIcons.archive
-                                    : AppIcons.accounts,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  RichText(
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    text: TextSpan(
-                                      text: account.name,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: -0.2,
-                                        fontFamily: 'Inter',
-                                      ),
+                        Builder(
+                          builder: (context) {
+                            final bank = BankCatalog.findByAccountName(
+                              account.name,
+                            );
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 38,
+                                  height: 38,
+                                  alignment: Alignment.center,
+                                  padding: EdgeInsets.all(bank != null ? 5 : 8),
+                                  decoration: BoxDecoration(
+                                    color: bank != null
+                                        ? Colors.white
+                                        : Colors.white.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(
+                                      AppTokens.r10,
                                     ),
+                                    boxShadow: bank != null
+                                        ? [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(
+                                                alpha: 0.15,
+                                              ),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ]
+                                        : null,
                                   ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    isArchived
-                                        ? 'Conta arquivada'
-                                        : (isPf
-                                              ? 'Conta financeira PF'
-                                              : 'Conta financeira PJ'),
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.7,
+                                  child: bank != null
+                                      ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                          child: Image.asset(
+                                            bank.assetPath,
+                                            width: 26,
+                                            height: 26,
+                                            fit: BoxFit.contain,
+                                          ),
+                                        )
+                                      : AppIcon(
+                                          isArchived
+                                              ? AppIcons.archive
+                                              : AppIcons.accounts,
+                                          color: Colors.white,
+                                          size: 18,
+                                        ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        account.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: -0.2,
+                                          fontFamily: 'Inter',
+                                        ),
                                       ),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (isArchived)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.3),
-                                  borderRadius: BorderRadius.circular(
-                                    AppTokens.r8,
-                                  ),
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.2),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Arquivada',
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
+                                      const SizedBox(height: 2),
+                                      Builder(
+                                        builder: (context) {
+                                          String? accountTypeLabel;
+                                          final lowerName = account.name
+                                              .toLowerCase();
+                                          if (lowerName.contains('poupança') ||
+                                              lowerName.contains('poupanca')) {
+                                            accountTypeLabel = 'Poupança';
+                                          } else if (lowerName.contains(
+                                                'salário',
+                                              ) ||
+                                              lowerName.contains('salario')) {
+                                            accountTypeLabel = 'Salário';
+                                          } else if (lowerName.contains(
+                                                'investimento',
+                                              ) ||
+                                              lowerName.contains('pagamento')) {
+                                            accountTypeLabel = 'Investimento';
+                                          } else if (lowerName.contains(
+                                            'corrente',
+                                          )) {
+                                            accountTypeLabel = 'Corrente';
+                                          }
 
-                        const SizedBox(height: 18),
+                                          final subtitle = isArchived
+                                              ? 'Conta arquivada'
+                                              : (bank != null &&
+                                                        !bank.isCashOrWallet &&
+                                                        !bank.isOther
+                                                    ? (accountTypeLabel != null
+                                                          ? '${bank.name} · $accountTypeLabel · ${isPf ? 'PF' : 'PJ'}'
+                                                          : '${bank.name} · ${isPf ? 'PF' : 'PJ'}')
+                                                    : (accountTypeLabel != null
+                                                          ? '$accountTypeLabel · ${isPf ? 'PF' : 'PJ'}'
+                                                          : (isPf
+                                                                ? 'Conta financeira PF'
+                                                                : 'Conta financeira PJ')));
+
+                                          return Text(
+                                            subtitle,
+                                            style: TextStyle(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.7,
+                                              ),
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (isArchived)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.3,
+                                      ),
+                                      borderRadius: BorderRadius.circular(
+                                        AppTokens.r8,
+                                      ),
+                                      border: Border.all(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.2,
+                                        ),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      'Arquivada',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
 
                         // Bloco central: Saldo atual
                         Column(
@@ -233,8 +313,6 @@ class AccountCard extends StatelessWidget {
                               ),
                           ],
                         ),
-
-                        const SizedBox(height: 16),
 
                         // Rodapé: Somente a assinatura institucional da marca (data de abertura preservada no detalhe da conta)
                         const Row(

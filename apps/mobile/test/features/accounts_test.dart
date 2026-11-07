@@ -3,8 +3,12 @@ import 'dart:convert';
 import 'package:bigdevz_finance/core/api_client.dart';
 import 'package:bigdevz_finance/core/money.dart';
 import 'package:bigdevz_finance/features/accounts/account.dart';
+import 'package:bigdevz_finance/features/accounts/account_card.dart';
+import 'package:bigdevz_finance/features/accounts/account_form_screen.dart';
+import 'package:bigdevz_finance/features/accounts/account_screen.dart';
 import 'package:bigdevz_finance/features/accounts/accounts_repository.dart';
 import 'package:bigdevz_finance/features/accounts/accounts_tab.dart';
+import 'package:bigdevz_finance/features/accounts/bank_catalog.dart';
 import 'package:bigdevz_finance/features/accounts/opening_adjustments.dart';
 import 'package:bigdevz_finance/features/agreements/agreements_repository.dart';
 import 'package:bigdevz_finance/features/agreements/installment_screen.dart';
@@ -168,8 +172,12 @@ void main() {
   });
 
   group('telas', () {
-    Future<void> pump(WidgetTester tester, Widget home) async {
-      tester.view.physicalSize = const Size(1170, 2532);
+    Future<void> pump(
+      WidgetTester tester,
+      Widget home, {
+      Size? physicalSize,
+    }) async {
+      tester.view.physicalSize = physicalSize ?? const Size(1170, 2532);
       tester.view.devicePixelRatio = 3;
       addTearDown(tester.view.reset);
       final client = api();
@@ -421,6 +429,318 @@ void main() {
 
         // Posição Y deve ser idêntica na mesma escala e largura
         expect(posSingle.dy, equals(posMultiple.dy));
+      },
+    );
+
+    testWidgets(
+      'AccountCard: privacidade semântica oculta saldo no leitor de tela quando obscureBalance=true',
+      (tester) async {
+        final account = Account(
+          id: 1,
+          name: 'Nubank Principal',
+          balance: Money.parse('1500.00'),
+          openingBalance: Money.parse('1000.00'),
+          openingBalanceDate: '2026-01-01',
+        );
+
+        // Caso 1: Saldo mascarado (obscureBalance = true)
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: AccountCard(
+                space: pf,
+                account: account,
+                obscureBalance: true,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Nó semântico deve anunciar "saldo oculto" e não o valor real
+        expect(
+          find.bySemanticsLabel('Conta Nubank Principal, saldo oculto'),
+          findsOneWidget,
+        );
+        expect(find.bySemanticsLabel(RegExp(r'1\.500,00')), findsNothing);
+
+        // Caso 2: Saldo visível (obscureBalance = false)
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: AccountCard(
+                space: pf,
+                account: account,
+                obscureBalance: false,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.bySemanticsLabel('Conta Nubank Principal, saldo R\$ 1.500,00'),
+          findsOneWidget,
+        );
+
+        // Caso 3: Ação acessível de toque (onTap) preservada no nó semântico
+        var tapped = false;
+        final semantics = tester.semantics;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: AccountCard(
+                space: pf,
+                account: account,
+                onTap: () => tapped = true,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final nodeFinder = find.bySemanticsLabel(
+          'Conta Nubank Principal, saldo R\$ 1.500,00',
+        );
+        expect(nodeFinder, findsOneWidget);
+        semantics.tap(
+          find.semantics.byLabel('Conta Nubank Principal, saldo R\$ 1.500,00'),
+        );
+        expect(
+          tapped,
+          isTrue,
+          reason: 'SemanticsAction.tap deve disparar o callback onTap do nó acessível',
+        );
+      },
+    );
+
+    const widths = <double>[320, 375, 402];
+    const scales = <double>[1.0, 1.5, 2.0];
+
+    for (final width in widths) {
+      for (final scale in scales) {
+        testWidgets(
+          'AccountsTab: painel executivo ${width.toInt()}pt escala ${(scale * 100).toInt()}% sem overflow',
+          (tester) async {
+            tester.platformDispatcher.textScaleFactorTestValue = scale;
+            addTearDown(
+              tester.platformDispatcher.clearTextScaleFactorTestValue,
+            );
+            await pump(
+              tester,
+              const AccountsTab(space: pf),
+              physicalSize: Size(width * 3, 812 * 3),
+            );
+            await tester.pumpAndSettle();
+
+            expect(tester.takeException(), isNull);
+            expect(find.text('Carteira de Contas'), findsOneWidget);
+            expect(find.text('Nova conta'), findsOneWidget);
+            expect(
+              find.byKey(const ValueKey('accounts-total')),
+              findsOneWidget,
+            );
+          },
+        );
+      }
+    }
+
+    testWidgets(
+      'AccountCard no consumidor compartilhado (AccountScreen) sem regressão em 200%',
+      (tester) async {
+        tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await pump(
+          tester,
+          const AccountScreen(space: pf, accountId: 7),
+          physicalSize: const Size(375 * 3, 812 * 3),
+        );
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(find.byType(AccountCard), findsOneWidget);
+        expect(find.text('Saldo disponível'), findsOneWidget);
+      },
+    );
+
+    test('BankCatalog: identifica bancos brasileiros corretamente a partir do nome ou ID', () {
+      expect(BankCatalog.findByAccountName('Nubank PF')?.id, 'nubank');
+      expect(BankCatalog.findByAccountName('Itaú Unibanco')?.id, 'itau');
+      expect(BankCatalog.findByAccountName('Banco Bradesco')?.id, 'bradesco');
+      expect(BankCatalog.findByAccountName('Banco do Brasil PJ')?.id, 'bb');
+      expect(
+        BankCatalog.findByAccountName('Caixa Econômica Federal')?.id,
+        'caixa',
+      );
+      expect(BankCatalog.findByAccountName('Santander')?.id, 'santander');
+      expect(BankCatalog.findByAccountName('Banco Inter PJ')?.id, 'inter');
+      expect(BankCatalog.findByAccountName('Sicoob')?.id, 'sicoob');
+      expect(BankCatalog.findByAccountName('Sicredi')?.id, 'sicredi');
+      expect(BankCatalog.findByAccountName('Mercado Pago')?.id, 'mercadopago');
+      expect(BankCatalog.findByAccountName('C6 Bank')?.id, 'c6');
+      expect(BankCatalog.findByAccountName('BTG Pactual')?.id, 'btg');
+      expect(BankCatalog.findByAccountName('PicPay')?.id, 'picpay');
+      expect(BankCatalog.findByAccountName('PagBank')?.id, 'pagbank');
+      expect(
+        BankCatalog.findByAccountName('Dinheiro em Espécie')?.id,
+        'dinheiro',
+      );
+      expect(BankCatalog.findByAccountName('Carteira Física')?.id, 'dinheiro');
+      expect(BankCatalog.findByAccountName('Conta Desconhecida XYZ'), isNull);
+      expect(BankCatalog.findById('nubank')?.name, 'Nubank');
+    });
+
+    testWidgets(
+      'AccountsTab: estado vazio exibe botão para cadastrar primeira conta e navega para formulário',
+      (tester) async {
+        fake.accounts.clear();
+        await pump(tester, const AccountsTab(space: pf));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Nenhuma conta neste espaço'), findsOneWidget);
+        final createBtn = find.byKey(
+          const ValueKey('accounts_empty_create_button'),
+        );
+        expect(createBtn, findsOneWidget);
+        expect(find.text('Cadastrar primeira conta'), findsOneWidget);
+
+        await tester.tap(createBtn);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Passo 1 de 3: Escolha o Banco'), findsOneWidget);
+        expect(find.text('Selecione a sua instituição'), findsOneWidget);
+        expect(find.text('Nubank'), findsOneWidget);
+        expect(find.text('Itaú'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'AccountCard: renderiza logo oficial para conta reconhecida no catálogo e tipo de conta',
+      (tester) async {
+        final account = Account(
+          id: 1,
+          name: 'Nubank - Poupança',
+          balance: Money.parse('2500.00'),
+          openingBalance: Money.parse('1000.00'),
+          openingBalanceDate: '2026-01-01',
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: AccountCard(space: pf, account: account),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Image &&
+                widget.image is AssetImage &&
+                (widget.image as AssetImage).assetName ==
+                    'assets/banks/nubank.png',
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('Nubank · Poupança · PF'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'AccountFormScreen: wizard em 3 passos seleciona banco e modalidade sugerindo nome',
+      (tester) async {
+        await pump(
+          tester,
+          const AccountFormScreen(space: pf),
+          physicalSize: const Size(800 * 3, 1200 * 3),
+        );
+
+        String getNameFieldText() {
+          final field = tester.widget<TextFormField>(
+            find.byKey(const ValueKey('account_name_field')),
+          );
+          return field.controller?.text ?? '';
+        }
+
+        expect(find.text('Passo 1 de 3: Escolha o Banco'), findsOneWidget);
+
+        // Passo 1: Tocar no banco Nubank avança para o Passo 2
+        await tester.tap(find.text('Nubank'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Passo 2 de 3: Modalidade da Conta'), findsOneWidget);
+        expect(find.text('Nubank selecionado'), findsOneWidget);
+
+        // Passo 2: Selecionar Poupança avança para o Passo 3
+        await tester.tap(find.text('Conta Poupança'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Passo 3 de 3: Saldo e Confirmação'), findsOneWidget);
+        expect(getNameFieldText(), 'Nubank - Poupança');
+        expect(find.text('Pré-visualização do Cartão'), findsOneWidget);
+
+        // Voltar para o Passo 2
+        await tester.tap(find.byTooltip('Voltar'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Passo 2 de 3: Modalidade da Conta'), findsOneWidget);
+
+        // Selecionar Salário
+        await tester.tap(find.text('Conta Salário'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Passo 3 de 3: Saldo e Confirmação'), findsOneWidget);
+        expect(getNameFieldText(), 'Nubank - Salário');
+      },
+    );
+
+    testWidgets(
+      'AccountsTab: na lista Todas as contas renderiza logo do banco e subtítulo com modalidade',
+      (tester) async {
+        fake.seed(7, 50000, '2026-03-10');
+        fake.accounts[7]!.name = 'Banco do Brasil - Corrente';
+        await pump(tester, const AccountsTab(space: pf));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Todas as contas'), findsOneWidget);
+        expect(find.text('Banco do Brasil - Corrente'), findsWidgets);
+        expect(find.text('Corrente · Saldo disponível'), findsOneWidget);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Image &&
+                widget.image is AssetImage &&
+                (widget.image as AssetImage).assetName == 'assets/banks/bb.png',
+          ),
+          findsWidgets,
+        );
+      },
+    );
+
+    testWidgets(
+      'AccountsTab: em desktop exibe painel executivo com saldo total e remove botão Empréstimos do cabeçalho',
+      (tester) async {
+        fake.seed(7, 50000, '2026-03-10');
+        await pump(
+          tester,
+          const AccountsTab(space: pf),
+          physicalSize: const Size(1200 * 3, 800 * 3),
+        );
+        await tester.pumpAndSettle();
+
+        // Não deve ter o botão 'Empréstimos' no cabeçalho de contas
+        expect(
+          find.byKey(const ValueKey('accounts_tab_loans_button')),
+          findsNothing,
+        );
+
+        // Deve exibir o painel executivo consolidado
+        expect(find.text('Carteira de Contas'), findsOneWidget);
+        expect(find.byKey(const ValueKey('accounts-total')), findsOneWidget);
+        expect(find.text('Todas as contas'), findsOneWidget);
+        expect(find.text('Nova conta'), findsOneWidget);
       },
     );
   });

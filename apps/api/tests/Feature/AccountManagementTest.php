@@ -2,10 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Domain\Receivables\Money;
 use App\Models\Account;
 use App\Models\AccountMovement;
 use App\Models\AccountOpeningAdjustment;
 use App\Models\IdempotencyKey;
+use App\Models\Payable;
+use App\Models\Payment;
 use App\Models\Receipt;
 use App\Models\Space;
 use App\Models\User;
@@ -156,6 +159,87 @@ class AccountManagementTest extends TestCase
 
         $this->assertSame(1, AccountOpeningAdjustment::query()->where('account_id', $this->a)->count());
         $this->assertBalance($this->a, '1100.00');
+    }
+
+    public function test_opening_adjustment_is_rejected_if_resulting_balance_would_underflow_max_cents(): void
+    {
+        $payable = Payable::create([
+            'space_id' => $this->pf->id,
+            'kind' => 'single',
+            'description' => 'Despesa de teste',
+            'amount_cents' => Money::MAX_CENTS,
+            'due_date' => '2026-01-02',
+        ]);
+        $payment1 = Payment::create([
+            'space_id' => $this->pf->id,
+            'payable_id' => $payable->id,
+            'account_id' => $this->a,
+            'user_id' => $this->user->id,
+            'amount_cents' => 50000000000000,
+            'paid_on' => '2026-01-02',
+        ]);
+        AccountMovement::create([
+            'account_id' => $this->a,
+            'payment_id' => $payment1->id,
+            'amount_cents' => -50000000000000,
+            'effective_date' => '2026-01-02',
+        ]);
+        $payment2 = Payment::create([
+            'space_id' => $this->pf->id,
+            'payable_id' => $payable->id,
+            'account_id' => $this->a,
+            'user_id' => $this->user->id,
+            'amount_cents' => 50000000000000,
+            'paid_on' => '2026-01-02',
+        ]);
+        AccountMovement::create([
+            'account_id' => $this->a,
+            'payment_id' => $payment2->id,
+            'amount_cents' => -50000000000000,
+            'effective_date' => '2026-01-02',
+        ]);
+
+        $this->adjust($this->a, '0.00', '2026-01-01', 'Ajuste que estoura piso', 'piso-negativo')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('opening_balance')
+            ->assertJsonPath('errors.opening_balance.0', 'O saldo da conta ultrapassaria o limite suportado.')
+            ->assertJsonPath('idempotency.status', 'rejected');
+
+        $this->adjust($this->a, '0.00', '2026-01-01', 'Ajuste que estoura piso', 'piso-negativo')
+            ->assertStatus(422)
+            ->assertJsonPath('idempotency.replayed', true);
+
+        $this->assertSame(0, AccountOpeningAdjustment::query()->where('reason', 'Ajuste que estoura piso')->count());
+    }
+
+    public function test_opening_adjustment_boundary_at_exact_max_cents_and_one_cent_above(): void
+    {
+        $account = $this->api('POST', "/api/spaces/{$this->pf->id}/accounts", [
+            'name' => 'Conta Teto', 'opening_balance' => '0.00', 'opening_balance_date' => '2026-01-01',
+        ])->assertCreated()->json('data.id');
+
+        // Cria recebimento de 1.00 para gerar saldo de movimentações de +100 centavos
+        $this->receive($account, '1.00', '2026-02-10', 'rec-mov-1');
+
+        // Com +100 centavos de movimentações, abertura em MAX_CENTS - 100 resulta em exatamente MAX_CENTS -> deve passar com sucesso
+        $exactMaxOpening = Money::fromCents(Money::MAX_CENTS - 100);
+        $this->adjust($account, $exactMaxOpening, '2026-01-01', 'Ajuste no teto exato', 'teto-exato-pass')
+            ->assertCreated()
+            ->assertJsonPath('data.account.balance', Money::fromCents(Money::MAX_CENTS));
+
+        $this->assertSame(Money::MAX_CENTS, Account::query()->findOrFail($account)->balanceCents());
+        $this->assertDatabaseHas('account_opening_adjustments', ['account_id' => $account, 'reason' => 'Ajuste no teto exato']);
+
+        // Abertura em MAX_CENTS - 99 resultaria em MAX_CENTS + 1 centavo -> deve ser rejeitado com 422
+        $oneCentAboveOpening = Money::fromCents(Money::MAX_CENTS - 99);
+        $this->adjust($account, $oneCentAboveOpening, '2026-01-01', 'Ajuste 1 centavo acima', 'teto-exato-fail')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('opening_balance')
+            ->assertJsonPath('errors.opening_balance.0', 'O saldo da conta ultrapassaria o limite suportado.')
+            ->assertJsonPath('idempotency.status', 'rejected');
+
+        $this->assertSame(Money::MAX_CENTS, Account::query()->findOrFail($account)->balanceCents());
+        $this->assertDatabaseMissing('account_opening_adjustments', ['account_id' => $account, 'reason' => 'Ajuste 1 centavo acima']);
     }
 
     public function test_archive_hides_from_new_operations_and_keeps_money_and_history(): void

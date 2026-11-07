@@ -6,9 +6,23 @@ import '../../ui/app_brand.dart';
 import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
 import '../../ui/widgets.dart';
+import '../accounts/account.dart';
+import '../accounts/account_form_screen.dart';
+import '../accounts/accounts_repository.dart';
 import '../auth/auth_models.dart';
 import '../settings/preferences_controller.dart';
+import 'dashboard_charts.dart';
 import 'summary.dart';
+
+class _SummaryTabCompositeData {
+  const _SummaryTabCompositeData({
+    required this.summary,
+    required this.accounts,
+  });
+
+  final SpaceSummary summary;
+  final List<Account> accounts;
+}
 
 class SummaryTab extends StatefulWidget {
   const SummaryTab({super.key, required this.space, required this.onOpenTab});
@@ -23,14 +37,38 @@ class SummaryTab extends StatefulWidget {
 class _SummaryTabState extends State<SummaryTab> {
   bool _localObscureBalance = false;
 
+  AccountsRepository? _safeReadAccountsRepo(BuildContext context) {
+    try {
+      return context.read<AccountsRepository>();
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final preferences = context.watch<PreferencesController?>();
     final obscureBalance = preferences?.obscureValues ?? _localObscureBalance;
 
-    return LoadView<SpaceSummary>(
-      load: () => context.read<SummaryRepository>().load(widget.space.id),
-      builder: (context, summary, refresh) {
+    return LoadView<_SummaryTabCompositeData>(
+      load: () async {
+        final summaryRepo = context.read<SummaryRepository>();
+        final accountsRepo = _safeReadAccountsRepo(context);
+
+        final summary = await summaryRepo.load(widget.space.id);
+        List<Account> accounts = const [];
+        if (accountsRepo != null) {
+          try {
+            accounts = await accountsRepo.list(widget.space.id);
+          } catch (_) {
+            // Falha graciosa na listagem de contas não impede exibição do resumo
+          }
+        }
+        return _SummaryTabCompositeData(summary: summary, accounts: accounts);
+      },
+      builder: (context, data, refresh) {
+        final summary = data.summary;
+        final accounts = data.accounts;
         final theme = Theme.of(context);
         final isDark = theme.brightness == Brightness.dark;
         final space = widget.space;
@@ -149,7 +187,24 @@ class _SummaryTabState extends State<SummaryTab> {
                 archivedCount: summary.archivedAccountsCount,
                 isDark: isDark,
                 space: space,
-                onTap: () => widget.onOpenTab(3),
+                onTap: () {
+                  if (summary.accountsCount == 0) {
+                    showAccountFormModal(context, space: space);
+                  } else {
+                    widget.onOpenTab(3);
+                  }
+                },
+              ),
+              const SizedBox(height: 20),
+
+              // Gráficos e Inteligência Visual Executiva (Donut de Bancos + Fluxo de Caixa)
+              ExecutiveDashboardCharts(
+                summary: summary,
+                accounts: accounts,
+                obscure: obscureBalance,
+                onOpenAccounts: () => widget.onOpenTab(3),
+                onOpenReceivables: () => widget.onOpenTab(1, filter: 'open'),
+                onOpenPayables: () => widget.onOpenTab(2, filter: 'open'),
               ),
               const SizedBox(height: 24),
             ],

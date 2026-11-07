@@ -251,100 +251,105 @@ class _ReceiptFormScreenState extends State<ReceiptFormScreen> {
 
     return Form(
       key: _form,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          SpaceBadge(widget.space, prefix: 'Recebimento no espaço'),
-          const SizedBox(height: 12),
-          Text(
-            'Parcela ${installment.number}${installment.installmentCount != null ? '/${installment.installmentCount}' : ''}'
-            '${installment.agreementDescription != null ? ' · ${installment.agreementDescription}' : ''}\n'
-            'Falta receber ${installment.remaining.brl}',
-            style: theme.textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 20),
-          if (banner != null) ...[
-            FormErrorBanner(banner),
-            const SizedBox(height: 16),
-          ],
-          DropdownButtonFormField<int>(
-            initialValue: _accountId,
-            hint: const Text('Escolha a conta'),
-            decoration: InputDecoration(
-              labelText: 'Conta de destino',
-              errorText: fieldErrors['account_id'],
-            ),
-            items: [
-              for (final item in _selectable)
-                DropdownMenuItem(value: item.id, child: Text(item.name)),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              SpaceBadge(widget.space, prefix: 'Recebimento no espaço'),
+              const SizedBox(height: 12),
+              Text(
+                'Parcela ${installment.number}${installment.installmentCount != null ? '/${installment.installmentCount}' : ''}'
+                '${installment.agreementDescription != null ? ' · ${installment.agreementDescription}' : ''}\n'
+                'Falta receber ${installment.remaining.brl}',
+                style: theme.textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 20),
+              if (banner != null) ...[
+                FormErrorBanner(banner),
+                const SizedBox(height: 16),
+              ],
+              DropdownButtonFormField<int>(
+                initialValue: _accountId,
+                hint: const Text('Escolha a conta'),
+                decoration: InputDecoration(
+                  labelText: 'Conta de destino',
+                  errorText: fieldErrors['account_id'],
+                ),
+                items: [
+                  for (final item in _selectable)
+                    DropdownMenuItem(value: item.id, child: Text(item.name)),
+                ],
+                validator: (value) =>
+                    value == null ? 'Escolha a conta de destino.' : null,
+                onChanged: (value) => setState(() => _accountId = value),
+              ),
+              const SizedBox(height: 16),
+              ReceiptKindField(
+                initialValue: _kind,
+                onChanged: (kind) => setState(() => _kind = kind),
+              ),
+              const SizedBox(height: 16),
+              if (_kind == ReceiptKind.total)
+                InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: 'Valor recebido',
+                    helperText: 'Valor integral que falta na parcela.',
+                    errorText: fieldErrors['amount'],
+                  ),
+                  child: MoneyText(_remaining),
+                )
+              else if (_kind == ReceiptKind.partial)
+                TextFormField(
+                  controller: _amount,
+                  decoration: InputDecoration(
+                    labelText: 'Valor recebido',
+                    prefixText: r'R$ ',
+                    helperText: 'Menor que o valor que falta na parcela.',
+                    errorText: fieldErrors['amount'],
+                  ),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [MoneyInputFormatter()],
+                  validator: (value) {
+                    final amount = Money.fromInput(value ?? '');
+                    if (amount == null || amount.isZero) {
+                      return 'Informe o valor recebido.';
+                    }
+                    if (amount.cents == _remaining.cents) {
+                      return 'Esse é o valor integral da parcela: escolha Total.';
+                    }
+                    if (amount.cents > _remaining.cents) {
+                      return 'Máximo para esta parcela: ${_remaining.brl}.';
+                    }
+                    return null;
+                  },
+                ),
+              const SizedBox(height: 16),
+              DateField(
+                label: 'Data do recebimento',
+                value: _date,
+                firstDate: account != null
+                    ? parseApiDate(account.openingBalanceDate)
+                    : DateTime(2000),
+                lastDate: _today,
+                errorText: fieldErrors['received_on'],
+                onChanged: (date) => setState(() => _date = date),
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: _review,
+                child: const Text('Revisar recebimento'),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Você confere tudo antes de enviar.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall,
+              ),
             ],
-            validator: (value) =>
-                value == null ? 'Escolha a conta de destino.' : null,
-            onChanged: (value) => setState(() => _accountId = value),
           ),
-          const SizedBox(height: 16),
-          ReceiptKindField(
-            initialValue: _kind,
-            onChanged: (kind) => setState(() => _kind = kind),
-          ),
-          const SizedBox(height: 16),
-          if (_kind == ReceiptKind.total)
-            InputDecorator(
-              decoration: InputDecoration(
-                labelText: 'Valor recebido',
-                helperText: 'Valor integral que falta na parcela.',
-                errorText: fieldErrors['amount'],
-              ),
-              child: MoneyText(_remaining),
-            )
-          else if (_kind == ReceiptKind.partial)
-            TextFormField(
-              controller: _amount,
-              decoration: InputDecoration(
-                labelText: 'Valor recebido',
-                prefixText: r'R$ ',
-                helperText: 'Menor que o valor que falta na parcela.',
-                errorText: fieldErrors['amount'],
-              ),
-              keyboardType: TextInputType.number,
-              inputFormatters: [MoneyInputFormatter()],
-              validator: (value) {
-                final amount = Money.fromInput(value ?? '');
-                if (amount == null || amount.isZero) {
-                  return 'Informe o valor recebido.';
-                }
-                if (amount.cents == _remaining.cents) {
-                  return 'Esse é o valor integral da parcela: escolha Total.';
-                }
-                if (amount.cents > _remaining.cents) {
-                  return 'Máximo para esta parcela: ${_remaining.brl}.';
-                }
-                return null;
-              },
-            ),
-          const SizedBox(height: 16),
-          DateField(
-            label: 'Data do recebimento',
-            value: _date,
-            firstDate: account != null
-                ? parseApiDate(account.openingBalanceDate)
-                : DateTime(2000),
-            lastDate: _today,
-            errorText: fieldErrors['received_on'],
-            onChanged: (date) => setState(() => _date = date),
-          ),
-          const SizedBox(height: 24),
-          FilledButton(
-            onPressed: _review,
-            child: const Text('Revisar recebimento'),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Você confere tudo antes de enviar.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall,
-          ),
-        ],
+        ),
       ),
     );
   }

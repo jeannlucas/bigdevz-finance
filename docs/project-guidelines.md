@@ -147,6 +147,11 @@ A identidade visual foi desenhada e aprovada para transmitir segurança, autorid
   - Seletor de modalidade adaptativo (`_KindSelector`): adota disposição vertical com botões de no mínimo 48pt de altura sob textos ampliados, prevenindo quebras de layout.
   - Formulários mantêm rolagem livre até as ações finais mesmo sob teclado virtual aberto.
 
+### 5.5. Diretrizes de UX/UI Multiplataforma (Desktop Web & Mobile)
+- **Princípio Inegociável**: Todo desenvolvimento de interface deve ser projetado considerando a ergonomia tanto para **Desktop Web** quanto para **Mobile**.
+- **Diferenciação Obrigatória quando Necessário**: Telas em Desktop Web nunca devem apenas "esticar" o layout mobile. Devem utilizar `maxWidth` controlado (cards centralizados de `520px` a `640px` para formulários), grids de 2 colunas para campos complementares e modais executivos, enquanto o Mobile utiliza navegação vertical compacta e BottomSheets.
+- *Referência técnica completa*: [`docs/ui-ux-guidelines.md`](ui-ux-guidelines.md).
+
 ---
 
 ## 6. Governança, Git e Colaboração

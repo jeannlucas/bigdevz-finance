@@ -2,9 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Domain\Receivables\Money;
+use App\Models\Account;
 use App\Models\AccountMovement;
 use App\Models\IdempotencyKey;
 use App\Models\Installment;
+use App\Models\Payable;
+use App\Models\Payment;
 use App\Models\Receipt;
 use App\Models\ReceiptReversal;
 use App\Models\Space;
@@ -310,6 +314,142 @@ class ReceiptReversalTest extends TestCase
             Carbon::setTestNow();
         }
         $this->assertSame(1, Receipt::query()->where('space_id', $this->pf->id)->count());
+    }
+
+    public function test_receipt_reversal_is_rejected_if_account_balance_would_underflow_max_cents(): void
+    {
+        $receipt = $this->receive(0, $this->a, '100.00', '2026-02-10', 'rec-underflow')->assertCreated()->json('data.receipt.id');
+
+        $payable = Payable::create([
+            'space_id' => $this->pf->id,
+            'kind' => 'single',
+            'description' => 'Despesa de teste',
+            'amount_cents' => Money::MAX_CENTS,
+            'due_date' => '2026-02-01',
+        ]);
+        $payment1 = Payment::create([
+            'space_id' => $this->pf->id,
+            'payable_id' => $payable->id,
+            'account_id' => $this->a,
+            'user_id' => $this->user->id,
+            'amount_cents' => 50000000000000,
+            'paid_on' => '2026-02-01',
+        ]);
+        AccountMovement::create([
+            'account_id' => $this->a,
+            'payment_id' => $payment1->id,
+            'amount_cents' => -50000000000000,
+            'effective_date' => '2026-02-01',
+        ]);
+        $payment2 = Payment::create([
+            'space_id' => $this->pf->id,
+            'payable_id' => $payable->id,
+            'account_id' => $this->a,
+            'user_id' => $this->user->id,
+            'amount_cents' => 50000000000000,
+            'paid_on' => '2026-02-01',
+        ]);
+        AccountMovement::create([
+            'account_id' => $this->a,
+            'payment_id' => $payment2->id,
+            'amount_cents' => -50000000000000,
+            'effective_date' => '2026-02-01',
+        ]);
+        $account = Account::query()->findOrFail($this->a);
+        $account->update(['opening_balance_cents' => 0]);
+
+        $this->reverse($receipt, 'Estorno abaixo do piso', 'rev-underflow')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('amount')
+            ->assertJsonPath('errors.amount.0', 'O saldo da conta ultrapassaria o limite suportado.')
+            ->assertJsonPath('idempotency.status', 'rejected');
+
+        $this->reverse($receipt, 'Estorno abaixo do piso', 'rev-underflow')
+            ->assertStatus(422)
+            ->assertJsonPath('idempotency.replayed', true);
+
+        $this->assertSame(0, ReceiptReversal::query()->where('receipt_id', $receipt)->count());
+    }
+
+    public function test_receipt_reversal_boundary_at_exact_negative_max_cents_and_one_cent_below(): void
+    {
+        $acc1 = $this->account($this->pf, 'Piso Exato 1', '0.00', '2026-01-01');
+        $receipt1 = $this->receive(0, $acc1, '10.00', '2026-02-10', 'rec-exact-1')->assertCreated()->json('data.receipt.id');
+
+        $payable = Payable::create([
+            'space_id' => $this->pf->id,
+            'kind' => 'single',
+            'description' => 'Despesa grande',
+            'amount_cents' => Money::MAX_CENTS,
+            'due_date' => '2026-02-01',
+        ]);
+        $payment1 = Payment::create([
+            'space_id' => $this->pf->id,
+            'payable_id' => $payable->id,
+            'account_id' => $acc1,
+            'user_id' => $this->user->id,
+            'amount_cents' => Money::MAX_CENTS,
+            'paid_on' => '2026-02-01',
+        ]);
+        AccountMovement::create([
+            'account_id' => $acc1,
+            'payment_id' => $payment1->id,
+            'amount_cents' => -Money::MAX_CENTS,
+            'effective_date' => '2026-02-01',
+        ]);
+
+        // Saldo atual de acc1: 0 - MAX_CENTS + 1000 = -MAX_CENTS + 1000.
+        // Estorno de 10.00 (-1000) resulta em exatamente -MAX_CENTS -> deve passar com sucesso.
+        $this->reverse($receipt1, 'Estorno no limite do piso', 'rev-exact-pass')
+            ->assertCreated()
+            ->assertJsonPath('idempotency.status', 'completed');
+
+        $this->assertSame(-Money::MAX_CENTS, Account::query()->findOrFail($acc1)->balanceCents());
+        $this->assertDatabaseHas('receipt_reversals', ['receipt_id' => $receipt1]);
+
+        // Cenário 2: Conta 2 com despesa de MAX_CENTS + 1 centavo
+        $acc2 = $this->account($this->pf, 'Piso Exato 2', '0.00', '2026-01-01');
+        $receipt2 = $this->receive(0, $acc2, '10.00', '2026-02-10', 'rec-exact-2')->assertCreated()->json('data.receipt.id');
+
+        $p2a = Payment::create([
+            'space_id' => $this->pf->id,
+            'payable_id' => $payable->id,
+            'account_id' => $acc2,
+            'user_id' => $this->user->id,
+            'amount_cents' => Money::MAX_CENTS,
+            'paid_on' => '2026-02-01',
+        ]);
+        AccountMovement::create([
+            'account_id' => $acc2,
+            'payment_id' => $p2a->id,
+            'amount_cents' => -Money::MAX_CENTS,
+            'effective_date' => '2026-02-01',
+        ]);
+        $p2b = Payment::create([
+            'space_id' => $this->pf->id,
+            'payable_id' => $payable->id,
+            'account_id' => $acc2,
+            'user_id' => $this->user->id,
+            'amount_cents' => 1,
+            'paid_on' => '2026-02-01',
+        ]);
+        AccountMovement::create([
+            'account_id' => $acc2,
+            'payment_id' => $p2b->id,
+            'amount_cents' => -1,
+            'effective_date' => '2026-02-01',
+        ]);
+
+        // Saldo atual de acc2: 0 - MAX_CENTS - 1 + 1000 = -MAX_CENTS + 999.
+        // Estorno de 10.00 (-1000) resultaria em -MAX_CENTS - 1 -> deve ser rejeitado com 422.
+        $this->reverse($receipt2, 'Estorno 1 centavo abaixo do piso', 'rev-exact-fail')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('amount')
+            ->assertJsonPath('errors.amount.0', 'O saldo da conta ultrapassaria o limite suportado.')
+            ->assertJsonPath('idempotency.status', 'rejected');
+
+        $this->assertSame(-Money::MAX_CENTS + 999, Account::query()->findOrFail($acc2)->balanceCents());
+        $this->assertDatabaseMissing('receipt_reversals', ['receipt_id' => $receipt2]);
     }
 
     private function login(User $user): string

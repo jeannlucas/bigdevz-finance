@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 import '../../core/api_client.dart';
 import '../../core/money.dart';
 
@@ -11,6 +13,7 @@ class SpaceSummary {
     required this.overdueInstallments,
     this.archivedAccountsCount = 0,
     this.payables = PayablesSummary.empty,
+    this.categories = CategoriesSummary.empty,
   });
 
   factory SpaceSummary.fromJson(Map<String, dynamic> json) => SpaceSummary(
@@ -24,6 +27,11 @@ class SpaceSummary {
     payables: json['payables'] == null
         ? PayablesSummary.empty
         : PayablesSummary.fromJson(json['payables'] as Map<String, dynamic>),
+    categories: json['categories_summary'] == null
+        ? CategoriesSummary.empty
+        : CategoriesSummary.fromJson(
+            json['categories_summary'] as Map<String, dynamic>,
+          ),
   );
 
   final Money balance;
@@ -38,6 +46,9 @@ class SpaceSummary {
 
   /// A pagar: previsto e realizado, separados do saldo.
   final PayablesSummary payables;
+
+  /// Distribuição analítica por categoria (receitas e despesas).
+  final CategoriesSummary categories;
 }
 
 class PayablesSummary {
@@ -88,4 +99,70 @@ class SummaryRepository {
     (await _api.get('/spaces/$spaceId/summary'))['data']
         as Map<String, dynamic>,
   );
+}
+
+class CategorySummaryItem {
+  const CategorySummaryItem({
+    required this.id,
+    required this.name,
+    required this.icon,
+    required this.color,
+    required this.total,
+    required this.totalCents,
+  });
+
+  factory CategorySummaryItem.fromJson(Map<String, dynamic> json) =>
+      CategorySummaryItem(
+        id: json['id'] as int,
+        name: json['name'] as String,
+        icon: json['icon'] as String? ?? 'category',
+        color: json['color'] as String? ?? '#6B7280',
+        total: Money.parse(json['total'] as String),
+        totalCents: json['total_cents'] as int,
+      );
+
+  final int id;
+  final String name;
+  final String icon;
+  final String color;
+  final Money total;
+  final int totalCents;
+
+  Color get colorValue {
+    try {
+      final hex = color.replaceAll('#', '');
+      if (hex.length == 6) {
+        return Color(int.parse('FF$hex', radix: 16));
+      }
+      if (hex.length == 8) {
+        return Color(int.parse(hex, radix: 16));
+      }
+    } catch (_) {}
+    return const Color(0xFF6B7280);
+  }
+}
+
+class CategoriesSummary {
+  const CategoriesSummary({this.expenses = const [], this.incomes = const []});
+
+  factory CategoriesSummary.fromJson(Map<String, dynamic> json) =>
+      CategoriesSummary(
+        expenses: (json['expenses'] as List? ?? const [])
+            .map(
+              (item) =>
+                  CategorySummaryItem.fromJson(item as Map<String, dynamic>),
+            )
+            .toList(),
+        incomes: (json['incomes'] as List? ?? const [])
+            .map(
+              (item) =>
+                  CategorySummaryItem.fromJson(item as Map<String, dynamic>),
+            )
+            .toList(),
+      );
+
+  static const empty = CategoriesSummary();
+
+  final List<CategorySummaryItem> expenses;
+  final List<CategorySummaryItem> incomes;
 }

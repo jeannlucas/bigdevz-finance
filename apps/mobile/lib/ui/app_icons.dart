@@ -42,6 +42,8 @@ class AppIcons {
   static const List<List<dynamic>> unarchive =
       HugeIcons.strokeRoundedPackageProcess;
   static const List<List<dynamic>> reverse = HugeIcons.strokeRoundedExchange01;
+  static const List<List<dynamic>> transfer = HugeIcons.strokeRoundedExchange01;
+  static const List<List<dynamic>> loan = HugeIcons.strokeRoundedCoins01;
   static const List<List<dynamic>> correction =
       HugeIcons.strokeRoundedArrowTurnBackward;
   static const List<List<dynamic>> lock = HugeIcons.strokeRoundedLockPassword;
@@ -57,6 +59,8 @@ class AppIcons {
   static const List<List<dynamic>> sun = HugeIcons.strokeRoundedSun01;
   static const List<List<dynamic>> moon = HugeIcons.strokeRoundedMoon01;
   static const List<List<dynamic>> computer = HugeIcons.strokeRoundedComputer;
+  static const List<List<dynamic>> notification =
+      HugeIcons.strokeRoundedNotification02;
 }
 
 /// Widget padronizado para renderizar ícones do app com Hugeicons.

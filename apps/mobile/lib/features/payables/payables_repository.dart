@@ -8,11 +8,20 @@ class PayablesRepository {
   final ApiClient _api;
 
   /// [status]: all, open, overdue, paid, cancelled ou awaiting_amount.
-  Future<List<Payable>> list(int spaceId, {String status = 'all'}) async =>
-      ((await _api.get('/spaces/$spaceId/payables?status=$status'))['data']
-              as List)
-          .map((item) => Payable.fromJson(item as Map<String, dynamic>))
-          .toList();
+  Future<List<Payable>> list(
+    int spaceId, {
+    String status = 'all',
+    int? categoryId,
+  }) async {
+    final query = <String>['status=$status'];
+    if (categoryId != null) query.add('category_id=$categoryId');
+    return ((await _api.get(
+              '/spaces/$spaceId/payables?${query.join('&')}',
+            ))['data']
+            as List)
+        .map((item) => Payable.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
 
   Future<Payable> find(int spaceId, int payableId) async {
     final json = await _api.get('/spaces/$spaceId/payables/$payableId');

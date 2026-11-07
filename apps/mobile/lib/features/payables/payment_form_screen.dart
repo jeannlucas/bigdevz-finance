@@ -197,90 +197,95 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
     final account = _account;
     return Form(
       key: _form,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          SpaceBadge(widget.space, prefix: 'Pagamento no espaço'),
-          const SizedBox(height: 12),
-          Text(
-            '${payable.description} · ${payable.kindLabel}\nFalta pagar ${_remaining.brl}',
-          ),
-          const SizedBox(height: 20),
-          if (banner != null) ...[
-            FormErrorBanner(banner),
-            const SizedBox(height: 16),
-          ],
-          DropdownButtonFormField<int>(
-            initialValue: _accountId,
-            hint: const Text('Escolha a conta'),
-            decoration: InputDecoration(
-              labelText: 'Conta de origem',
-              errorText: fieldErrors['account_id'],
-            ),
-            items: [
-              for (final item in _selectable)
-                DropdownMenuItem(value: item.id, child: Text(item.name)),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              SpaceBadge(widget.space, prefix: 'Pagamento no espaço'),
+              const SizedBox(height: 12),
+              Text(
+                '${payable.description} · ${payable.kindLabel}\nFalta pagar ${_remaining.brl}',
+              ),
+              const SizedBox(height: 20),
+              if (banner != null) ...[
+                FormErrorBanner(banner),
+                const SizedBox(height: 16),
+              ],
+              DropdownButtonFormField<int>(
+                initialValue: _accountId,
+                hint: const Text('Escolha a conta'),
+                decoration: InputDecoration(
+                  labelText: 'Conta de origem',
+                  errorText: fieldErrors['account_id'],
+                ),
+                items: [
+                  for (final item in _selectable)
+                    DropdownMenuItem(value: item.id, child: Text(item.name)),
+                ],
+                validator: (value) =>
+                    value == null ? 'Escolha a conta de origem.' : null,
+                onChanged: (value) => setState(() => _accountId = value),
+              ),
+              const SizedBox(height: 16),
+              ReceiptKindField(
+                initialValue: _kind,
+                onChanged: (kind) => setState(() => _kind = kind),
+              ),
+              const SizedBox(height: 16),
+              if (_kind == ReceiptKind.total)
+                InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: 'Valor pago',
+                    helperText: 'Valor integral que falta pagar.',
+                    errorText: fieldErrors['amount'],
+                  ),
+                  child: MoneyText(_remaining),
+                )
+              else if (_kind == ReceiptKind.partial)
+                TextFormField(
+                  controller: _amount,
+                  decoration: InputDecoration(
+                    labelText: 'Valor pago',
+                    prefixText: r'R$ ',
+                    errorText: fieldErrors['amount'],
+                  ),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [MoneyInputFormatter()],
+                  validator: (value) {
+                    final amount = Money.fromInput(value ?? '');
+                    if (amount == null || amount.isZero) {
+                      return 'Informe o valor pago.';
+                    }
+                    if (amount.cents == _remaining.cents) {
+                      return 'Esse é o valor integral: escolha Total.';
+                    }
+                    if (amount.cents > _remaining.cents) {
+                      return 'Máximo nesta obrigação: ${_remaining.brl}.';
+                    }
+                    return null;
+                  },
+                ),
+              const SizedBox(height: 16),
+              DateField(
+                label: 'Data do pagamento',
+                value: _date,
+                firstDate: account != null
+                    ? parseApiDate(account.openingBalanceDate)
+                    : DateTime(2000),
+                lastDate: _today,
+                errorText: fieldErrors['paid_on'],
+                onChanged: (date) => setState(() => _date = date),
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: _review,
+                child: const Text('Revisar pagamento'),
+              ),
             ],
-            validator: (value) =>
-                value == null ? 'Escolha a conta de origem.' : null,
-            onChanged: (value) => setState(() => _accountId = value),
           ),
-          const SizedBox(height: 16),
-          ReceiptKindField(
-            initialValue: _kind,
-            onChanged: (kind) => setState(() => _kind = kind),
-          ),
-          const SizedBox(height: 16),
-          if (_kind == ReceiptKind.total)
-            InputDecorator(
-              decoration: InputDecoration(
-                labelText: 'Valor pago',
-                helperText: 'Valor integral que falta pagar.',
-                errorText: fieldErrors['amount'],
-              ),
-              child: MoneyText(_remaining),
-            )
-          else if (_kind == ReceiptKind.partial)
-            TextFormField(
-              controller: _amount,
-              decoration: InputDecoration(
-                labelText: 'Valor pago',
-                prefixText: r'R$ ',
-                errorText: fieldErrors['amount'],
-              ),
-              keyboardType: TextInputType.number,
-              inputFormatters: [MoneyInputFormatter()],
-              validator: (value) {
-                final amount = Money.fromInput(value ?? '');
-                if (amount == null || amount.isZero) {
-                  return 'Informe o valor pago.';
-                }
-                if (amount.cents == _remaining.cents) {
-                  return 'Esse é o valor integral: escolha Total.';
-                }
-                if (amount.cents > _remaining.cents) {
-                  return 'Máximo nesta obrigação: ${_remaining.brl}.';
-                }
-                return null;
-              },
-            ),
-          const SizedBox(height: 16),
-          DateField(
-            label: 'Data do pagamento',
-            value: _date,
-            firstDate: account != null
-                ? parseApiDate(account.openingBalanceDate)
-                : DateTime(2000),
-            lastDate: _today,
-            errorText: fieldErrors['paid_on'],
-            onChanged: (date) => setState(() => _date = date),
-          ),
-          const SizedBox(height: 24),
-          FilledButton(
-            onPressed: _review,
-            child: const Text('Revisar pagamento'),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -313,106 +318,121 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
     return Column(
       children: [
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              SpaceBadge(widget.space, prefix: 'Pagamento no espaço'),
-              const SizedBox(height: 16),
-              if (uncertain) ...[
-                FormErrorBanner(
-                  _notice ?? 'Ainda não conseguimos confirmar este pagamento.',
-                ),
-                const SizedBox(height: 16),
-              ],
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      line(
-                        'Obrigacao',
-                        'Obrigação',
-                        '${payable.description} · ${payable.kindLabel}',
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  SpaceBadge(widget.space, prefix: 'Pagamento no espaço'),
+                  const SizedBox(height: 16),
+                  if (uncertain) ...[
+                    FormErrorBanner(
+                      _notice ??
+                          'Ainda não conseguimos confirmar este pagamento.',
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          line(
+                            'Obrigacao',
+                            'Obrigação',
+                            '${payable.description} · ${payable.kindLabel}',
+                          ),
+                          line(
+                            'Beneficiario',
+                            'Beneficiário',
+                            payable.payee ?? '—',
+                          ),
+                          line('Valor', 'Valor pago', value.brl),
+                          line(
+                            'Conta',
+                            'Conta de origem',
+                            _attempt?.accountName ?? account?.name ?? '',
+                          ),
+                          line('Data', 'Data', formatDateBr(date)),
+                          if (balanceAfter != null)
+                            line(
+                              'Saldo',
+                              'Saldo da conta',
+                              '${account!.balance.brl} → ${balanceAfter.brl}',
+                            ),
+                          line(
+                            'Restante',
+                            'Restante após',
+                            remainingAfter.isZero
+                                ? '${remainingAfter.brl} · paga'
+                                : remainingAfter.brl,
+                          ),
+                        ],
                       ),
-                      line(
-                        'Beneficiario',
-                        'Beneficiário',
-                        payable.payee ?? '—',
-                      ),
-                      line('Valor', 'Valor pago', value.brl),
-                      line(
-                        'Conta',
-                        'Conta de origem',
-                        _attempt?.accountName ?? account?.name ?? '',
-                      ),
-                      line('Data', 'Data', formatDateBr(date)),
-                      if (balanceAfter != null)
-                        line(
-                          'Saldo',
-                          'Saldo da conta',
-                          '${account!.balance.brl} → ${balanceAfter.brl}',
-                        ),
-                      line(
-                        'Restante',
-                        'Restante após',
-                        remainingAfter.isZero
-                            ? '${remainingAfter.brl} · paga'
-                            : remainingAfter.brl,
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                  if (balanceAfter != null && balanceAfter.isNegative)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: FormErrorBanner(
+                        'O saldo de ${account!.name} ficará negativo (${balanceAfter.brl}).',
+                      ),
+                    ),
+                ],
               ),
-              if (balanceAfter != null && balanceAfter.isNegative)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: FormErrorBanner(
-                    'O saldo de ${account!.name} ficará negativo (${balanceAfter.brl}).',
-                  ),
-                ),
-            ],
+            ),
           ),
         ),
         SafeArea(
           top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                FilledButton(
-                  onPressed: _busy ? null : (uncertain ? _verify : _confirm),
-                  child: _busy
-                      ? const SizedBox.square(
-                          dimension: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2.5),
-                        )
-                      : Text(
-                          uncertain
-                              ? 'Verificar pagamento'
-                              : 'Confirmar pagamento',
-                        ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    FilledButton(
+                      onPressed: _busy
+                          ? null
+                          : (uncertain ? _verify : _confirm),
+                      child: _busy
+                          ? const SizedBox.square(
+                              dimension: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                              ),
+                            )
+                          : Text(
+                              uncertain
+                                  ? 'Verificar pagamento'
+                                  : 'Confirmar pagamento',
+                            ),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton(
+                      onPressed: _busy
+                          ? null
+                          : uncertain
+                          ? () => Navigator.of(context).maybePop()
+                          : () => setState(() => _reviewing = false),
+                      child: Text(
+                        uncertain ? 'Verificar depois' : 'Voltar e corrigir',
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      uncertain
+                          ? 'Verificar reenvia este mesmo pagamento, com a mesma identificação: a API aplica uma única vez.'
+                          : 'Nada foi gravado ainda. O saldo só muda depois que a API confirmar.',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                OutlinedButton(
-                  onPressed: _busy
-                      ? null
-                      : uncertain
-                      ? () => Navigator.of(context).maybePop()
-                      : () => setState(() => _reviewing = false),
-                  child: Text(
-                    uncertain ? 'Verificar depois' : 'Voltar e corrigir',
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  uncertain
-                      ? 'Verificar reenvia este mesmo pagamento, com a mesma identificação: a API aplica uma única vez.'
-                      : 'Nada foi gravado ainda. O saldo só muda depois que a API confirmar.',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall,
-                ),
-              ],
+              ),
             ),
           ),
         ),

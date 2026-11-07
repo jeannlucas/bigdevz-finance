@@ -223,7 +223,10 @@ void main() {
       (tester) async {
         tester.view.physicalSize = const Size(375 * 2, 812 * 2);
         tester.view.devicePixelRatio = 2.0;
-        addTearDown(() => tester.view.resetPhysicalSize());
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
 
         await controller.load();
         await tester.pumpWidget(createTestApp(textScale: 2.0));
@@ -247,7 +250,9 @@ void main() {
         await tester.pumpWidget(createTestApp());
         await tester.pumpAndSettle();
 
-        expect(find.text(appVersionLabel), findsOneWidget);
+        final versionFinder = find.text(appVersionLabel);
+        await tester.scrollUntilVisible(versionFinder, 100);
+        expect(versionFinder, findsOneWidget);
       },
     );
   });
@@ -359,7 +364,7 @@ void main() {
         // Retorna ao Dashboard (P8)
         final resumoTab = find.descendant(
           of: find.byType(NavigationBar),
-          matching: find.text('Resumo'),
+          matching: find.text('Dashboard'),
         );
         await tester.tap(resumoTab);
         await tester.pumpAndSettle();

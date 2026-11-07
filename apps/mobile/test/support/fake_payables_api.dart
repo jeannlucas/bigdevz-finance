@@ -131,6 +131,9 @@ class FakePayablesApi {
         'data': [for (final p in payables.values) payableJson(p)],
       });
     }
+    if (request.method == 'GET' && path.startsWith('/spaces/1/categories')) {
+      return _json({'data': []});
+    }
     final one = RegExp(r'^/spaces/1/payables/(\d+)(/payments|/cancel)?$')
         .firstMatch(path);
     final fix = RegExp(r'^/spaces/1/payments/(\d+)/(reversal|correction)$')

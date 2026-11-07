@@ -16,9 +16,13 @@ void main() {
     backend.routes['GET /spaces/1/payables'] = {'data': []};
     backend.routes['GET /spaces/1/agreements'] = {'data': []};
     backend.routes['GET /spaces/1/accounts'] = {'data': []};
+    backend.routes['GET /spaces/1/statement'] = {'data': []};
+    backend.routes['GET /spaces/1/loans'] = {'data': []};
     backend.routes['GET /spaces/2/payables'] = {'data': []};
     backend.routes['GET /spaces/2/agreements'] = {'data': []};
     backend.routes['GET /spaces/2/accounts'] = {'data': []};
+    backend.routes['GET /spaces/2/statement'] = {'data': []};
+    backend.routes['GET /spaces/2/loans'] = {'data': []};
   });
 
   Future<void> launchApp(WidgetTester tester) async {
@@ -157,7 +161,7 @@ void main() {
       final showButton = find.byTooltip('Mostrar saldo');
       expect(showButton, findsOneWidget);
 
-      // Navegar para outra aba (Contas) e retornar para Resumo
+      // Navegar para outra aba (Contas) e retornar para Dashboard
       final contasTab = find.descendant(
         of: find.byType(NavigationBar),
         matching: find.text('Contas'),
@@ -167,7 +171,7 @@ void main() {
 
       final resumoTab = find.descendant(
         of: find.byType(NavigationBar),
-        matching: find.text('Resumo'),
+        matching: find.text('Dashboard'),
       );
       await tester.tap(resumoTab);
       await tester.pumpAndSettle();
@@ -200,10 +204,10 @@ void main() {
 
       expect(find.text('Nova conta a pagar'), findsOneWidget);
 
-      // Retorna para o Resumo
+      // Retorna para o Dashboard
       final resumoTab = find.descendant(
         of: find.byType(NavigationBar),
-        matching: find.text('Resumo'),
+        matching: find.text('Dashboard'),
       );
       await tester.tap(resumoTab);
       await tester.pumpAndSettle();
@@ -219,7 +223,7 @@ void main() {
 
       expect(find.text('Contas a receber'), findsOneWidget);
 
-      // Retorna para o Resumo
+      // Retorna para o Dashboard
       await tester.tap(resumoTab);
       await tester.pumpAndSettle();
 
@@ -233,6 +237,54 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Nenhuma conta neste espaço'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'HomeShell: em largura >= 840 exibe Top Bar superior com navegação desktop, perfil clicável e sininho',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await launchApp(tester);
+
+      // Em desktop, não deve renderizar NavigationBar inferior
+      expect(find.byType(NavigationBar), findsNothing);
+
+      // Deve renderizar itens da Top Bar superior
+      expect(find.text('Dashboard'), findsWidgets);
+      expect(find.text('Extrato'), findsOneWidget);
+      expect(find.text('A receber'), findsWidgets);
+      expect(find.text('A pagar'), findsWidgets);
+      expect(find.text('Contas'), findsWidgets);
+      expect(find.text('Empréstimos'), findsNothing);
+
+      // Clicar em Extrato navega para a aba de Extrato
+      await tester.tap(find.text('Extrato'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Nenhuma movimentação encontrada'), findsOneWidget);
+
+      // Pill de perfil do usuário exibe o nome e clicá-lo abre o modal de edição
+      expect(find.text('Pessoa Teste'), findsOneWidget);
+      await tester.tap(find.text('Pessoa Teste'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Editar perfil'), findsOneWidget);
+      // Fecha modal de perfil
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+
+      // Sininho de notificações está presente na Top Bar
+      expect(find.byTooltip('Notificações'), findsOneWidget);
+      await tester.tap(find.byTooltip('Notificações'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Notificações e Vencimentos'), findsOneWidget);
     },
   );
 }

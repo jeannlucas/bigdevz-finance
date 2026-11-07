@@ -9,21 +9,29 @@ import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import '../auth/auth_models.dart';
 import '../auth/session_controller.dart';
+import '../categories/category_badge.dart';
+import '../categories/category_filter_chip.dart';
 import '../settings/preferences_controller.dart';
 import 'cards_screen.dart';
+import 'batch_payable_modal.dart';
 import 'payable.dart';
 import 'payable_creations.dart';
 import 'payable_form_screen.dart';
-import 'payable_screen.dart';
+import 'payable_modal.dart';
 import 'payables_repository.dart';
 import 'pending_creation_card.dart';
 
 /// Obrigações a pagar do espaço, com filtro por situação. Cadastrar não
 /// altera saldo: só pagamentos movimentam contas.
 class PayablesTab extends StatefulWidget {
-  const PayablesTab({super.key, required this.space});
+  const PayablesTab({
+    super.key,
+    required this.space,
+    this.initialFilter = 'open',
+  });
 
   final Space space;
+  final String initialFilter;
 
   @override
   State<PayablesTab> createState() => _PayablesTabState();
@@ -39,8 +47,48 @@ class _PayablesTabState extends State<PayablesTab> {
     'all': 'Todas',
   };
 
-  String _filter = 'open';
+  late String _filter = widget.initialFilter;
+  int? _selectedCategoryId;
   PendingCreation? _pending;
+  bool _selectionMode = false;
+  final Set<int> _selectedPayableIds = {};
+
+  bool _isEligible(Payable p) =>
+      p.status != PayableStatus.paid &&
+      p.status != PayableStatus.cancelled &&
+      p.remaining != null &&
+      p.remaining!.cents > 0;
+
+  Money _totalSelected(List<Payable> items) {
+    final selected = items.where((p) => _selectedPayableIds.contains(p.id));
+    return Money(
+      selected.fold<int>(0, (sum, p) => sum + (p.remaining?.cents ?? 0)),
+    );
+  }
+
+  void _toggleSelect(int payableId) {
+    setState(() {
+      if (_selectedPayableIds.contains(payableId)) {
+        _selectedPayableIds.remove(payableId);
+        if (_selectedPayableIds.isEmpty && !_selectionMode) {
+          _selectionMode = false;
+        }
+      } else {
+        _selectedPayableIds.add(payableId);
+      }
+    });
+  }
+
+  void _toggleSelectAll(List<Payable> eligible) {
+    setState(() {
+      if (_selectedPayableIds.length == eligible.length) {
+        _selectedPayableIds.clear();
+      } else {
+        _selectedPayableIds.clear();
+        _selectedPayableIds.addAll(eligible.map((p) => p.id));
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -64,6 +112,9 @@ class _PayablesTabState extends State<PayablesTab> {
   Widget build(BuildContext context) {
     final space = widget.space;
     final pending = _pending;
+    final textScaler = MediaQuery.textScalerOf(context);
+    final chipsHeight = (44.0 * textScaler.scale(1.0) + 8.0).clamp(52.0, 96.0);
+
     return Column(
       children: [
         if (pending != null)
@@ -85,7 +136,7 @@ class _PayablesTabState extends State<PayablesTab> {
               },
             ),
           ),
-        // Cabeçalho da aba A pagar com ação principal
+        // Cabeçalho da aba A pagar com ação principal (layout adaptativo)
         Padding(
           padding: const EdgeInsets.fromLTRB(
             AppTokens.p16,
@@ -93,44 +144,43 @@ class _PayablesTabState extends State<PayablesTab> {
             AppTokens.p16,
             0,
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
+          child: SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: AppTokens.p12,
+              runSpacing: AppTokens.p8,
+              children: [
+                Text(
                   'A pagar',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.2,
                   ),
                 ),
-              ),
-              FilledButton.tonalIcon(
-                onPressed: () => Navigator.of(context).push(
-                  spaceRoute(
-                    isPf: space.isPf,
-                    child: PayableFormScreen(space: space),
+                FilledButton.tonalIcon(
+                  onPressed: () => showPayableFormModal(context, space: space),
+                  icon: const AppIcon(AppIcons.add, size: 18),
+                  label: const Text('Nova conta a pagar'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 38),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-                icon: const AppIcon(AppIcons.add, size: 18),
-                label: const Text('Nova conta a pagar'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(0, 38),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         SizedBox(
-          height: 52,
+          height: chipsHeight,
           child: ListView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(
@@ -147,6 +197,13 @@ class _PayablesTabState extends State<PayablesTab> {
                     onSelected: (_) => setState(() => _filter = value),
                   ),
                 ),
+              CategoryFilterChip(
+                spaceId: space.id,
+                type: 'expense',
+                selectedCategoryId: _selectedCategoryId,
+                onChanged: (catId) =>
+                    setState(() => _selectedCategoryId = catId),
+              ),
               ActionChip(
                 avatar: const AppIcon(AppIcons.card, size: 16),
                 label: const Text('Cartões e recorrências'),
@@ -162,10 +219,11 @@ class _PayablesTabState extends State<PayablesTab> {
         ),
         Expanded(
           child: LoadView<List<Payable>>(
-            key: ValueKey('payables-$_filter'),
+            key: ValueKey('payables-$_filter-$_selectedCategoryId'),
             load: () => context.read<PayablesRepository>().list(
               space.id,
               status: _filter,
+              categoryId: _selectedCategoryId,
             ),
             isEmpty: (items) => items.isEmpty,
             empty: (context, _) => EmptyState(
@@ -175,47 +233,242 @@ class _PayablesTabState extends State<PayablesTab> {
                   'Cadastre contas a pagar avulsas, parceladas ou recorrentes. '
                   'Faturas de cartão aparecem com valor a informar.',
             ),
-            builder: (context, items, refresh) => RefreshIndicator(
-              onRefresh: refresh,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  AppTokens.p16,
-                  4,
-                  AppTokens.p16,
-                  96,
-                ),
+            builder: (context, items, refresh) {
+              final eligibleItems = items.where(_isEligible).toList();
+              final isSelectionActive =
+                  _selectionMode || _selectedPayableIds.isNotEmpty;
+
+              return Stack(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      items.length == 1
-                          ? '1 conta a pagar'
-                          : '${items.length} contas a pagar',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w500,
+                  RefreshIndicator(
+                    onRefresh: refresh,
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1040),
+                        child: ListView(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppTokens.p16,
+                            4,
+                            AppTokens.p16,
+                            100,
+                          ),
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Wrap(
+                                alignment: WrapAlignment.spaceBetween,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 8,
+                                runSpacing: 4,
+                                children: [
+                                  Text(
+                                    items.length == 1
+                                        ? '1 conta a pagar'
+                                        : '${items.length} contas a pagar',
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                  ),
+                                  if (eligibleItems.isNotEmpty) ...[
+                                    if (!isSelectionActive)
+                                      TextButton.icon(
+                                        onPressed: () => setState(
+                                          () => _selectionMode = true,
+                                        ),
+                                        icon: const Icon(
+                                          Icons.checklist_rounded,
+                                          size: 16,
+                                        ),
+                                        label: const Text('Selecionar várias'),
+                                        style: TextButton.styleFrom(
+                                          visualDensity: VisualDensity.compact,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                          ),
+                                        ),
+                                      )
+                                    else
+                                      Wrap(
+                                        spacing: 4,
+                                        children: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                _toggleSelectAll(eligibleItems),
+                                            style: TextButton.styleFrom(
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                  ),
+                                            ),
+                                            child: Text(
+                                              _selectedPayableIds.length ==
+                                                      eligibleItems.length
+                                                  ? 'Desmarcar todas'
+                                                  : 'Selecionar todas',
+                                            ),
+                                          ),
+                                          TextButton(
+                                            onPressed: () => setState(() {
+                                              _selectionMode = false;
+                                              _selectedPayableIds.clear();
+                                            }),
+                                            style: TextButton.styleFrom(
+                                              visualDensity:
+                                                  VisualDensity.compact,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                  ),
+                                            ),
+                                            child: const Text('Cancelar'),
+                                          ),
+                                        ],
+                                      ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            for (final item in items) ...[
+                              PayableCard(
+                                space: space,
+                                payable: item,
+                                isSelectable:
+                                    isSelectionActive && _isEligible(item),
+                                isSelected: _selectedPayableIds.contains(
+                                  item.id,
+                                ),
+                                onToggleSelect: () => _toggleSelect(item.id),
+                                onTap: () => showPayableModal(
+                                  context,
+                                  space: space,
+                                  payableId: item.id,
+                                  onUpdated: refresh,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                            ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                  for (final item in items) ...[
-                    PayableCard(
-                      space: space,
-                      payable: item,
-                      onTap: () => Navigator.of(context).push(
-                        spaceRoute(
-                          isPf: space.isPf,
-                          child: PayableScreen(
-                            space: space,
-                            payableId: item.id,
+
+                  // Barra flutuante de pagamento em lote
+                  if (_selectedPayableIds.isNotEmpty)
+                    Positioned(
+                      bottom: 16,
+                      left: 16,
+                      right: 16,
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 600),
+                          child: Material(
+                            elevation: 8,
+                            shadowColor: Colors.black54,
+                            borderRadius: BorderRadius.circular(AppTokens.r16),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHigh,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              child: Wrap(
+                                alignment: WrapAlignment.spaceBetween,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 12,
+                                runSpacing: 8,
+                                children: [
+                                  Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${_selectedPayableIds.length} selecionadas',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                            ),
+                                      ),
+                                      Text(
+                                        _totalSelected(items).brl,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w800,
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .error,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                  FilledButton.icon(
+                                    onPressed: () {
+                                      final selectedList = items
+                                          .where(
+                                            (p) => _selectedPayableIds.contains(
+                                              p.id,
+                                            ),
+                                          )
+                                          .toList();
+                                      showBatchPayableModal(
+                                        context,
+                                        space: space,
+                                        payables: selectedList,
+                                        onCompleted: () {
+                                          setState(() {
+                                            _selectedPayableIds.clear();
+                                            _selectionMode = false;
+                                          });
+                                          refresh();
+                                        },
+                                      );
+                                    },
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: Theme.of(context)
+                                          .colorScheme
+                                          .error,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(
+                                          AppTokens.r12,
+                                        ),
+                                      ),
+                                    ),
+                                    icon: const Icon(
+                                      Icons.playlist_add_check_rounded,
+                                      size: 18,
+                                    ),
+                                    label: Text(
+                                      'Pagar selecionadas (${_selectedPayableIds.length})',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 10),
-                  ],
                 ],
-              ),
-            ),
+              );
+            },
           ),
         ),
       ],
@@ -228,11 +481,17 @@ class PayableCard extends StatelessWidget {
     super.key,
     required this.space,
     required this.payable,
+    this.isSelectable = false,
+    this.isSelected = false,
+    this.onToggleSelect,
     this.onTap,
   });
 
   final Space space;
   final Payable payable;
+  final bool isSelectable;
+  final bool isSelected;
+  final VoidCallback? onToggleSelect;
   final VoidCallback? onTap;
 
   @override
@@ -250,157 +509,189 @@ class PayableCard extends StatelessWidget {
     return Card(
       key: ValueKey('payable-${payable.id}'),
       clipBehavior: Clip.antiAlias,
+      shape: isSelected
+          ? RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTokens.r16),
+              side: BorderSide(color: theme.colorScheme.error, width: 1.5),
+            )
+          : null,
       child: InkWell(
-        onTap: onTap,
+        onTap: isSelectable ? onToggleSelect : onTap,
         borderRadius: BorderRadius.circular(AppTokens.r16),
         child: Padding(
           padding: const EdgeInsets.all(AppTokens.p16),
-          child: Column(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Linha Superior: Descrição e StatusChip alinhados
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
+              if (isSelectable)
+                Padding(
+                  padding: const EdgeInsets.only(right: 12, top: 2),
+                  child: Checkbox(
+                    value: isSelected,
+                    onChanged: (_) => onToggleSelect?.call(),
+                    visualDensity: VisualDensity.compact,
+                    activeColor: theme.colorScheme.error,
+                  ),
+                ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Linha Superior: Descrição e StatusChip alinhados
+                    Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          payable.description,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                payable.description,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                '${payable.kindLabel} · vence ${formatDateBr(payable.dueDate)}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              if (payable.payee != null &&
+                                  payable.payee!.trim().isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  payable.payee!,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant
+                                        .withValues(alpha: 0.8),
+                                    fontSize: 11,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                              if (payable.category != null) ...[
+                                const SizedBox(height: 6),
+                                CategoryBadge(
+                                  category: payable.category!,
+                                  compact: true,
+                                ),
+                              ],
+                            ],
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 3),
-                        Text(
-                          '${payable.kindLabel} · vence ${formatDateBr(payable.dueDate)}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        if (payable.payee != null &&
-                            payable.payee!.trim().isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            payable.payee!,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant
-                                  .withValues(alpha: 0.8),
-                              fontSize: 11,
+                        const SizedBox(width: 8),
+                        payableStatusChip(payable),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Bloco de Valores com destaque fintech adaptativo com Wrap
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.start,
+                      spacing: AppTokens.p16,
+                      runSpacing: AppTokens.p8,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isPaid
+                                  ? 'Total pago'
+                                  : isCancelled
+                                  ? 'Valor cancelado'
+                                  : 'Restante a pagar',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: payable.overdue
+                                    ? AppTokens.expense
+                                    : theme.colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                            const SizedBox(height: 2),
+                            if (isAwaiting)
+                              Text(
+                                'Valor a informar',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTokens.warning,
+                                  letterSpacing: -0.2,
+                                ),
+                              )
+                            else
+                              MoneyText(
+                                isPaid
+                                    ? payable.paid
+                                    : (payable.remaining ??
+                                          payable.amount ??
+                                          const Money(0)),
+                                obscure: obscure,
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.4,
+                                  color: payable.overdue
+                                      ? AppTokens.expense
+                                      : null,
+                                ),
+                              ),
+                          ],
+                        ),
+                        if (isPartial && payable.amount != null) ...[
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Pago líquido',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              MoneyText(
+                                payable.paid,
+                                obscure: obscure,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTokens.income,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ] else if (!isPaid &&
+                            !isCancelled &&
+                            payable.amount != null &&
+                            !isAwaiting) ...[
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Valor total',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              MoneyText(
+                                payable.amount!,
+                                obscure: obscure,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  payableStatusChip(payable),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Bloco de Valores com destaque fintech
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          isPaid
-                              ? 'Total pago'
-                              : isCancelled
-                              ? 'Valor cancelado'
-                              : 'Restante a pagar',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: payable.overdue
-                                ? AppTokens.expense
-                                : theme.colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        if (isAwaiting)
-                          Text(
-                            'Valor a informar',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: AppTokens.warning,
-                              letterSpacing: -0.2,
-                            ),
-                          )
-                        else
-                          MoneyText(
-                            isPaid
-                                ? payable.paid
-                                : (payable.remaining ??
-                                      payable.amount ??
-                                      const Money(0)),
-                            obscure: obscure,
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.4,
-                              color: payable.overdue ? AppTokens.expense : null,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  if (isPartial && payable.amount != null) ...[
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          'Pago líquido',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        MoneyText(
-                          payable.paid,
-                          obscure: obscure,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: AppTokens.income,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ] else if (!isPaid &&
-                      !isCancelled &&
-                      payable.amount != null &&
-                      !isAwaiting) ...[
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          'Valor total',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        MoneyText(
-                          payable.amount!,
-                          obscure: obscure,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
-                ],
+                ),
               ),
             ],
           ),

@@ -17,6 +17,8 @@ class PayableResource extends JsonResource
         return [
             'id' => $this->id,
             'space_id' => $this->space_id,
+            'category_id' => $this->category_id,
+            'category' => $this->whenLoaded('category', fn () => new CategoryResource($this->category)),
             'kind' => $this->kind,
             'description' => $this->description,
             'payee' => $this->payee,

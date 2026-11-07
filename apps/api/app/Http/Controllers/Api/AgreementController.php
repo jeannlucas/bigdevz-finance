@@ -18,16 +18,22 @@ class AgreementController extends Controller
 
     public function index(Request $request, string $space): AnonymousResourceCollection
     {
-        $status = $request->validate([
+        $data = $request->validate([
             'status' => ['nullable', Rule::in(self::STATUSES)],
-        ])['status'] ?? 'open';
+            'category_id' => ['nullable', 'integer'],
+        ]);
+        $status = $data['status'] ?? 'open';
 
         $spaceModel = $this->space($request, $space);
         $today = Carbon::now(config('finance.timezone'))->toDateString();
         $tomorrow = Carbon::now(config('finance.timezone'))->addDay()->toDateString();
         $in30Days = Carbon::now(config('finance.timezone'))->addDays(30)->toDateString();
 
-        $query = $spaceModel->agreements()->with('installments')->latest('id');
+        $query = $spaceModel->agreements()->with(['installments', 'category'])->latest('id');
+
+        if (! empty($data['category_id'])) {
+            $query->where('category_id', $data['category_id']);
+        }
 
         match ($status) {
             'open' => $query->whereHas('installments', fn ($q) => $q->whereColumn('received_cents', '<', 'amount_cents')),
@@ -58,10 +64,16 @@ class AgreementController extends Controller
             'total' => ['required', new MoneyAmount],
             'installment_count' => ['required', 'integer', 'between:1,1200'],
             'first_due_date' => ['required', 'date_format:Y-m-d'],
+            'category_id' => ['nullable', 'integer'],
         ]);
 
         $agreement = $createAgreement->handle(
-            $space, $data['description'], $data['total'], (int) $data['installment_count'], $data['first_due_date'],
+            $space,
+            $data['description'],
+            $data['total'],
+            (int) $data['installment_count'],
+            $data['first_due_date'],
+            isset($data['category_id']) ? (int) $data['category_id'] : null,
         );
 
         return (new AgreementResource($agreement->load('installments')))->withInstallments()->response()->setStatusCode(201);

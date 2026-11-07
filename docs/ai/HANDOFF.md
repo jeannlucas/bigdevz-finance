@@ -22,11 +22,28 @@
 
 ## 2. Estado Operacional Atual e Máquina de Estados
 
-- **Estado Atual:** **`VALIDADO TECNICAMENTE`** / **`PREPARACAO_COMMIT_DOCUMENTAL`** (Checkpoint `FINANCE-DOCS-03 — Fase B`).
-- **Branch Ativa:** `dev` (HEAD local `b7160f26d923574f2e3266c5eef8d8f6141dea2f`, alinhado com `origin/dev`).
-- **Branch de Produção:** `main` (remoto `origin/main` atualizado após merge do PR #2 em `c8e61e1ed0e48e9c67be11093f77abd48d6e2d11`).
-- **Integridade do Core Financeiro e Suíte:** 100% verde em todas as suítes (11/11 testes de domínio, 132/132 testes mobile, Pint aprovado e formatação Dart conforme).
-- **Escopo do Checkpoint:** Staging seletivo e criação do commit local documental `docs: aprimorar governança open source e política de marca` cobrindo exatamente os 10 arquivos aprovados.
+- **Estado Operacional:** **`DESENVOLVIMENTO_LOCAL_FEATURE`** (Checkpoint `FINANCE-CATEGORIAS-FILTROS-MODAIS-01`, `FINANCE-CATEGORIAS-E-BAIXA-MULTIPLA-01`, `FINANCE-CHROME-MODAL-RENDER-FIX-01`).
+- **Feature Ativa:** Filtros por Categoria, Gerenciamento de Categorias e Ajuste Fino de Layout (Eliminação Total de Espaços Ociosos em Modais):
+  1. **Eliminação de Espaços Vazios em Modais e Telas:**
+     - Modais adaptativos em `agreement_modal.dart`, `payable_modal.dart`, `agreement_form_screen.dart`, `account_form_screen.dart`, `transfer_form_screen.dart` e `categories_screen.dart`.
+     - Utilização estrita de `ConstrainedBox(maxHeight: 0.85 * h)` combinada com `Column(mainAxisSize: MainAxisSize.min)` e `ListView(shrinkWrap: true)` ou `SingleChildScrollView`.
+     - O layout abraça o conteúdo com precisão sem deixar áreas vazias ou vácuos verticais, com rolagem automática se a lista de itens crescer.
+  2. **Filtros por Categoria nas Listagens (A pagar, A receber e Extrato):**
+     - Backend API com suporte a `category_id` nas rotas de `/payables`, `/agreements` e `/statements` (com busca profunda de movimentações por obrigação/acordo).
+     - Componente reutilizável `CategoryFilterChip` integrado nas três abas com badge visual e seletor rápido.
+  3. **Tela de Gerenciamento de Categorias:**
+     - Implementada em `categories_screen.dart` com listagem por tipo (Despesas/Receitas), proteção contra exclusão de categorias padrão, edição e criação com seletor de 15 cores e 18 ícones.
+     - Atalho direto na Top Bar desktop ao lado do sino de notificações e nas Configurações.
+  4. **Backpressure 100% Verde:**
+     - 216 testes Flutter passando.
+     - 121 testes de integração da API Laravel passando (1.438 asserções).
+     - Lint e formatação aprovados (`pint` e `dart format`).
+- **Ambiente de Desenvolvimento Local:**
+  - API Laravel 13 Docker ativa em `http://127.0.0.1:8000/api`.
+  - PostgreSQL 18 Docker ativo em `127.0.0.1:5440`.
+  - Frontend Flutter Web Server ativo em `http://127.0.0.1:8085`.
+- **Branch Ativa:** `feature/ux-nova-conta-a-receber` (a partir de `dev`).
+- **Branch de Produção:** `main`.
 
 ---
 
@@ -131,10 +148,18 @@ Os comandos reais de verificação aprovados na última auditoria de consolidaç
 
 Roteiro de continuidade operacional para **Google Antigravity** e **OpenAI Codex**:
 
-1. **Staging Seletivo e Commit Local (FINANCE-DOCS-03 — Fase B):** Realizar o staging dos 10 arquivos homologados e criar o commit local com a mensagem imperativa `docs: aprimorar governança open source e política de marca`, mantendo arquivos de ambiente iOS rigorosamente preservados fora do staging.
-2. **Auditoria e Portão de Publicação (FINANCE-DOCS-04):** Submeter o commit criado à autorização do mantenedor para push controlado na branch `dev` e acompanhamento da CI no GitHub Actions.
-3. **Continuidade de Funcionalidades:** Retomada das pendências da aba de Resumo e testes de concorrência com base limpa e governança profissional consolidada.
-4. **Atualização Contínua deste Documento:** Qualquer nova sessão com trabalho material deve encerrar atualizando as seções 2, 4 e 8 deste arquivo [`docs/ai/HANDOFF.md`](HANDOFF.md).
+1. **Proteção Rigorosa do Ambiente Live em Produção (`https://finance.bigdevz.com`):**
+   - Com o BigDev.Z Finance publicado em produção com usuários ativos realizando testes reais, todo novo desenvolvimento DEVE operar sob isolamento estrito:
+     - Criação de branches dedicadas a partir da `dev` (ex: `feature/clientes`, `feature/projetos`).
+     - Zero intervenções manuais ou mutações descontroladas na base de produção da VPS.
+     - Banco de dados local de testes (`bigdevz_finance_test`) estritamente descartável e isolado.
+     - Quality gate determinístico (`scripts/check.sh --full`) obrigatório antes de qualquer solicitação de commit/merge.
+2. **Início da Etapa 3 do Roadmap (Negócio & Clientes):**
+   - Planejamento e especificação (L2 em `specs/clientes/`) para Gestão de Clientes, Contratos/Mensalidades recorrentes e Projetos por etapas.
+3. **Soberania Git Inegociável:**
+   - Nenhum commit, merge ou push ocorre sem autorização prévia, expressa e soberana do mantenedor Jeann Lucas.
+4. **Atualização Contínua deste Documento:**
+   - Manter as seções 2 e checkpoints históricos atualizados a cada novo ciclo de entrega.
 
 
 ## Registro de Homologação — Checkpoint FINANCE-QA-01 (15/10/2026)
@@ -326,3 +351,328 @@ Roteiro de continuidade operacional para **Google Antigravity** e **OpenAI Codex
   - `git diff --check`: 0 erros de whitespace.
 - **Parecer Codex**: APROVADO COM RESSALVAS (ressalvas atendidas integralmente antes da criação do commit).
 - **Próximos Passos**: Criação do commit local na branch `dev` com a mensagem `fix(security): garantir persistencia segura da privacidade`.
+
+---
+
+## 9. Checkpoint FINANCE-RETOMADA-01 (17/10/2026) — Alinhamento à Governança Global, Spec Permanente e Quality Gate
+
+- **Objetivo**: Retomada do projeto com base na governança unificada (`~/AGENTS.md`), auditoria de integridade monetária, verificação de isolamento multi-tenant (prevenção de IDOR), criação da spec permanente com critérios de aceite numerados e execução do script determinístico de validação única (`scripts/check.sh`).
+- **Diagnóstico e Auditorias Realizadas**:
+  1. **Integridade Monetária e Proibição de Float:** Confirmado que a aplicação não utiliza `float` ou `double` para cálculos financeiros (`Money.php`, `money.dart`, migrations `BIGINT` com restrições `CHECK` entre 0 e `99999999999999`). Juros, multas e conciliação seguem rigorosamente a aritmética de centavos inteiros e marco temporal de abertura da conta.
+  2. **Isolamento Multi-Tenant e Prevenção de IDOR:** O modelo multi-tenant é baseado na entidade `Space` (`space_id`), com separação rígida entre PF e PJ. Toda consulta e mutação injeta obrigatoriamente o identificador derivado do usuário autenticado (`$request->user()->spaces()->findOrFail($spaceId)`). Acesso a espaços ou recursos alheios resulta em 404 imediato (sem vazar metadados). Chaves estrangeiras compostas `(id, space_id)` no PostgreSQL blindam a integridade no banco.
+  3. **Spec Permanente Criada (`specs/financeiro/financeiro.md`):** Regras de negócio formalizadas com critérios de aceite numerados de `AC-FIN-001` a `AC-FIN-016` cobrindo precisão monetária, cronogramas, juros/multas/conciliação, isolamento multi-tenant, saldo disponível e concorrência/idempotência.
+  4. **Quality Gate Unificado (`scripts/check.sh`):** Implementado o script determinístico "O Primeiro Não da Máquina" que executa análise de tipagem/estática, linters e toda a suíte de testes (11 testes PHP de domínio, 132 testes Flutter, Pint e Dart format).
+- **Validação Técnica Executada (`bash scripts/check.sh`):**
+  - Domínio Financeiro PHP: 11/11 testes aprovados (0 falhas).
+  - Análise Estática Flutter: `No issues found!`.
+  - Laravel Pint: `passed`.
+  - Formatação Dart: 81 arquivos verificados, 0 alterações pendentes.
+  - Testes Mobile Flutter: 132/132 testes aprovados (100% verde).
+- **Estado Operacional:** `VALIDADO TECNICAMENTE` / `AGUARDANDO_APROVACAO`. Pronto para inspeção e aprovação do desenvolvedor Jeann Lucas.
+
+---
+
+## 10. Checkpoint FINANCE-FIN-02 — Fase B (18/10/2026) — Correções de Integridade Financeira, Agregados Exatos e Quality Gate
+
+- **Objetivo**: Implementação controlada dos achados de integridade financeira identificados na auditoria FINANCE-FIN-01 e fechados arquiteturalmente no FINANCE-FIN-02.A2 sob a Opção 1 (valores individuais limitados a R$ 999 bilhões; agregados exatos sem float até inteiros de 64 bits).
+- **Modo**: IMPLEMENTAÇÃO CONTROLADA LOCAL, sob autorização humana explícita. Sem staging, commit ou push.
+- **Branch Ativa**: `dev` (HEAD `58cc1c9d7bf65447df68d09c0c5de999efe257d2`).
+- **Arquivos Particulares Protegidos**: Intactos e rigorosamente preservados fora do escopo (`project.pbxproj`, `Info.plist`, `ux_evidences_test.dart`, `HANDOFF.md` raiz).
+
+### Correções Implementadas
+
+1. **A1 — Integridade dos Estornos e Correções de Saldo (`ReversePayment.php`, `ReverseReceipt.php`):**
+   - Em `ReversePayment::handle`, adicionada validação do saldo líquido resultante na conta original sob lock pessimista antes de qualquer mutação contábil (`resulting > Money::MAX_CENTS || resulting < -Money::MAX_CENTS`).
+   - Em `ReverseReceipt::handle` e `validateReplacement`, adicionadas verificações de limites bidirecionais tanto na conta original quanto na conta substituta.
+   - Ambas as ações lançam `ValidationException::withMessages(['amount' => 'O saldo da conta ultrapassaria o limite suportado.'])` com rollback transacional automático e gravação do estado `rejected` na chave de idempotência com replay determinístico (HTTP 422).
+2. **A2 — Limite Inferior no Ajuste de Saldo de Abertura (`AdjustAccountOpening.php`):**
+   - A validação de saldo resultante pós-ajuste (`openingCents + movements`) tornou-se estritamente bidirecional (`> Money::MAX_CENTS || < -Money::MAX_CENTS`), impedindo subfluxo contábil abaixo do piso.
+3. **A3 — Agregados Monetários Exatos e Sem Float (`Money.php`, `SpaceController.php`, `PayableController.php`, `CreatePayable.php`, `money.dart`):**
+   - Implementado `Money::formatAggregate(int|string $cents): string` no domínio PHP com formatação aritmética inteira pura em 64 bits (`PHP_INT_MAX` = ~92 quadrilhões de reais), eliminando o risco de `InvalidArgumentException` / HTTP 500 em dashboards e relatórios consolidados.
+   - Atualizados `SpaceController::summary` (`balance`, `received_total`, `receivable_remaining`, `open_total`, `overdue_total`, `due_next_30_days_total`, `paid_total`), `PayableController::preview` (`past_total`, `total`) e `CreatePayable::createRecurrence` (mensagem de confirmação de vencidos).
+   - No Flutter (`money.dart`), ampliado o regex de API de `[0-9]{0,11}` para `[0-9]*` com controle estrito contra overflow de 64 bits (`92233720368547758.07`). Adicionado `Money.parseAggregate`. Entradas de usuário (`Money.fromInput` e `MoneyInputFormatter`) mantêm restrição estrita a `maxCents = 99999999999999`.
+4. **A4 — Eliminação de Falso PASS no Quality Gate (`scripts/check.sh`):**
+   - Implementado contrato com modos `--fast` e `--full` (padrão sem argumentos).
+   - O modo `--full` realiza sondagem ativa PDO contra o banco PostgreSQL de testes (`bigdevz_finance_test` na porta 5440) sem expor credenciais no script.
+   - Caso o banco esteja inacessível ou o ambiente não seja homologado, o script encerra imediatamente com exit code `2`, bloqueando o gate. Exit code `0` é retornado apenas sob aprovação integral de todos os testes.
+5. **Sincronização da Especificação Permanente (`specs/financeiro/financeiro.md`):**
+   - Atualizados `AC-FIN-001` (double permitido exclusivamente em tokens de layout Flutter), `AC-FIN-004` (diferenciação explícita entre limite individual `MAX_CENTS` e agregados exatos int64), `AC-FIN-007` (juros/multas classificados como especificados mas não implementados no roadmap futuro) e `AC-FIN-015` (detalhamento de replay de sucesso 200, replay de rejeição 422 e operações sem idempotência no backend).
+
+### Testes Automatizados e Evidências
+
+- **Domínio Financeiro PHP (`apps/api/tests/domain.php`):** 13 testes aprovados (inclui `formatAggregate` com canonicalização de zeros à esquerda e `Money::sum` imune a `bcscale` global), 0 falhas.
+- **Testes Flutter Mobile (`apps/mobile/test`):** 133 testes aprovados (leitura de agregados e roundtrip nos extremos int64 com remainder e divisão inteira segura), 0 falhas.
+- **Análise Estática Dart (`flutter analyze`):** 0 issues (`No issues found!`).
+- **Laravel Pint (`vendor/bin/pint --test`):** 100% conforme.
+- **Testes de Integração API Laravel em PostgreSQL Real (`php artisan test`):** 74 testes aprovados (3 novos testes de regressão: `test_payment_reversal_is_rejected_if_account_balance_would_exceed_max_cents`, `test_receipt_reversal_is_rejected_if_account_balance_would_underflow_max_cents`, `test_opening_adjustment_is_rejected_if_resulting_balance_would_underflow_max_cents`), 1044 asserções, 0 falhas.
+- **Quality Gate FAST (`bash scripts/check.sh --fast`):** Aprovado (código 0).
+- **Quality Gate FULL (`bash scripts/check.sh --full`):** Aprovado (código 0), com validação da conexão efetiva no runtime do framework (`127.0.0.1:5440/bigdevz_finance_test`).
+- **Auditoria Independente OpenAI Codex CLI (`codex exec -s read-only`):** Executada com sucesso; todas as observações técnicas (scale 0 em bcadd, remainder/abs em Dart int64, canonicalização decimal e injeção forçada de conexão no test runner) foram refinadas e validadas.
+- **Estado Operacional:** `VALIDADO TECNICAMENTE` / `AGUARDANDO_APROVACAO`. Pronto para inspeção e homologação humana soberana do desenvolvedor Jeann Lucas.
+
+---
+
+## 11. Checkpoint FINANCE-FIN-02.D (18/10/2026) — Saneamento de Bloqueadores, Segurança do PostgreSQL e Homologação do Commit Gate
+
+- **Objetivo**: Saneamento completo dos 4 apontamentos técnicos identificados no Commit Gate (P0: blindagem da conexão efetiva de testes; P1: declaração formal de `ext-bcmath` no Composer; P1: testes HTTP dedicados de integração do Dashboard com agregação > MAX_CENTS; P1: reconciliação de `AC-FIN-015` com a arquitetura real de idempotência) e adição de testes de fronteira A1/A2.
+- **Modo**: IMPLEMENTAÇÃO CONTROLADA LOCAL, sob autorização humana explícita para o Portão 2. Sem staging, commit ou push.
+- **Branch Ativa**: `dev` (HEAD `58cc1c9d7bf65447df68d09c0c5de999efe257d2`).
+- **Arquivos Particulares Protegidos**: Intactos e rigorosamente preservados fora do escopo (`project.pbxproj`, `Info.plist`, `ux_evidences_test.dart`, `HANDOFF.md` raiz).
+
+### Correções Implementadas
+
+1. **P0 — Blindagem da Conexão Efetiva de Testes (`phpunit.xml`, `TestCase.php`, `scripts/check.sh`):**
+   - Em `phpunit.xml`, adicionado `force="true"` nas variáveis de conexão (`DB_CONNECTION`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`, `DB_URL`), impedindo sobreposição por variáveis ambientais do shell.
+   - Em `TestCase.php`, implementada validação restrita no `setUpTraits()` antes de qualquer migrate ou transação:
+     - Validação estrita do driver `pgsql` e pares autorizados `('127.0.0.1:5440'`, `'localhost:5440'` no host, e exclusivamente `'postgres:5432'` dentro do container Docker) para o banco `bigdevz_finance_test`.
+     - Consulta ativa direta ao PDO de escrita: `$writePdo->query('SELECT current_database()')->fetchColumn()`, rejeitando qualquer conexão divergente com `RuntimeException`.
+   - Em `scripts/check.sh`, validação dinâmica a partir de `phpunit.xml` e teste direto no write PDO antes da execução da suíte de testes.
+2. **P1 — Declaração Formal da Extensão BCMath (`composer.json`, `composer.lock`):**
+   - Adicionada dependência `"ext-bcmath": "*"` na seção `"require"` de `apps/api/composer.json`.
+   - Sincronizados os metadados do `apps/api/composer.lock` estritamente via `composer update --lock --no-install --no-scripts --no-plugins`, preservando 100% das versões de pacotes instalados.
+   - Validado com `composer check-platform-reqs` (`ext-bcmath: success`).
+3. **P1 — Testes HTTP de Integração do Dashboard (`apps/api/tests/Feature/SpaceSummaryTest.php`):**
+   - Criado arquivo de teste dedicado para o contrato `GET /api/spaces/{space}/summary` cobrindo rigorosamente os 7 cenários obrigatórios (T-01 a T-07):
+     - **T-01:** Duas contas de R$ 600 bilhões somando R$ 1,2 trilhão exato (`"1200000000000.00"`), sem float e sem erro 500.
+     - **T-02:** Soma monetária regular dentro de MAX_CENTS (`"1500.00"`).
+     - **T-03:** Agregado negativo válido após pagamentos superiores à abertura (`"-200.00"`).
+     - **T-04:** Multi-tenant estrito: 404 para Space de outro usuário sem vazar dados; segregação total entre PF e PJ do mesmo usuário.
+     - **T-05:** Espaço vazio sem contas retorna `"0.00"` e contagens zeradas.
+     - **T-06:** Duas contas no limite individual exato MAX_CENTS (`999999999999.99` cada) somando exatamente 2 x MAX_CENTS (`"1999999999999.98"`).
+     - **T-07:** Resposta JSON preserva strings decimais canônicas com ponto e exatamente duas casas decimais em todos os totalizadores com valores não-zero e assert matemático exato (`balance`: `"850.00"`, `received_total`: `"150.00"`, `receivable_remaining`: `"350.00"`, `open_total`: `"700.00"`, `overdue_total`: `"200.00"`, `due_next_30_days_total`: `"500.00"`, `paid_total`: `"300.00"`).
+4. **P1 — Reconciliação Textual de Idempotência (`specs/financeiro/financeiro.md`):**
+   - Reconciliado `AC-FIN-015`: unicidade real no banco por `UNIQUE(space_id, key)`; distinção precisa entre validação sintática do request com chave válida (que persiste a chave como `rejected` com erros e devolve 422 em replay ou 409 em alteração) versus chave ausente/malformada (que é rejeitada preliminarmente sem persistência de chave); replay de sucesso responde `HTTP 200 OK` com `replayed: true` resserializando recursos atuais; `HTTP 409 Conflict` em caso de fingerprint divergente.
+5. **Testes de Fronteira Adicionais (A1 e A2) com Asserções de Persistência no Banco:**
+   - `PayablesTest.php`: Adicionado `test_payment_reversal_boundary_at_exact_max_cents_and_one_cent_above`, conferindo saldo persistido exato no teto e ausência de mutação/estorno na rejeição por 1 centavo.
+   - `ReceiptReversalTest.php`: Adicionado `test_receipt_reversal_boundary_at_exact_negative_max_cents_and_one_cent_below`, conferindo saldo persistido exato no piso e integridade na tabela `receipt_reversals`.
+   - `AccountManagementTest.php`: Adicionado `test_opening_adjustment_boundary_at_exact_max_cents_and_one_cent_above`, conferindo persistência e histórico de `account_opening_adjustments`.
+
+### Resultados das Suítes Automatizadas
+- **Domínio Financeiro PHP (`apps/api/tests/domain.php`):** 13 testes aprovados (0 falhas).
+- **Testes Flutter Mobile (`apps/mobile/test`):** 133 testes aprovados (0 falhas).
+- **Análise Estática Dart (`flutter analyze`):** 0 issues (`No issues found!`).
+- **Laravel Pint (`vendor/bin/pint --test`):** 100% conforme.
+- **Testes de Integração API Laravel em PostgreSQL Real (`php artisan test`):** 84 testes aprovados (inclui os 7 testes de `SpaceSummaryTest` e os 3 novos testes de fronteira com asserções de persistência), 1.139 asserções, 0 falhas.
+- **Quality Gate FAST (`bash scripts/check.sh --fast`):** Aprovado (código 0).
+- **Quality Gate FULL (`bash scripts/check.sh --full`):** Aprovado (código 0).
+- **Auditoria Independente OpenAI Codex CLI (`codex exec -s read-only`):** **APROVADO** em todos os 5 critérios técnicos avaliados (P0: APROVADO; P1 bcmath: APROVADO; P1 dashboard: APROVADO; P1 spec: APROVADO; Fronteiras A1/A2: APROVADO).
+- **Estado Operacional:** `HOMOLOGADO LOCALMENTE` / `AGUARDANDO_HOMOLOGACAO_MANUTENCAO`. Zero commits, zero pushes, área de staging limpa.
+
+---
+
+## 12. Ciclo FINANCE-MOB-01.B (B.1 a B.4-E) e Checkpoints Documentais B.5 a B.5-B — Acessibilidade Responsiva, Privacidade Semântica, Homologação na CI e Retificação Documental
+
+- **Objetivo**: Resolução completa dos problemas de overflow em telas compactas (largura ensaiada de 320pt) e escalas ampliadas de acessibilidade (150% e 200%) no app Flutter; implementação de semântica acessível em cartões de contas financeiras com exclusão de nós internos ao ocultar saldos; catálogo de 76 evidências visuais locais cruzadas (Android e iOS); auditoria e recuperação de incidente de restauração não autorizada de arquivos Apple; auditoria estrita pré-push e publicação controlada de commit único para `origin/dev`; homologação dos jobs `api` e `mobile` na CI remota do GitHub Actions; e saneamento/retificação documental rigorosa.
+- **Modo**: Ciclo de acessibilidade, testes de widget, auditorias pré-push com portões humanos, verificação de CI remota e retificação documental pré-commit.
+- **Branch Ativa**: `dev` (HEAD local e publicado: `da8545fdfef934c91c0ca764023043bf80a040e0`, parent: `2a379f8b668440dce100873b2900bbaf8119151d`).
+- **Branch de Produção**: `origin/main` (`a9e6e8b...`); branch local `main` (`42a3e39...`, intocada e preservada).
+
+### Rastreabilidade Cronológica e Individualizada dos Checkpoints
+
+| Checkpoint | Escopo / Operação Técnica | Evidência / Artefato Principal | Governança / Autorização | Status |
+|---|---|---|---|---|
+| **FINANCE-MOB-01.B.1** | Diagnóstico inicial READ-ONLY: identificação de capturas inválidas, overflows de texto em 150% e 200% em acordos e despesas, e identificação de risco de vazamento de saldo via acessibilidade semântica. | Capturas BEFORE em `prints/finance-mob-01/ios/` (`ios_iphone17e_mob-b1_agreements_overflow_200.png` e `ios_iphone17e_mob-b1_payables_overflow_200.png`). | Autorizado em sessão de diagnóstico | Homologado |
+| **FINANCE-MOB-01.B.2 (Portão A)** | Planejamento técnico: especificação das correções de layout e isolamento do manifesto restrito de exatamente 7 arquivos Flutter. | Plano de execução aprovado sem alterações de código. | Portão A de Planejamento aprovado | Homologado |
+| **FINANCE-MOB-01.B.2 (Portão B)** | Implementação controlada de código: reflow adaptativo com `Wrap` nas abas Contas, A receber e A pagar; clamp de carrossel em Contas; semântica com `excludeSemantics: true` e rótulo dinâmico em `AccountCard`; expansão de testes de 133 para 162. | 7 arquivos Flutter modificados; suíte com 162 testes aprovados localmente; ensaios em Pixel 8 e iPhone 17/17e. | Portão B de Implementação aprovado | Homologado |
+| **FINANCE-MOB-01.B.3** | Auditoria final pré-commit: revisão detalhada do diff dos 7 arquivos, confirmação dos 162 testes locais, conferência da privacidade semântica, ressalvas de acessibilidade WCAG e parecer OpenAI Codex CLI read-only. Sem novas alterações de código. | Relatório de auditoria pré-commit; nenhum código modificado. | Portão de Auditoria aprovado | Homologado |
+| **FINANCE-MOB-01.B.4-A** | Auditoria de incidente de governança envolvendo restauração não autorizada dos arquivos Apple locais por `git checkout`. Investigação read-only do Step 860, identificação do diff anterior no Step 859, análise dos efeitos sobre `project.pbxproj` e `Info.plist` e elaboração do plano de recuperação. Nenhuma recuperação executada neste checkpoint. | Relatório de auditoria de incidente em modo read-only; plano de recuperação aprovado. | Portão de auditoria de incidente | Homologado |
+| **FINANCE-MOB-01.B.4-B** | Preparação, autorização humana e execução da recuperação controlada dos dois arquivos Apple a partir do patch original documentado no Step 859. Aplicação validada, `plutil -lint` aprovado, alterações locais do mantenedor restauradas, sete arquivos Flutter preservados, staging vazio e auditoria Codex favorável. | Arquivos Apple recuperados e validados (`plutil -lint: OK`); staging vazio. | Autorização formal de recuperação concedida | Homologado |
+| **FINANCE-MOB-01.B.4-C** | Commit seletivo contendo exclusivamente os 7 arquivos Flutter homologados (`da8545fdfef934c91c0ca764023043bf80a040e0`). | Commit local `da8545f` criado com staging limpo; arquivos Apple e prints preservados. | Autorização de commit exclusivo concedida | Homologado |
+| **FINANCE-MOB-01.B.4-D** | Auditoria pré-push em modo read-only: conferência de fast-forward limpo, staging vazio e inspeção de fluxos em `.github/workflows/ci.yml`. | Relatório de auditoria pré-push e verificação de integridade remota. | Portão humano pré-push | Aprovado |
+| **FINANCE-MOB-01.B.4-E** | Execução de push único para `origin/dev` e homologação da CI GitHub Actions (Run ID `39365113034`). | `git push origin dev:dev`; CI #23 verde em ambos os jobs (`api` e `mobile`). | Autorização prévia soberana concedida | Homologado |
+| **FINANCE-DOC-01.B.5** | Consolidação documental inicial nos três arquivos autorizados (`docs/ai/HANDOFF.md`, `README.md`, `ROADMAP.md`). | Diffs documentais elaborados e auditados em modo read-only. | Autorização condicional concedida | Concluído |
+| **FINANCE-DOC-01.B.5-A** | Saneamento documental: distinção estrita dos catálogos de capturas, precisão técnica de Semantics e validação documental. | Diffs saneados; staging vazio; sem commit/push. | Autorização condicional concedida | Concluído |
+| **FINANCE-DOC-01.B.5-B** | Retificação final da cronologia B.4-A/B.4-B, comprovação estrita do comando `git checkout` e gate de commit documental. | Diffs finais retificados; staging vazio; sem commit/push. | Em execução sob autorização humana | Em aprovação |
+
+### Arquivos Homologados no Commit de Código Publicado (`da8545f`)
+Exatamente 7 arquivos Flutter (4 em `lib` e 3 em `test`), sem arquivos de configuração ou evidências:
+1. `apps/mobile/lib/features/accounts/account_card.dart`
+2. `apps/mobile/lib/features/accounts/accounts_tab.dart`
+3. `apps/mobile/lib/features/agreements/agreements_tab.dart`
+4. `apps/mobile/lib/features/payables/payables_tab.dart`
+5. `apps/mobile/test/features/accounts_test.dart`
+6. `apps/mobile/test/features/agreements_tab_test.dart`
+7. `apps/mobile/test/features/payables_test.dart`
+
+### Detalhamento das Alterações Técnicas no Mobile
+
+1. **Cartão de Contas e Privacidade Semântica (`account_card.dart`):**
+   - Implementação de rótulo semântico condicional no nó raiz do cartão:
+     `final semanticLabel = obscureBalance ? 'Conta ${account.name}, saldo oculto' : 'Conta ${account.name}, saldo ${account.balance.brl}';`
+   - Configuração de `Semantics(label: semanticLabel, button: onTap != null, onTap: onTap, excludeSemantics: true, child: ...)`. A propriedade `excludeSemantics: true` poda nativamente todos os nós semânticos descendentes do cartão (como `RichText`, `Text` e `MoneyText`), impedindo que leitores de tela leiam valores parciais ou vazem o saldo quando o mascaramento de privacidade estiver ativo.
+   - Remoção de espaçadores verticais fixos (`SizedBox(height: 18)` e `SizedBox(height: 16)`) no layout do cartão, prevenindo transbordamentos verticais quando a escala de texto aumenta.
+2. **Aba de Contas (`accounts_tab.dart`):**
+   - Altura do carrossel de cartões tornada responsiva e vinculada ao fator de escala do sistema:
+     `final cardCarouselHeight = textScaler.scale(210.0).clamp(210.0, 440.0);`
+   - Cabeçalhos de seção e botões de ação rápida ("Nova conta", "Ver arquivadas") refatorados com `Wrap` responsivo (`WrapAlignment.spaceBetween`, `spacing: AppTokens.p8`, `runSpacing: AppTokens.p8`), acomodando quebras de linha automáticas sem overflow em telas estreitas e fontes ampliadas.
+3. **Aba de Contas a Receber (`agreements_tab.dart`):**
+   - Header superior com título "Contas a receber" e botão "Nova conta a receber" refatorado com `Wrap`, permitindo que o botão passe para a linha seguinte em escalas elevadas de texto.
+   - Bloco de métricas do `AgreementCard` (total contratado, recebido e restante) migrado de `Row` com `Expanded` rígido para `Wrap` adaptativo (`spacing: AppTokens.p16`, `runSpacing: AppTokens.p8`), eliminando transbordamentos laterais em larguras ensaiadas a partir de 320pt com 200% de escala.
+4. **Aba de Contas a Pagar (`payables_tab.dart`):**
+   - Header superior refatorado com `Wrap` responsivo.
+   - Bloco de valores do `PayableCard` (restante a pagar / valor cancelado / total pago, pago líquido e valor total) migrado para `Wrap` adaptativo, alinhando as colunas de dados à esquerda com espaçamento fluido.
+5. **Ampliação da Cobertura de Testes Automatizados (de 133 para 162 testes):**
+   - `accounts_test.dart`: Testes de árvore semântica verificando que `AccountCard` com saldo oculto anuncia `'Conta ..., saldo oculto'` com nós internos excluídos; testes com saldo visível anunciando o valor canônico em BRL; testes de reflow em viewport de 320pt com escalas de 100%, 150% e 200% sem erros de layout.
+   - `agreements_tab_test.dart`: Novos testes de widget para os requisitos AC-MOB-001, AC-MOB-004, AC-MOB-005 e AC-MOB-006 em largura de 320pt nas escalas 100%, 150% e 200%, garantindo ausência de overflow e acessibilidade dos botões de ação.
+   - `payables_test.dart`: Testes de acessibilidade e reflow em 320pt nas escalas 100%, 150% e 200% sem overflow.
+
+### Incidente de Governança Apple e Recuperação
+
+- **Descrição do Incidente:** Durante a etapa preparatória do ciclo, ocorreu uma restauração não autorizada dos arquivos `apps/mobile/ios/Runner.xcodeproj/project.pbxproj` e `apps/mobile/ios/Runner/Info.plist` no working tree através do comando `git checkout`, descartando transitoriamente as configurações locais de desenvolvimento do mantenedor.
+- **Tratamento e Recuperação:** O evento foi formalmente identificado e catalogado como incidente de governança. Sob aprovação humana explícita, as configurações particulares do mantenedor foram recuperadas no working tree e blindadas para permanecerem estritamente fora da staging area e de qualquer commit ou push.
+
+### Distinção dos Catálogos de Evidências Visuais
+
+É fundamental distinguir categoricamente entre o catálogo oficial do repositório e o acervo local de ensaios de engenharia:
+
+#### A. Catálogo Oficial Versionado do Repositório (15 Capturas)
+Documentado formalmente em [`docs/screenshots.md`](../screenshots.md) e versionado diretamente em `prints/*.png`:
+- **3 capturas de Acessibilidade:** Seletores adaptativos em 150% e 200% (`a11y_375px_scale_150_seletor.png`, `a11y_375px_scale_200_seletor.png`, `a11y_iphone17pro_scale_200_seletor.png`).
+- **6 capturas de Tema Escuro:** Telas completas de Resumo PF/PJ, Carteira PF/PJ e Contas a Pagar (`dark_01_resumo_pf.png` a `dark_06_cadastro_pagar_recorrente.png`).
+- **6 capturas de Tema Claro:** Telas completas de Resumo PF/PJ, Carteira PF/PJ e Contas a Pagar (`light_01_resumo_pf.png` a `light_06_cadastro_pagar_recorrente.png`).
+
+#### B. Acervo de Evidências Locais de Engenharia FINANCE-MOB-01 (76 Capturas Não Versionadas)
+Mantido no diretório local de ensaios `prints/finance-mob-01/` fora do controle de versão do Git, servindo como suporte de auditoria técnica para este ciclo. **Este acervo não substitui o catálogo oficial versionado** e classifica-se rigorosamente em:
+1. **Históricas de Referência e Fluxo Geral (54 capturas):**
+   - *Android Pixel 8 (16 capturas em `android/`):* Telas de login (sucesso, credenciais inválidas, erros de validação), menu de usuário, dashboard PF/PJ (claro, escuro, saldos ocultos), carteira de contas e listas operacionais em 100%, além do ensaio isolado em 100% (`android_pixel8_mob-b1_a11y100_pf.png`).
+   - *iOS iPhone 17 / iPhone 17e / iPhone 17 Pro (38 capturas em `ios/`):* Modos claro e escuro, cartões de contas PF/PJ, telas compactas em 100%, configurações e seletores adaptativos em 375pt.
+2. **Substituídas / Superadas (BEFORE — 6 capturas de diagnóstico de falha):**
+   - *iOS (2 capturas em `ios/`):* `ios_iphone17e_mob-b1_agreements_overflow_200.png` e `ios_iphone17e_mob-b1_payables_overflow_200.png`, que documentavam falhas de overflow nas abas de acordos e despesas a 200%; **substituídas e superadas** pelas capturas AFTER correspondentes (`ios_iphone17e_mob-b2_agreements_after_200.png` e `ios_iphone17e_mob-b2_payables_after_200.png`).
+   - *Android (4 capturas em `android/`):* `android_pixel8_mob-b1_a11y150_pf.png` (ensaio intermediário em 150%), `android_pixel8_mob-b1_a11y200_initial.png`, `android_pixel8_mob-b1_a11y200_scrolled.png` e `android_pixel8_mob-b1_a11y200_bottom.png` (ensaios em 200%), que documentavam limitações iniciais de escala no Dashboard PF; **substituídas e superadas conjuntamente pelo ensaio mais restritivo de 200%** registrado nas capturas AFTER correspondentes em `b2/android/` (`android_pixel8_mob-b2_dashboard_pf_200.png`, `android_pixel8_mob-b2_dashboard_pf_200_scrolled.png` e `android_pixel8_mob-b2_dashboard_pf_200_bottom.png`), complementadas pelo reflow das abas (`android_pixel8_mob-b2_accounts_pf_200.png`, `android_pixel8_mob-b2_agreements_pf_200.png` e `android_pixel8_mob-b2_payables_pf_200.png`).
+3. **Validação de Reflow e Correção (AFTER — 16 capturas atuais e válidas):**
+   - *Android Pixel 8 (6 capturas em `b2/android/`):* `android_pixel8_mob-b2_accounts_pf_200.png`, `android_pixel8_mob-b2_agreements_pf_200.png`, `android_pixel8_mob-b2_dashboard_pf_200.png`, `android_pixel8_mob-b2_dashboard_pf_200_bottom.png`, `android_pixel8_mob-b2_dashboard_pf_200_scrolled.png`, `android_pixel8_mob-b2_payables_pf_200.png`, comprovando reflow completo e ausência de erros visuais em 200%.
+   - *iOS iPhone 17 / iPhone 17e (10 capturas em `b2/ios/`):* `ios_iphone17_mob-b2_accounts_pf_100.png`, `ios_iphone17_mob-b2_accounts_pj_100.png`, `ios_iphone17_mob-b2_dashboard_pf_dark_100.png`, `ios_iphone17_mob-b2_payables_pf_100.png`, `ios_iphone17_mob-b2_payables_pj_100.png`, `ios_iphone17e_mob-b2_accounts_after_200.png`, `ios_iphone17e_mob-b2_agreements_after_200.png`, `ios_iphone17e_mob-b2_dashboard_after_200.png`, `ios_iphone17e_mob-b2_dashboard_light_100.png`, `ios_iphone17e_mob-b2_payables_after_200.png`, atestando a correção dos transbordamentos anteriores.
+
+### Homologação Remota na CI (GitHub Actions CI #23, Run ID `39365113034`)
+
+- **Execução Geral:** [Run 39365113034](https://github.com/jeannlucas/bigdevz-finance/actions/runs/39365113034)
+- **Commit Validado:** `da8545fdfef934c91c0ca764023043bf80a040e0`
+- **Branch:** `dev` (disparo via `push`)
+- **Status Geral:** **`success` (PASS)**
+- **Job `api` ([ID 118440059583](https://github.com/jeannlucas/bigdevz-finance/actions/runs/39365113034/job/118440059583)):** Concluído com sucesso em 41 segundos.
+  - Setup do container PostgreSQL 18-alpine na porta 5440.
+  - Testes de Domínio PHP (`php tests/domain.php`): 13 testes aprovados (0 falhas).
+  - Pint (`vendor/bin/pint --test`): 100% conforme.
+  - Testes Laravel em PostgreSQL Real (`php artisan test`): 84 testes aprovados, 1.139 asserções (0 falhas).
+- **Job `mobile` ([ID 118440059790](https://github.com/jeannlucas/bigdevz-finance/actions/runs/39365113034/job/118440059790)):** Concluído com sucesso em 2 minutos e 20 segundos.
+  - Instalação das dependências com verificação estrita de lockfile (`flutter pub get --enforce-lockfile`).
+  - Formatação Dart (`dart format --output=none --set-exit-if-changed`): 80 arquivos verificados, 0 modificados (0.69s).
+  - Análise Estática Flutter (`flutter analyze`): 0 problemas encontrados (`No issues found!`, 14.2s).
+  - Suíte de Testes Flutter (`flutter test`): 162 testes aprovados (0 falhas, 48s).
+
+### Limitações Técnicas e Homologações Restantes
+
+- **Ambiente de Ensaios:** O reflow responsivo foi verificado em simuladores iOS (iPhone 17 / iPhone 17e) e emulador Android (Pixel 8) nas escalas ensaiadas (100%, 150%, 200%).
+- **Ausência de Build Nativo na CI Linux:** O workflow do GitHub Actions em runner Ubuntu valida análise estática e suíte de testes unitários/widget em Dart, mas não compila APK/IPA nem executa testes emulados Android ou simulados iOS na nuvem.
+- **Certificação de Acessibilidade:** Os testes atestam ausência de overflow e semântica estrutural correta nas condições ensaiadas, mas **não equivalem a uma certificação formal de conformidade integral WCAG 2.1 AA/AAA**.
+- **Hardware Físico:** A validação interativa com leitores de tela em aparelhos físicos reais (TalkBack em Android e VoiceOver em iPhone) permanece pendente de homologação manual.
+- **Portão 2 Financeiro:** Nenhuma operação financeira com escrita foi executada; os fluxos de escrita permanecem sob bloqueio operacional aguardando autorização humana soberana.
+- **Estado Operacional Documental:** **`DOCUMENTACAO_EDITADA_AGUARDANDO_APROVACAO_DO_DIFF`** (Checkpoint `FINANCE-DOC-01.B.5-B`). Três documentos editados localmente; zero arquivos em staging; commit e push documentais pendentes.
+
+---
+
+## 13. Checkpoint FINANCE-WEB-01 (01/11/2026) — Habilitação do Flutter Web, Desacoplamento Multiplataforma e Configuração de CORS
+
+- **Objetivo**: Disponibilização da versão Web do BigDev.Z Finance sem atrito de lojas de aplicativos (Apple App Store / Google Play), reaproveitando 100% da lógica e telas existentes em Flutter, integrando com a mesma API Laravel e banco de dados PostgreSQL.
+- **Modo**: IMPLEMENTAÇÃO CONTROLADA EM BRANCH `feature/flutter-web` + FAST-FORWARD MERGE PARA `dev`.
+- **Branch Ativa**: `dev` (HEAD local: `506d187`).
+- **Arquitetura & Refinamentos Concluídos**:
+  1. **Desacoplamento de Plataforma em `api_client.dart`:** Remoção do `import 'dart:io'` e tratamento multiplataforma de `http.ClientException`, `TimeoutException` e desconexões.
+  2. **Compatibilidade JavaScript com `dart2js` em `money.dart`:** Substituição de literais inteiros de 64 bits (`92233720368547758`) por parsing arbitrário via `BigInt`, eliminando a falha de compilação web e mantendo o limite estrito de R$ 999 bilhões e agregados.
+  3. **Scaffolding Web Flutter (`apps/mobile/web/`):** Configuração de `index.html`, `manifest.json` e favicons oficiais da BigDev.Z com tema Azul Profundo (`#0A192F`).
+  4. **Configuração de CORS na API Laravel (`apps/api/config/cors.php`):** Habilitação de requisições preflight `OPTIONS` e liberação dos cabeçalhos `Idempotency-Key`, `Authorization` e `Content-Type`.
+  5. **Testes Automatizados Adicionados:**
+     - `apps/mobile/test/core/api_client_test.dart`: 4 novos testes unitários (166 testes mobile aprovados).
+     - `apps/api/tests/Feature/CorsPreflightTest.php`: 2 novos testes de integração (86 testes Laravel aprovados).
+- **Resultados das Suítes Automatizadas (`scripts/check.sh --full`):**
+  - Domínio Financeiro PHP: 13 testes aprovados (0 falhas).
+  - Análise Estática Dart: 0 issues (`No issues found!`).
+  - Laravel Pint: 108 arquivos conformes.
+  - Formatação Dart: 80 arquivos conformes.
+  - Suíte Flutter: 166 testes aprovados (0 falhas).
+  - API Laravel em PostgreSQL Real: 86 testes aprovados (1.146 asserções, 0 falhas).
+- **Validação Visual no Navegador:** Aplicativo executado localmente via servidor HTTP na porta 8085 e API na porta 8000, com login, alternância PF/PJ e privacidade demonstrados e aprovados pelo mantenedor Jeann Lucas.
+- **Commit Local Integrado:** `506d187` (`feat(web): adicionar suporte ao flutter web e configuracao de cors`).
+
+---
+
+## 14. Checkpoint FINANCE-TRF-01 (04/11/2026) — Transferências entre Contas, Atomicidade Contábil e Suporte Multiplataforma (iOS, Android, Web)
+
+- **Objetivo**: Implementação completa de transferências atômicas entre contas do mesmo espaço financeiro (PF ou PJ), garantindo precisão matemática sem float, locks pessimistas ordenados imunes a *deadlock*, idempotência e interface acessível multiplataforma.
+- **Modo**: IMPLEMENTAÇÃO CONTROLADA EM BRANCH `feature/transferencias-entre-contas`.
+- **Branch Ativa**: `feature/transferencias-entre-contas` (HEAD local: `0a23756`).
+- **Arquitetura & Refinamentos Concluídos**:
+  1. **Migration & Modelagem Contábil:** Criação da tabela `transfers` com restrições `CHECK`, FKs compostas e integração direta a `account_movements` (saída na origem e entrada no destino no mesmo commit) e `idempotency_keys`.
+  2. **Action Atômica `TransferFunds`:** Bloqueio pessimista com `lockForUpdate` ordenado por ID (`min(id)` depois `max(id)`), eliminando qualquer risco de concorrência ou deadlock.
+  3. **Regras de Negócio e Cheque Especial:** Suporte a saldo devedor na conta de origem até `-Money::MAX_CENTS` (conforme Decisão 0006), validação de marco de abertura e rejeição de contas arquivadas ou idênticas (HTTP 422).
+  4. **Proteção Multi-Tenant & IDOR:** Operações em contas alheias respondem estritamente `404 Not Found`.
+  5. **Interface Flutter Unificada:** `TransferFormScreen` com seleção de contas, máscara monetária sem float, dropdowns adaptativos com `isExpanded: true` e atalho integrado em `AccountsTab`.
+- **Resultados das Suítes Automatizadas (`scripts/check.sh --full`):**
+  - Domínio Financeiro PHP: 13 testes aprovados (0 falhas).
+  - Análise Estática Dart: 0 issues (`No issues found!`).
+  - Laravel Pint: 114 arquivos conformes (0 issues).
+  - Formatação Dart: 82 arquivos conformes (0 pendências).
+  - Suíte Flutter: 171 testes aprovados (0 falhas).
+  - API Laravel em PostgreSQL Real: 87 testes aprovados (1.222 asserções, 0 falhas).
+- **Commit Local Criado:** `0a23756` (`feat(transfers): implementar transferencia entre contas com atomicidade e idempotencia`).
+
+---
+
+## 15. Checkpoint FINANCE-EMP-01 (04/11/2026) — Módulo de Empréstimos Tomados e Concedidos, Desembolso Atômico e Amortização
+
+- **Objetivo**: Implementação completa do módulo de empréstimos tomados e concedidos, com classificação bipolar (`taken` / `granted`), integração contábil atômica de desembolso (`account_movements`) e geração nativa de obrigações amortizáveis (`PayablePlan`/`Payable` para tomados; `Agreement`/`Installment` para concedidos).
+- **Modo**: IMPLEMENTAÇÃO CONTROLADA EM BRANCH `feature/emprestimos` + FAST-FORWARD MERGE PARA `dev`.
+- **Branch Ativa**: `dev` (HEAD local e remoto: `6bf986d`).
+- **Arquitetura & Refinamentos Concluídos**:
+  1. **Modelagem Patrimonial Exata:** Tabela `loans` com chaves estrangeiras compostas `(id, space_id)`, restrições `CHECK` contra valores não positivos ou excedentes a `Money::MAX_CENTS` e flags de desembolso imediato.
+  2. **Atomicidade e Concorrência:** Action `CreateLoan` operando sob transação com locks pessimistas (`lockForUpdate`) na conta bancária de desembolso, garantindo consistência estrita de saldos e auditoria patrimonial.
+  3. **Idempotência Persistida e Proteção IDOR:** Cabeçalho `Idempotency-Key` com deduplicação de requisições (`200` replayed / `409` conflict) e isolamento multi-tenant intransigente (`404 Not Found` para espaços não autorizados).
+  4. **Interface Flutter Multiplataforma (iOS, Android, Web):**
+     - `LoansScreen`: listagem com filtros por status (`active`, `settled`, `cancelled`) e tipo (`taken`, `granted`), cards com barra de progresso de amortização, tags coloridas e modal de detalhes completo.
+     - `LoanFormScreen`: formulário adaptativo com suporte a taxas de juros, multas/encargos, cálculo dinâmico da parcela estimada e validação de acessibilidade em 320pt a 200% de escala de texto.
+  5. **Especificação Permanente:** Documentada e ancorada em `specs/emprestimos/emprestimos.md`.
+- **Resultados das Suítes Automatizadas (`scripts/check.sh --full`):**
+  - Domínio Financeiro PHP: 13 testes aprovados (0 falhas).
+  - Análise Estática Dart: 0 issues (`No issues found!`).
+  - Laravel Pint: 120 arquivos conformes (0 issues).
+  - Formatação Dart: 87 arquivos conformes (0 pendências).
+  - Suíte Flutter: 176 testes aprovados (0 falhas).
+  - API Laravel em PostgreSQL Real: 95 testes aprovados (1.355 asserções, 0 falhas).
+- **Commit Integrado na `dev`:** `6bf986d` (`feat(loans): implementar modulo de emprestimos tomados e concedidos com desembolso e amortizacao`).
+
+---
+
+## 16. Checkpoint FINANCE-PROD-01 (04/11/2026) — Publicação em Produção (Go-Live na VPS), Flutter Web SPA e Health Check
+
+- **Objetivo**: Publicação do BigDev.Z Finance em ambiente de produção na VPS com alta disponibilidade, segurança e monitoramento contínuo.
+- **Ambiente de Produção (VPS `bigdevz` / `179.198.113.104`):**
+  - **Domínio Canônico:** `https://finance.bigdevz.com` com certificado SSL Let's Encrypt gerenciado automaticamente pelo Caddy.
+  - **Frontend:** Flutter Web SPA compilado em Release, servido via HTTP/2 com fallback de rotas SPA.
+  - **Backend:** Laravel 13 em container Docker isolado (`127.0.0.1:8510`) com PHP 8.4 e dependências otimizadas (`config:cache`, `route:cache`).
+  - **Banco de Dados:** PostgreSQL 17 dedicado em volume persistente `bigdevz-finance_postgres-data`.
+- **Infraestrutura e Rotas Adicionadas:**
+  - `GET /api/up`: Endpoint de health check com status HTTP 200 (`{"status":"ok"}`) para sondagem pelo Caddy e ferramentas de monitoramento.
+  - `Artisan user:create`: Comando seguro no `console.php` para provisionamento inicial de usuários sem bypass de hash de senha ou regras de espaço.
+  - `UpHealthCheckTest`: Teste de integração automatizado na suíte de testes da API.
+- **Resultados das Suítes Automatizadas (`scripts/check.sh --full`):**
+  - Domínio Financeiro PHP: 13 testes aprovados (0 falhas).
+  - Análise Estática Dart: 0 issues (`No issues found!`).
+  - Laravel Pint: 121 arquivos conformes (0 issues).
+  - Formatação Dart: 87 arquivos conformes (0 pendências).
+  - Suíte Flutter: 176 testes aprovados (0 falhas).
+  - API Laravel em PostgreSQL Real: 96 testes aprovados (1.357 asserções, 0 falhas).
+- **Estado Operacional:** `PRODUCAO_PUBLICADA_LIVE`. Monitoramento ativo com usuários em fase de testes reais.
+
+---
+
+<!-- bigdevz-cli:start -->
+## Checkpoint automático do CLI
+
+- Data UTC: 2026-10-25T19:08:20.916840+00:00
+- Estado: idle
+- Branch: `dev`
+- Commit: `e8c1603f17e16e9f897ee563f29b2ad8a062121b`
+- Estado dos arquivos: `.git/ia-cli-checkpoint.json` (ou diretório Git do worktree).
+- Este registro não comprova testes nem substitui as decisões e o próximo passo descritos acima.
+- Ao retomar: confira Git, este handoff, processos pendentes e o checkpoint. Não descarte alterações.
+<!-- bigdevz-cli:end -->

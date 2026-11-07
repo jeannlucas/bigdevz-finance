@@ -53,7 +53,8 @@ class AdjustAccountOpening
                 ]);
             }
             $movements = $account->balanceCents() - $account->opening_balance_cents;
-            if ($openingCents + $movements > Money::MAX_CENTS) {
+            $resulting = $openingCents + $movements;
+            if ($resulting > Money::MAX_CENTS || $resulting < -Money::MAX_CENTS) {
                 throw ValidationException::withMessages(['opening_balance' => 'O saldo da conta ultrapassaria o limite suportado.']);
             }
 

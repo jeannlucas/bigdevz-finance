@@ -29,33 +29,42 @@ class AgreementScreen extends StatelessWidget {
             context.read<AgreementsRepository>().find(space.id, agreementId),
         builder: (context, agreement, refresh) => RefreshIndicator(
           onRefresh: refresh,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              SpaceBadge(space),
-              const SizedBox(height: 16),
-              AgreementCard(agreement: agreement),
-              const SizedBox(height: 16),
-              Text('Parcelas', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              for (final installment in agreement.installments)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: InstallmentTile(
-                    installment: installment,
-                    count: agreement.installmentCount,
-                    onTap: () => Navigator.of(context).push(
-                      spaceRoute(
-                        isPf: space.isPf,
-                        child: InstallmentScreen(
-                          space: space,
-                          installmentId: installment.id,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  SpaceBadge(space),
+                  const SizedBox(height: 16),
+                  AgreementCard(agreement: agreement),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Parcelas do recebimento',
+                    style: Theme.of(context).textTheme.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 10),
+                  for (final installment in agreement.installments)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: InstallmentTile(
+                        installment: installment,
+                        count: agreement.installmentCount,
+                        onTap: () => Navigator.of(context).push(
+                          spaceRoute(
+                            isPf: space.isPf,
+                            child: InstallmentScreen(
+                              space: space,
+                              installmentId: installment.id,
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ),
-            ],
+                ],
+              ),
+            ),
           ),
         ),
       ),

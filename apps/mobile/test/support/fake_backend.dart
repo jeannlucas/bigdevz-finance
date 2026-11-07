@@ -82,6 +82,13 @@ class FakeBackend {
         'message': 'Sessão expirada ou inválida. Entre novamente.',
       }, 401);
     }
+    if (route == 'PATCH /me') {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      final newName = body['name'] as String? ?? 'Pessoa Teste';
+      return _json({
+        'data': {'id': 1, 'name': newName, 'email': 'teste@example.com'},
+      });
+    }
     final body = routes[route];
     return body == null
         ? _json({'message': 'Registro não encontrado.'}, 404)

@@ -21,7 +21,8 @@ void main() {
         '01.00',
         '1',
         '',
-        '1000000000000.00',
+        '92233720368547758.08', // Overflow do teto int64 (9223372036854775807 centavos)
+        '99999999999999999999999999999999999999999999.00', // Milhares de dígitos
       ]) {
         expect(() => Money.parse(value), throwsFormatException, reason: value);
       }
@@ -67,5 +68,29 @@ void main() {
       100,
       reason: 'entrada nunca negativa',
     );
+  });
+
+  test('lê valores agregados acima de maxCents com exatidão sem float', () {
+    expect(Money.parse('1000000000000.00').cents, 100000000000000);
+    expect(Money.parse('1000000000000.00').brl, r'R$ 1.000.000.000.000,00');
+    expect(Money.parseAggregate('1000000000000.00').cents, 100000000000000);
+    expect(Money.parse('-1000000000000.00').cents, -100000000000000);
+    // Suporta exatamente os extremos de int64 (-9223372036854775808 até 9223372036854775807)
+    final minMoney = Money.parse('-92233720368547758.08');
+    expect(minMoney.cents, -9223372036854775808);
+    expect(minMoney.toApi(), '-92233720368547758.08');
+    expect(minMoney.plain, '-92.233.720.368.547.758,08');
+    expect(minMoney.brl, r'-R$ 92.233.720.368.547.758,08');
+
+    final maxMoney = Money.parse('92233720368547758.07');
+    expect(maxMoney.cents, 9223372036854775807);
+    expect(maxMoney.toApi(), '92233720368547758.07');
+    expect(maxMoney.plain, '92.233.720.368.547.758,07');
+    expect(maxMoney.brl, r'R$ 92.233.720.368.547.758,07');
+
+    expect(() => Money.parse('-92233720368547758.09'), throwsFormatException);
+    expect(() => Money.parse('92233720368547758.08'), throwsFormatException);
+    // Input individual continua limitado a maxCents (R$ 999 bilhões)
+    expect(Money.fromInput('100000000000001'), isNull);
   });
 }

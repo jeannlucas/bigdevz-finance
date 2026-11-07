@@ -1,10 +1,12 @@
 <?php
 
 use App\Actions\Payables\GenerateObligations;
+use App\Models\User;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schedule;
+use Illuminate\Support\Str;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -22,3 +24,21 @@ Artisan::command('payables:generate', function (GenerateObligations $generate) {
 // Saída (só contagens e horizonte) em storage/logs/payables-generate.log.
 Schedule::command('payables:generate')->hourly()->withoutOverlapping()
     ->appendOutputTo(storage_path('logs/payables-generate.log'));
+
+Artisan::command('user:create {email} {--name=Usuário} {--password=}', function () {
+    $email = $this->argument('email');
+    $name = $this->option('name');
+    $password = $this->option('password') ?: Str::random(16);
+
+    $user = User::query()->firstOrCreate(
+        ['email' => $email],
+        ['name' => $name, 'password' => $password, 'email_verified_at' => now()]
+    );
+
+    $this->info("Usuário {$user->email} pronto (ID: {$user->id}).");
+    if ($this->option('password')) {
+        $this->info('Senha definida.');
+    } else {
+        $this->warn("Senha gerada: {$password}");
+    }
+})->purpose('Cria um usuário com seus espaços PF/PJ');

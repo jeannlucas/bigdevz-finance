@@ -54,6 +54,28 @@ class AccountsRepository {
         as Map<String, dynamic>,
   );
 
+  /// Realiza uma transferência atômica entre duas contas do mesmo espaço.
+  Future<({int id, bool replayed})> transfer(
+    int spaceId, {
+    required int sourceAccountId,
+    required int destinationAccountId,
+    required Money amount,
+    required String date,
+    String? notes,
+    required String idempotencyKey,
+  }) async {
+    final response = await _api.post('/spaces/$spaceId/transfers', {
+      'source_account_id': sourceAccountId,
+      'destination_account_id': destinationAccountId,
+      'amount': amount.toApi(),
+      'transferred_at': date,
+      if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+    }, idempotencyKey: idempotencyKey);
+    final data = response['data'] as Map<String, dynamic>;
+    final replayed = response['replayed'] == true;
+    return (id: data['id'] as int, replayed: replayed);
+  }
+
   /// Correção auditada da abertura. A mesma [idempotencyKey] repete a
   /// correção sem aplicá-la de novo.
   Future<({Account account, OpeningAdjustment adjustment, bool replayed})>
