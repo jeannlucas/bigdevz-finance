@@ -42,7 +42,7 @@ echo "  Repositório: BigDev.Z Finance"
 echo "  Modo Selecionado: --${MODE}"
 echo "================================================="
 
-# Detecção de runtime PHP: nativo no host ou via container homologado Docker
+# Detecção de runtime PHP: nativo no host (com extensão pdo_pgsql) ou via container Docker
 USE_DOCKER_PHP=0
 if ! command -v php >/dev/null 2>&1; then
   USE_DOCKER_PHP=1
@@ -96,7 +96,7 @@ fi
 
 echo "[4/4] Verificação de Banco de Testes e Testes da API..."
 
-if [ "$USE_DOCKER_PHP" -eq 0 ]; then
+if [ "$USE_DOCKER_PHP" -eq 0 ] && php -m 2>/dev/null | grep -qi pgsql; then
   echo "  -> Sondagem ativa de conexão PostgreSQL de teste (porta 5440)..."
   DB_STATUS=0
   (cd "$ROOT_DIR/apps/api" && php -r '
@@ -138,6 +138,10 @@ if [ "$USE_DOCKER_PHP" -eq 0 ]; then
 
   echo "  -> Executando suíte completa de testes da API (inclui concorrência e idempotência)..."
   (cd "$ROOT_DIR/apps/api" && php artisan test)
+elif docker ps --format '{{.Names}}' | grep -q 'bigdevz-finance-api'; then
+  API_CONTAINER=$(docker ps --format '{{.Names}}' | grep 'bigdevz-finance-api' | head -n 1)
+  echo "  -> Executando suíte completa de testes da API via container ativo ($API_CONTAINER)..."
+  docker exec -e DB_DATABASE=bigdevz_finance_test "$API_CONTAINER" php artisan test
 else
   echo "  -> Garantindo container postgres ativo na rede Compose..."
   if ! docker compose ps postgres --filter "status=running" -q | grep -q .; then
