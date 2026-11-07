@@ -22,20 +22,36 @@
 
 ## 2. Estado Operacional Atual e Máquina de Estados
 
-- **Estado Operacional:** **`DESENVOLVIMENTO_LOCAL_FEATURE`** (Checkpoint `FINANCE-EXECUTIVE-ACCOUNTS-01`, `FINANCE-ACCOUNTS-REDESIGN-01`, `FINANCE-WIZARD-01`, `FINANCE-MODAL-01`, `FINANCE-BANKS-01` e `FINANCE-EXTRATO-01`).
-- **Feature Ativa:** Layout Executivo Financeiro na Carteira de Contas (`AccountsTab` - Opção 2):
-  1. Hero KPI Card no topo com Saldo Total Consolidado em destaque, contagem de contas e ações rápidas (`[Transferir]`, `[+ Nova conta]`).
-  2. Eliminação da redundância de cartões plásticos gigantes no topo, acabando com a sobrecarga vertical em carteiras de 4 a 15+ contas.
-  3. Lista/Tabela analítica de contas como elemento central com badges de logos oficiais dos bancos, tipo de conta (`Corrente`, `Poupança`, etc.) e saldos disponíveis.
-  4. Suíte completa com 187 testes Flutter e 109 testes Laravel passando 100% verde com zero erros.
+- **Estado Operacional:** **`DESENVOLVIMENTO_LOCAL_FEATURE`** (Checkpoint `FINANCE-CHROME-MODAL-RENDER-FIX-01`, `FINANCE-CARD-BILL-AND-MODAL-FIX-01`, `FINANCE-MODAL-ACTION-FLOWS-01`, `FINANCE-DASHBOARD-CHARTS-AND-SEED-01`, `FINANCE-UNIFY-LOANS-NAV-01`, `FINANCE-DESKTOP-TOPBAR-01` e `FINANCE-USER-PROFILE-NOTIFICATIONS-01`).
+- **Feature Ativa:** Resolução Completa da Renderização em Branco nos Modais do Google Chrome:
+  1. Diagnóstico Conclusivo via Inspeção ao Vivo no Google Chrome:
+     - O agente acessou a janela e aba ativa do usuário no Google Chrome (`window id 250823709`, URL `http://127.0.0.1:8085/`) e extraiu screenshots em alta resolução diretamente do CanvasKit shadow DOM (`flt-glass-pane.shadowRoot canvas.toDataURL()`).
+     - Reproduziu com exatidão a falha relatada pelo usuário (cabeçalho renderizava, mas o corpo do modal ficava vazio abaixo do divisor).
+     - Identificou a causa raiz matemática/layout: no `theme.dart`, `filledButtonTheme` definia `minimumSize: const Size.fromHeight(48)`. No Flutter Web CanvasKit, quando botões `FilledButton` / `FilledButton.icon` eram renderizados dentro de `Row` horizontal dentro de sliver/ListView sem largura/altura rígida definida no próprio botão, a medição intrínseca disparava uma asserção de layout em `RenderFlex`, fazendo o `RenderViewport` do Flutter falhar silenciosamente e omitir todo o corpo do sliver.
+     - Além disso, o servidor de desenvolvimento `flutter run -d web-server` antigo em segundo plano estava servindo bundles em cache sem recompilar as novas rotas.
+  2. Correções Aplicadas:
+     - Em `agreement_modal.dart` e `payable_modal.dart`, adicionou `minimumSize: const Size(110, 38)` explícito nos botões de baixa e `minimumSize: const Size(double.infinity, 48)` nos botões de formulário, blindando a renderização contra restrições cruzadas da flexbox.
+     - Reiniciou o daemon do servidor Flutter Web limpo e forçou recarga completa no Google Chrome.
+     - Validação visual completa no Google Chrome:
+       - Modal de Contas a Receber: Exibindo Card Executivo de Totais, Barra de Progresso, lista de parcelas com tags de vencimento e botão interativo "Dar baixa".
+       - Modal de Contas a Pagar / Faturas de Cartão: Exibindo resumo completo da dívida/fatura, valor restante, vencimento, situação ("Em aberto") e botão "Dar baixa no pagamento", além do fluxo inline de confirmação com seleção de conta e data sem sair da tela.
+  2. Gráficos de Inteligência Visual no Dashboard (`ExecutiveDashboardCharts`):
+     - `BankDistributionDonutCard`: Gráfico Donut de alta precisão desenhado via `CustomPainter` (`_DonutChartPainter`), exibindo a distribuição patrimonial por banco com as cores institucionais do `BankCatalog`, percentuais determinísticos e respeito ao modo de privacidade (`••••`).
+     - `CashFlowThermometerCard`: Termômetro comparativo de fluxo de caixa confrontando Entradas totais (recebidas + a receber) vs Saídas & Compromissos (pagos + em aberto + vencidos), acompanhado do Badge Executivo de Margem Projetada (Superávit / Déficit).
+  2. Povoamento Rico do Banco de Dados Local (`apps/api/database/seeders/DatabaseSeeder.php`):
+     - Usuário: `Jeann Lucas` (`demo@example.com`).
+     - Espaço PF: 4 contas bancárias (Nubank R$ 8.450,20, Itaú Personalité R$ 14.800,00, Inter Investimentos R$ 32.500,00, Dinheiro R$ 650,00), 3 acordos a receber (com parcela recebida e parcela vencida para testar alertas) e 6 obrigações a pagar (com contas pagas, vincendas e vencidas para acionamento do sininho).
+     - Espaço PJ: 3 contas bancárias corporativas (Itaú Empresas R$ 85.400,00, Cora R$ 42.100,00, BTG Pactual R$ 150.000,00), acordos corporativos com parcelas recebidas e pendentes, e obrigações a pagar incluindo folha de pagamento, DAS Simples vencido e infraestrutura AWS.
+  3. Navegação Desktop e Top Bar Moderna com Perfil e Notificações:
+     - Top Bar executiva com 3 zonas no Desktop Web (`_DesktopTopBar`), substituindo a barra lateral esquerda.
+     - Badge do usuário com avatar em gradiente, iniciais e chevron elegante (`⌄`), abrindo o modal de edição de nome via `PATCH /me`.
+     - Sininho de notificações inteligente com contagem em tempo real e atalhos rápidos.
+  4. Suíte completa com 201 testes Flutter e 113 testes Laravel passando 100% verde com zero erros.
 - **Ambiente de Desenvolvimento Local:**
   - API Laravel 13 Docker ativa em `http://127.0.0.1:8000/api`.
-  - PostgreSQL 17 Docker ativo em `127.0.0.1:5440`.
+  - PostgreSQL 18 Docker ativo em `127.0.0.1:5440`.
   - Frontend Flutter Web Server ativo em `http://127.0.0.1:8085`.
-- **Discriminação de Componentes e Publicação:**
-  - **Deploy em Produção na VPS (`bigdevz` / `179.198.113.104`):**
-    - Subdomínio `finance.bigdevz.com` intocado e preservado operacionalmente com SSL válido.
-- **Branch Ativa:** `feature/web-desktop-extrato` (a partir de `dev`).
+- **Branch Ativa:** `feature/ux-nova-conta-a-receber` (a partir de `dev`).
 - **Branch de Produção:** `main`.
 
 ---

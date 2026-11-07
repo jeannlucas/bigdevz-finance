@@ -68,6 +68,12 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> updateProfile({required String name}) async {
+    final updated = await _auth.updateProfile(name.trim());
+    user = updated;
+    notifyListeners();
+  }
+
   Future<void> logout() async {
     try {
       await _auth.logout();

@@ -5,13 +5,12 @@ import '../../core/dates.dart';
 import '../../core/money.dart';
 import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
-import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import '../auth/auth_models.dart';
 import '../settings/preferences_controller.dart';
 import 'agreement.dart';
 import 'agreement_form_screen.dart';
-import 'agreement_screen.dart';
+import 'agreement_modal.dart';
 import 'agreements_repository.dart';
 
 class AgreementsTab extends StatefulWidget {
@@ -146,12 +145,8 @@ class _AgreementsTabState extends State<AgreementsTab> {
                   ),
                 ),
                 FilledButton.tonalIcon(
-                  onPressed: () => Navigator.of(context).push(
-                    spaceRoute(
-                      isPf: space.isPf,
-                      child: AgreementFormScreen(space: space),
-                    ),
-                  ),
+                  onPressed: () =>
+                      showAgreementFormModal(context, space: space),
                   icon: const AppIcon(AppIcons.add, size: 18),
                   label: const Text('Nova conta a receber'),
                   style: FilledButton.styleFrom(
@@ -291,43 +286,45 @@ class _AgreementsTabState extends State<AgreementsTab> {
               final agreements = result.items;
               return RefreshIndicator(
                 onRefresh: refresh,
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppTokens.p16,
-                    4,
-                    AppTokens.p16,
-                    96,
-                  ),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        agreements.length == 1
-                            ? '1 conta a receber'
-                            : '${agreements.length} contas a receber',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w500,
-                        ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1040),
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppTokens.p16,
+                        4,
+                        AppTokens.p16,
+                        96,
                       ),
-                    ),
-                    for (final item in agreements) ...[
-                      AgreementCard(
-                        agreement: item,
-                        activeFilter: _filter,
-                        onTap: () => Navigator.of(context).push(
-                          spaceRoute(
-                            isPf: space.isPf,
-                            child: AgreementScreen(
-                              space: space,
-                              agreementId: item.id,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            agreements.length == 1
+                                ? '1 conta a receber'
+                                : '${agreements.length} contas a receber',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                    ],
-                  ],
+                        for (final item in agreements) ...[
+                          AgreementCard(
+                            agreement: item,
+                            activeFilter: _filter,
+                            onTap: () => showAgreementModal(
+                              context,
+                              space: space,
+                              agreementId: item.id,
+                              onUpdated: refresh,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
               );
             },

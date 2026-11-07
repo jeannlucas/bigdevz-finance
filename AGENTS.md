@@ -63,6 +63,7 @@
 1. **Zero Invenção de Métodos:** É expressamente proibido supor métodos, parâmetros ou inventar assinaturas de funções inexistentes na stack ou em bibliotecas.
 2. **Consulta Obrigatória à Versão Real:** O agente DEVE verificar as versões instaladas (`composer.lock`, `pubspec.lock`) e inspecionar os arquivos de definição de tipos ou documentação oficial antes de escrever código.
 3. **Sem Dependências Não Solicitadas (YAGNI):** Proibido instalar pacotes, bibliotecas ou dependências novas no `composer.json` ou `pubspec.yaml` sem autorização prévia e explícita de Jeann Lucas. Priorize sempre o núcleo da linguagem e as dependências já instaladas.
+4. **UX/UI Multiplataforma Obrigatório (Desktop Web & Mobile):** Toda interface deve ser desenhada com ergonomia dedicada para ambas as plataformas. É proibido esticar telas mobile em widescreen (desktop web exige `maxWidth` controlado, cards centralizados, modais executivos e grids multi-colunas para campos complementares). Consulte [`docs/ui-ux-guidelines.md`](docs/ui-ux-guidelines.md).
 
 ---
 

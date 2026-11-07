@@ -241,7 +241,7 @@ void main() {
   );
 
   testWidgets(
-    'HomeShell: em largura >= 840 exibe Sidebar lateral com navegação desktop',
+    'HomeShell: em largura >= 840 exibe Top Bar superior com navegação desktop, perfil clicável e sininho',
     (tester) async {
       tester.view.physicalSize = const Size(1200, 800);
       tester.view.devicePixelRatio = 1.0;
@@ -255,19 +255,36 @@ void main() {
       // Em desktop, não deve renderizar NavigationBar inferior
       expect(find.byType(NavigationBar), findsNothing);
 
-      // Deve renderizar itens da Sidebar
+      // Deve renderizar itens da Top Bar superior
       expect(find.text('Dashboard'), findsWidgets);
       expect(find.text('Extrato'), findsOneWidget);
       expect(find.text('A receber'), findsWidgets);
       expect(find.text('A pagar'), findsWidgets);
       expect(find.text('Contas'), findsWidgets);
-      expect(find.text('Empréstimos'), findsOneWidget);
+      expect(find.text('Empréstimos'), findsNothing);
 
       // Clicar em Extrato navega para a aba de Extrato
       await tester.tap(find.text('Extrato'));
       await tester.pumpAndSettle();
 
       expect(find.text('Nenhuma movimentação encontrada'), findsOneWidget);
+
+      // Pill de perfil do usuário exibe o nome e clicá-lo abre o modal de edição
+      expect(find.text('Pessoa Teste'), findsOneWidget);
+      await tester.tap(find.text('Pessoa Teste'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Editar perfil'), findsOneWidget);
+      // Fecha modal de perfil
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+
+      // Sininho de notificações está presente na Top Bar
+      expect(find.byTooltip('Notificações'), findsOneWidget);
+      await tester.tap(find.byTooltip('Notificações'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Notificações e Vencimentos'), findsOneWidget);
     },
   );
 }

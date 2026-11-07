@@ -24,6 +24,10 @@ class AuthRepository {
   Future<AppUser> me() async =>
       AppUser.fromJson((await _api.get('/me'))['data'] as Map<String, dynamic>);
 
+  Future<AppUser> updateProfile(String name) async => AppUser.fromJson(
+    (await _api.patch('/me', {'name': name}))['data'] as Map<String, dynamic>,
+  );
+
   Future<List<Space>> spaces() async =>
       ((await _api.get('/spaces'))['data'] as List)
           .map((item) => Space.fromJson(item as Map<String, dynamic>))

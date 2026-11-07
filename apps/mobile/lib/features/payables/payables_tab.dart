@@ -14,16 +14,21 @@ import 'cards_screen.dart';
 import 'payable.dart';
 import 'payable_creations.dart';
 import 'payable_form_screen.dart';
-import 'payable_screen.dart';
+import 'payable_modal.dart';
 import 'payables_repository.dart';
 import 'pending_creation_card.dart';
 
 /// Obrigações a pagar do espaço, com filtro por situação. Cadastrar não
 /// altera saldo: só pagamentos movimentam contas.
 class PayablesTab extends StatefulWidget {
-  const PayablesTab({super.key, required this.space});
+  const PayablesTab({
+    super.key,
+    required this.space,
+    this.initialFilter = 'open',
+  });
 
   final Space space;
+  final String initialFilter;
 
   @override
   State<PayablesTab> createState() => _PayablesTabState();
@@ -39,7 +44,7 @@ class _PayablesTabState extends State<PayablesTab> {
     'all': 'Todas',
   };
 
-  String _filter = 'open';
+  late String _filter = widget.initialFilter;
   PendingCreation? _pending;
 
   @override
@@ -112,12 +117,7 @@ class _PayablesTabState extends State<PayablesTab> {
                   ),
                 ),
                 FilledButton.tonalIcon(
-                  onPressed: () => Navigator.of(context).push(
-                    spaceRoute(
-                      isPf: space.isPf,
-                      child: PayableFormScreen(space: space),
-                    ),
-                  ),
+                  onPressed: () => showPayableFormModal(context, space: space),
                   icon: const AppIcon(AppIcons.add, size: 18),
                   label: const Text('Nova conta a pagar'),
                   style: FilledButton.styleFrom(
@@ -184,43 +184,48 @@ class _PayablesTabState extends State<PayablesTab> {
             ),
             builder: (context, items, refresh) => RefreshIndicator(
               onRefresh: refresh,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  AppTokens.p16,
-                  4,
-                  AppTokens.p16,
-                  96,
-                ),
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      items.length == 1
-                          ? '1 conta a pagar'
-                          : '${items.length} contas a pagar',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w500,
-                      ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1040),
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppTokens.p16,
+                      4,
+                      AppTokens.p16,
+                      96,
                     ),
-                  ),
-                  for (final item in items) ...[
-                    PayableCard(
-                      space: space,
-                      payable: item,
-                      onTap: () => Navigator.of(context).push(
-                        spaceRoute(
-                          isPf: space.isPf,
-                          child: PayableScreen(
-                            space: space,
-                            payableId: item.id,
-                          ),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          items.length == 1
+                              ? '1 conta a pagar'
+                              : '${items.length} contas a pagar',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                                fontWeight: FontWeight.w500,
+                              ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                ],
+                      for (final item in items) ...[
+                        PayableCard(
+                          space: space,
+                          payable: item,
+                          onTap: () => showPayableModal(
+                            context,
+                            space: space,
+                            payableId: item.id,
+                            onUpdated: refresh,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                    ],
+                  ),
+                ),
               ),
             ),
           ),

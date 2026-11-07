@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/dates.dart';
 import '../../core/money.dart';
+import '../../ui/app_tokens.dart';
 import '../../ui/date_field.dart';
 import '../../ui/widgets.dart';
 import '../agreements/receipt_attempt.dart' show ReceiptAttemptState;
@@ -16,16 +17,69 @@ import 'pending_creation_card.dart';
 
 enum _Kind { single, installment, recurring }
 
+/// Abre o fluxo de cadastro de conta a pagar (Modal Dialog em Desktop / Bottom Sheet em Mobile).
+Future<void> showPayableFormModal(
+  BuildContext context, {
+  required Space space,
+  DateTime? today,
+}) {
+  final isDesktop = MediaQuery.sizeOf(context).width >= 640;
+  if (isDesktop) {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTokens.r24),
+        ),
+        clipBehavior: Clip.antiAlias,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 620, maxHeight: 780),
+          child: PayableFormScreen(space: space, today: today, asModal: true),
+        ),
+      ),
+    );
+  } else {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTokens.r24),
+        ),
+      ),
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+        ),
+        child: FractionallySizedBox(
+          heightFactor: 0.92,
+          child: PayableFormScreen(space: space, today: today, asModal: true),
+        ),
+      ),
+    );
+  }
+}
+
 /// Cadastro de conta a pagar: avulsa, parcelada (prévia do cronograma) ou
 /// recorrente (revisão do período, com confirmação das já vencidas). Não
 /// altera saldo. O formulário é rascunho; ao salvar, chave e conteúdo são
 /// guardados antes do envio ([PayableCreations]) e, sem confirmação, a
 /// tentativa fica pendente: esta tela abre na retomada até verificar.
 class PayableFormScreen extends StatefulWidget {
-  const PayableFormScreen({super.key, required this.space, this.today});
+  const PayableFormScreen({
+    super.key,
+    required this.space,
+    this.today,
+    this.asModal = false,
+  });
 
   final Space space;
   final DateTime? today;
+  final bool asModal;
 
   @override
   State<PayableFormScreen> createState() => _PayableFormScreenState();
@@ -232,41 +286,131 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
   @override
   Widget build(BuildContext context) {
     final pending = _pending;
+    final isDesktop = MediaQuery.sizeOf(context).width >= 640;
+
+    if (widget.asModal) {
+      return Padding(
+        padding: const EdgeInsets.all(AppTokens.p24),
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeInOut,
+          alignment: Alignment.topCenter,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      pending == null
+                          ? 'Nova conta a pagar'
+                          : 'Cadastro não confirmado',
+                      style: Theme.of(context).textTheme.titleLarge
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    tooltip: 'Fechar',
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Flexible(
+                child: _loadingPending
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 40),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    : pending != null
+                    ? _buildPending(context, pending, isModal: true)
+                    : _buildForm(context, isModal: true),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final bodyContent = _loadingPending
+        ? const Center(child: CircularProgressIndicator())
+        : pending != null
+        ? _buildPending(context, pending, isModal: false)
+        : _buildForm(context, isModal: false);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
           pending == null ? 'Nova conta a pagar' : 'Cadastro não confirmado',
         ),
       ),
-      body: _loadingPending
-          ? const Center(child: CircularProgressIndicator())
-          : pending != null
-          ? ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                SpaceBadge(widget.space, prefix: 'Conta a pagar do espaço'),
-                const SizedBox(height: 16),
-                PendingCreationCard(
-                  key: ValueKey(pending.idempotencyKey),
-                  pending: pending,
-                  notice: _pendingNotice,
-                  onSettled: (outcome) => _apply(outcome, fromThisDraft: false),
+      body: isDesktop
+          ? Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTokens.p24,
+                  vertical: AppTokens.p32,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Há um cadastro sem confirmação neste espaço. Para não '
-                  'duplicar, verifique-o antes de cadastrar outro.',
-                  style: Theme.of(context).textTheme.bodySmall,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 620),
+                  child: Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppTokens.r20),
+                      side: BorderSide(
+                        color: Theme.of(context).colorScheme.outlineVariant
+                            .withValues(alpha: 0.6),
+                      ),
+                    ),
+                    color: Theme.of(context).colorScheme.surfaceContainerLow,
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppTokens.p24),
+                      child: bodyContent,
+                    ),
+                  ),
                 ),
-              ],
+              ),
             )
-          : _buildForm(context),
+          : bodyContent,
     );
   }
 
-  Widget _buildForm(BuildContext context) {
+  Widget _buildPending(
+    BuildContext context,
+    PendingCreation pending, {
+    required bool isModal,
+  }) {
+    return ListView(
+      shrinkWrap: isModal,
+      padding: isModal ? EdgeInsets.zero : const EdgeInsets.all(16),
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: SpaceBadge(widget.space, prefix: 'Conta a pagar do espaço'),
+        ),
+        const SizedBox(height: 16),
+        PendingCreationCard(
+          key: ValueKey(pending.idempotencyKey),
+          pending: pending,
+          notice: _pendingNotice,
+          onSettled: (outcome) => _apply(outcome, fromThisDraft: false),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Há um cadastro sem confirmação neste espaço. Para não '
+          'duplicar, verifique-o antes de cadastrar outro.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildForm(BuildContext context, {required bool isModal}) {
     final theme = Theme.of(context);
     final fieldErrors = _error?.fieldErrors ?? const {};
+    final isDesktop = MediaQuery.sizeOf(context).width >= 640;
     final banner =
         _localError ??
         (_error == null
@@ -284,13 +428,70 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
         _recurrenceCurrent && (recurrence!.pastCount == 0 || _confirmPast),
     };
 
+    final amountField = TextFormField(
+      controller: _amount,
+      decoration: InputDecoration(
+        labelText: switch (_kind) {
+          _Kind.single => 'Valor',
+          _Kind.installment => 'Valor total',
+          _Kind.recurring => 'Valor mensal',
+        },
+        prefixText: r'R$ ',
+        errorText: fieldErrors['amount'] ?? fieldErrors['total'],
+      ),
+      keyboardType: TextInputType.number,
+      inputFormatters: [MoneyInputFormatter()],
+      validator: (value) {
+        final amount = Money.fromInput(value ?? '');
+        return amount == null || amount.isZero ? 'Informe o valor.' : null;
+      },
+    );
+
+    final countField = TextFormField(
+      controller: _count,
+      decoration: InputDecoration(
+        labelText: 'Número de parcelas',
+        errorText: fieldErrors['installment_count'],
+      ),
+      keyboardType: TextInputType.number,
+      validator: (value) {
+        final count = int.tryParse(value ?? '');
+        return count == null || count < 1 || count > 1200
+            ? 'De 1 a 1200 parcelas.'
+            : null;
+      },
+    );
+
+    final dateField = DateField(
+      label: switch (_kind) {
+        _Kind.single => 'Vencimento',
+        _Kind.installment => 'Primeiro vencimento',
+        _Kind.recurring => 'Primeiro vencimento',
+      },
+      helperText: _kind == _Kind.recurring
+          ? 'O dia escolhido será usado como referência nos meses seguintes.'
+          : null,
+      value: _date,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+      errorText:
+          fieldErrors['due_date'] ??
+          fieldErrors['first_due_date'] ??
+          fieldErrors['start_date'],
+      onChanged: (date) => setState(() => _date = date),
+    );
+
     return Form(
       key: _form,
       onChanged: () => setState(() {}),
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        shrinkWrap: isModal,
+        padding: isModal ? EdgeInsets.zero : const EdgeInsets.all(16),
         children: [
-          SpaceBadge(widget.space, prefix: 'Conta a pagar do espaço'),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: SpaceBadge(widget.space, prefix: 'Conta a pagar do espaço'),
+          ),
           const SizedBox(height: 16),
           if (banner != null) ...[
             FormErrorBanner(banner),
@@ -333,62 +534,44 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          TextFormField(
-            controller: _amount,
-            decoration: InputDecoration(
-              labelText: switch (_kind) {
-                _Kind.single => 'Valor',
-                _Kind.installment => 'Valor total',
-                _Kind.recurring => 'Valor mensal',
-              },
-              prefixText: r'R$ ',
-              errorText: fieldErrors['amount'] ?? fieldErrors['total'],
+          if (isDesktop && _kind == _Kind.single)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 3, child: amountField),
+                const SizedBox(width: AppTokens.p16),
+                Expanded(flex: 3, child: dateField),
+              ],
+            )
+          else if (isDesktop && _kind == _Kind.installment) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 3, child: amountField),
+                const SizedBox(width: AppTokens.p16),
+                Expanded(flex: 2, child: countField),
+              ],
             ),
-            keyboardType: TextInputType.number,
-            inputFormatters: [MoneyInputFormatter()],
-            validator: (value) {
-              final amount = Money.fromInput(value ?? '');
-              return amount == null || amount.isZero
-                  ? 'Informe o valor.'
-                  : null;
-            },
-          ),
-          if (_kind == _Kind.installment) ...[
             const SizedBox(height: 16),
-            TextFormField(
-              controller: _count,
-              decoration: InputDecoration(
-                labelText: 'Número de parcelas',
-                errorText: fieldErrors['installment_count'],
-              ),
-              keyboardType: TextInputType.number,
-              validator: (value) {
-                final count = int.tryParse(value ?? '');
-                return count == null || count < 1 || count > 1200
-                    ? 'De 1 a 1200 parcelas.'
-                    : null;
-              },
+            dateField,
+          ] else if (isDesktop && _kind == _Kind.recurring) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 3, child: amountField),
+                const SizedBox(width: AppTokens.p16),
+                Expanded(flex: 3, child: dateField),
+              ],
             ),
+          ] else ...[
+            amountField,
+            if (_kind == _Kind.installment) ...[
+              const SizedBox(height: 16),
+              countField,
+            ],
+            const SizedBox(height: 16),
+            dateField,
           ],
-          const SizedBox(height: 16),
-          DateField(
-            label: switch (_kind) {
-              _Kind.single => 'Vencimento',
-              _Kind.installment => 'Primeiro vencimento',
-              _Kind.recurring => 'Primeiro vencimento',
-            },
-            helperText: _kind == _Kind.recurring
-                ? 'O dia escolhido será usado como referência nos meses seguintes.'
-                : null,
-            value: _date,
-            firstDate: DateTime(2000),
-            lastDate: DateTime(2100),
-            errorText:
-                fieldErrors['due_date'] ??
-                fieldErrors['first_due_date'] ??
-                fieldErrors['start_date'],
-            onChanged: (date) => setState(() => _date = date),
-          ),
           if (_kind == _Kind.recurring) ...[
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
