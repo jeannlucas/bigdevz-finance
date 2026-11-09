@@ -385,6 +385,7 @@ void main() {
           PayableFormScreen(space: pf, today: DateTime(2026, 3, 10)),
         );
         await tapText(tester, 'Parcelada');
+        await tapText(tester, 'Valor total');
         await tester.enterText(
           find.widgetWithText(TextFormField, 'Descrição'),
           'Notebook',
@@ -432,6 +433,65 @@ void main() {
           fake.payables.values.where((p) => p.description == 'Notebook'),
           hasLength(3),
         );
+      },
+    );
+
+    testWidgets(
+      'parcelada no modo por parcela: 45 vezes de 505,02 gera total de 22.725,90 com resumo',
+      (tester) async {
+        await pump(
+          tester,
+          PayableFormScreen(space: pf, today: DateTime(2026, 3, 10)),
+        );
+        await tapText(tester, 'Parcelada');
+
+        // Modo padrão é "Valor da parcela"
+        expect(find.text('Valor da parcela'), findsWidgets);
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'Descrição'),
+          'Financiamento 45x',
+        );
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'Valor da parcela'),
+          '50502',
+        );
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'Número de parcelas'),
+          '45',
+        );
+        await tester.pump();
+
+        // Verifica a exibição do resumo
+        expect(
+          find.textContaining('45 parcelas de R\$ 505,02'),
+          findsOneWidget,
+        );
+        expect(find.textContaining('R\$ 22.725,90'), findsOneWidget);
+
+        await tapText(tester, 'Ver cronograma');
+        await tester.pumpAndSettle();
+
+        final confirm = find.widgetWithText(
+          FilledButton,
+          'Confirmar cadastro das parcelas',
+        );
+        await tester.scrollUntilVisible(
+          confirm,
+          200,
+          scrollable: find.byType(Scrollable).first,
+        );
+        expect(tester.widget<FilledButton>(confirm).onPressed, isNotNull);
+
+        await tester.tap(confirm);
+        await tester.pumpAndSettle();
+
+        final creates = fake.writes
+            .where((r) => r.url.path.endsWith('/payables'))
+            .toList();
+        expect(creates, hasLength(1));
+        final body = jsonDecode(creates[0].body);
+        expect(body['installment_count'], 45);
+        expect(body['total'], '22725.90');
       },
     );
 

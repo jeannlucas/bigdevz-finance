@@ -8,6 +8,7 @@ import '../../core/money.dart';
 import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
 import '../../ui/date_field.dart';
+import '../../ui/installment_summary_card.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import '../auth/auth_models.dart';
@@ -15,6 +16,10 @@ import '../auth/session_controller.dart';
 import '../categories/category_picker_field.dart';
 import 'agreement_screen.dart';
 import 'agreements_repository.dart';
+
+enum _AgreementKind { single, installment }
+
+enum _InstallmentAmountMode { byInstallment, byTotal }
 
 /// Abre o fluxo de cadastro de conta a receber (Modal Dialog em Desktop / Bottom Sheet em Mobile).
 Future<void> showAgreementFormModal(
@@ -85,6 +90,9 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
   final _description = TextEditingController();
   final _total = TextEditingController();
   final _count = TextEditingController(text: '1');
+  _AgreementKind _kind = _AgreementKind.single;
+  _InstallmentAmountMode _installmentAmountMode =
+      _InstallmentAmountMode.byInstallment;
   int? _selectedCategoryId;
   DateTime _firstDue = DateUtils.dateOnly(DateTime.now());
   bool _saving = false;
@@ -94,6 +102,7 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
   void initState() {
     super.initState();
     _count.addListener(_onCountChanged);
+    _total.addListener(_onCountChanged);
   }
 
   void _onCountChanged() {
@@ -103,10 +112,81 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
   @override
   void dispose() {
     _count.removeListener(_onCountChanged);
+    _total.removeListener(_onCountChanged);
     _description.dispose();
     _total.dispose();
     _count.dispose();
     super.dispose();
+  }
+
+  Money? get _computedTotal {
+    final inputMoney = Money.fromInput(_total.text);
+    if (inputMoney == null) return null;
+    if (_kind == _AgreementKind.single) return inputMoney;
+    final count = int.tryParse(_count.text) ?? 2;
+    if (count <= 1) return inputMoney;
+    if (_installmentAmountMode == _InstallmentAmountMode.byInstallment) {
+      final totalCents = inputMoney.cents * count;
+      if (totalCents > Money.maxCents) return null;
+      return Money(totalCents);
+    }
+    return inputMoney;
+  }
+
+  Money? get _computedPerInstallmentAmount {
+    final inputMoney = Money.fromInput(_total.text);
+    if (inputMoney == null) return null;
+    if (_kind == _AgreementKind.single) return inputMoney;
+    final count = int.tryParse(_count.text) ?? 2;
+    if (count <= 1) return inputMoney;
+    if (_installmentAmountMode == _InstallmentAmountMode.byInstallment) {
+      return inputMoney;
+    }
+    return Money(inputMoney.cents ~/ count);
+  }
+
+  Widget _buildInstallmentModeSelector() {
+    return SegmentedButton<_InstallmentAmountMode>(
+      showSelectedIcon: false,
+      style: const ButtonStyle(
+        visualDensity: VisualDensity.compact,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      segments: const [
+        ButtonSegment(
+          value: _InstallmentAmountMode.byInstallment,
+          label: Text('Valor da parcela'),
+          icon: Icon(Icons.pin_outlined, size: 16),
+        ),
+        ButtonSegment(
+          value: _InstallmentAmountMode.byTotal,
+          label: Text('Valor total'),
+          icon: Icon(Icons.all_inclusive, size: 16),
+        ),
+      ],
+      selected: {_installmentAmountMode},
+      onSelectionChanged: (newSelection) {
+        if (newSelection.isEmpty) return;
+        final newMode = newSelection.first;
+        if (newMode == _installmentAmountMode) return;
+        final currentMoney = Money.fromInput(_total.text);
+        final count = int.tryParse(_count.text);
+        if (currentMoney != null && count != null && count > 0) {
+          if (newMode == _InstallmentAmountMode.byTotal) {
+            final totalCents = currentMoney.cents * count;
+            if (totalCents <= Money.maxCents) {
+              _total.text = Money(totalCents).plain;
+            }
+          } else {
+            final perInstallment = currentMoney.cents ~/ count;
+            _total.text = Money(perInstallment).plain;
+          }
+        }
+        setState(() {
+          _installmentAmountMode = newMode;
+        });
+      },
+    );
   }
 
   Future<void> _save() async {
@@ -116,11 +196,14 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
       _error = null;
     });
     try {
+      final count = _kind == _AgreementKind.single
+          ? 1
+          : (int.tryParse(_count.text) ?? 2);
       final agreement = await context.read<AgreementsRepository>().create(
         widget.space.id,
         description: _description.text.trim(),
-        total: Money.fromInput(_total.text)!,
-        installmentCount: int.parse(_count.text),
+        total: _computedTotal ?? Money.fromInput(_total.text)!,
+        installmentCount: count,
         firstDueDate: toApiDate(_firstDue),
         categoryId: _selectedCategoryId,
       );
@@ -159,19 +242,93 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
   Widget build(BuildContext context) {
     final fieldErrors = _error?.fieldErrors ?? const {};
     final isDesktop = MediaQuery.sizeOf(context).width >= 640;
-    final count = int.tryParse(_count.text) ?? 1;
-    final isSingleInstallment = count <= 1;
+    final isInstallment = _kind == _AgreementKind.installment;
+    final count = int.tryParse(_count.text) ?? (isInstallment ? 2 : 1);
+
+    final amountField = TextFormField(
+      controller: _total,
+      decoration: InputDecoration(
+        labelText: isInstallment
+            ? (_installmentAmountMode == _InstallmentAmountMode.byInstallment
+                  ? 'Valor da parcela'
+                  : 'Valor total')
+            : 'Valor',
+        prefixText: r'R$ ',
+        hintText: '0,00',
+        errorText: fieldErrors['total'],
+      ),
+      keyboardType: TextInputType.number,
+      inputFormatters: [MoneyInputFormatter()],
+      validator: (value) {
+        final amount = Money.fromInput(value ?? '');
+        if (amount == null || amount.isZero) {
+          return isInstallment &&
+                  _installmentAmountMode == _InstallmentAmountMode.byInstallment
+              ? 'Informe o valor da parcela.'
+              : 'Informe o valor.';
+        }
+        if (isInstallment &&
+            _installmentAmountMode == _InstallmentAmountMode.byInstallment) {
+          if (amount.cents * count > Money.maxCents) {
+            return 'Valor total excede o limite suportado.';
+          }
+        }
+        return null;
+      },
+    );
+
+    final countField = TextFormField(
+      controller: _count,
+      decoration: InputDecoration(
+        labelText: isDesktop ? 'Parcelas' : 'Quantidade de parcelas',
+        hintText: '2',
+        errorText: fieldErrors['installment_count'],
+      ),
+      keyboardType: TextInputType.number,
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+        LengthLimitingTextInputFormatter(4),
+      ],
+      validator: (value) {
+        final parsed = int.tryParse(value ?? '');
+        return parsed == null || parsed < 1 || parsed > 1200
+            ? 'Informe de 1 a 1200.'
+            : null;
+      },
+    );
+
+    final dateField = DateField(
+      label: isInstallment ? 'Primeiro vencimento' : 'Vencimento',
+      value: _firstDue,
+      errorText: fieldErrors['first_due_date'],
+      onChanged: (date) => setState(() => _firstDue = date),
+    );
 
     final formChildren = [
       Align(
         alignment: Alignment.centerLeft,
         child: SpaceBadge(widget.space, prefix: 'Conta a receber do espaço'),
       ),
-      const SizedBox(height: 20),
+      const SizedBox(height: 16),
       if (_error != null && fieldErrors.isEmpty) ...[
         FormErrorBanner(_error!.message),
         const SizedBox(height: 16),
       ],
+      _AgreementKindSelector(
+        selected: _kind,
+        onChanged: (kind) {
+          setState(() {
+            _kind = kind;
+            if (kind == _AgreementKind.installment) {
+              final parsed = int.tryParse(_count.text) ?? 1;
+              if (parsed <= 1) _count.text = '2';
+            } else {
+              _count.text = '1';
+            }
+          });
+        },
+      ),
+      const SizedBox(height: 16),
       TextFormField(
         controller: _description,
         decoration: InputDecoration(
@@ -184,98 +341,62 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
         validator: (value) =>
             (value ?? '').trim().isEmpty ? 'Descreva a conta a receber.' : null,
       ),
-      const SizedBox(height: 8),
-      TextFormField(
-        controller: _total,
-        decoration: InputDecoration(
-          labelText: 'Valor total',
-          prefixText: r'R$ ',
-          hintText: '0,00',
-          errorText: fieldErrors['total'],
-        ),
-        keyboardType: TextInputType.number,
-        inputFormatters: [MoneyInputFormatter()],
-        validator: (value) => (Money.fromInput(value ?? '')?.cents ?? 0) > 0
-            ? null
-            : 'Informe o valor total.',
-      ),
-      const SizedBox(height: 16),
+      const SizedBox(height: 12),
       CategoryPickerField(
         spaceId: widget.space.id,
         type: 'income',
         selectedCategoryId: _selectedCategoryId,
         onChanged: (catId) => setState(() => _selectedCategoryId = catId),
       ),
-      const SizedBox(height: 16),
-      if (isDesktop)
+      const SizedBox(height: 12),
+      if (isDesktop && !isInstallment)
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              flex: 2,
-              child: TextFormField(
-                controller: _count,
-                decoration: InputDecoration(
-                  labelText: 'Parcelas',
-                  hintText: '1',
-                  errorText: fieldErrors['installment_count'],
-                ),
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(4),
-                ],
-                validator: (value) {
-                  final parsed = int.tryParse(value ?? '');
-                  return parsed == null || parsed < 1 || parsed > 1200
-                      ? 'Informe de 1 a 1200.'
-                      : null;
-                },
-              ),
-            ),
+            Expanded(flex: 3, child: amountField),
             const SizedBox(width: AppTokens.p16),
-            Expanded(
-              flex: 3,
-              child: DateField(
-                label: 'Primeiro vencimento',
-                value: _firstDue,
-                errorText: fieldErrors['first_due_date'],
-                onChanged: (date) => setState(() => _firstDue = date),
-              ),
-            ),
+            Expanded(flex: 3, child: dateField),
           ],
         )
-      else ...[
-        TextFormField(
-          controller: _count,
-          decoration: InputDecoration(
-            labelText: 'Quantidade de parcelas',
-            hintText: '1',
-            errorText: fieldErrors['installment_count'],
-          ),
-          keyboardType: TextInputType.number,
-          inputFormatters: [
-            FilteringTextInputFormatter.digitsOnly,
-            LengthLimitingTextInputFormatter(4),
-          ],
-          validator: (value) {
-            final parsed = int.tryParse(value ?? '');
-            return parsed == null || parsed < 1 || parsed > 1200
-                ? 'Informe de 1 a 1200 parcelas.'
-                : null;
-          },
-        ),
+      else if (isDesktop && isInstallment) ...[
+        _buildInstallmentModeSelector(),
         const SizedBox(height: 16),
-        DateField(
-          label: 'Primeiro vencimento',
-          value: _firstDue,
-          errorText: fieldErrors['first_due_date'],
-          onChanged: (date) => setState(() => _firstDue = date),
+        amountField,
+        const SizedBox(height: 16),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 2, child: countField),
+            const SizedBox(width: AppTokens.p16),
+            Expanded(flex: 3, child: dateField),
+          ],
+        ),
+      ] else ...[
+        if (isInstallment) ...[
+          _buildInstallmentModeSelector(),
+          const SizedBox(height: 16),
+        ],
+        amountField,
+        if (isInstallment) ...[const SizedBox(height: 16), countField],
+        const SizedBox(height: 16),
+        dateField,
+      ],
+      if (isInstallment &&
+          _computedTotal != null &&
+          _computedPerInstallmentAmount != null &&
+          count > 0) ...[
+        const SizedBox(height: 14),
+        InstallmentSummaryCard(
+          installmentCount: count,
+          installmentAmount: _computedPerInstallmentAmount!,
+          totalAmount: _computedTotal!,
+          isByInstallmentMode:
+              _installmentAmountMode == _InstallmentAmountMode.byInstallment,
         ),
       ],
       const SizedBox(height: 8),
       Text(
-        isSingleInstallment
+        !isInstallment
             ? 'Recebimento à vista ou parcela única.'
             : 'As $count parcelas somam o valor total. Nos meses sem o dia escolhido, o vencimento será no último dia do mês.',
         style: Theme.of(context).textTheme.bodySmall
@@ -294,7 +415,7 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
               )
             : const AppIcon(AppIcons.check, size: 18),
         label: Text(
-          isSingleInstallment ? 'Salvar conta a receber' : 'Gerar parcelas',
+          !isInstallment ? 'Salvar conta a receber' : 'Gerar parcelas',
         ),
         style: FilledButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 14),
@@ -307,6 +428,7 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
         padding: const EdgeInsets.all(AppTokens.p24),
         child: Form(
           key: _form,
+          onChanged: () => setState(() {}),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
@@ -337,6 +459,7 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
 
     final content = Form(
       key: _form,
+      onChanged: () => setState(() {}),
       child: isDesktop
           ? Center(
               child: SingleChildScrollView(
@@ -377,6 +500,43 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Nova conta a receber')),
       body: content,
+    );
+  }
+}
+
+class _AgreementKindSelector extends StatelessWidget {
+  const _AgreementKindSelector({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final _AgreementKind selected;
+  final ValueChanged<_AgreementKind> onChanged;
+
+  static const _options = [
+    (_AgreementKind.single, 'Avulsa'),
+    (_AgreementKind.installment, 'Parcelada'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return SegmentedButton<_AgreementKind>(
+      showSelectedIcon: false,
+      segments: [
+        for (final (kind, label) in _options)
+          ButtonSegment(
+            value: kind,
+            label: Text(
+              label,
+              maxLines: 1,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+      ],
+      selected: {selected},
+      onSelectionChanged: (set) {
+        if (set.isNotEmpty) onChanged(set.first);
+      },
     );
   }
 }
