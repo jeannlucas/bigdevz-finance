@@ -6,6 +6,7 @@ import '../../core/dates.dart';
 import '../../core/money.dart';
 import '../../ui/app_tokens.dart';
 import '../../ui/date_field.dart';
+import '../../ui/installment_summary_card.dart';
 import '../../ui/widgets.dart';
 import '../agreements/receipt_attempt.dart' show ReceiptAttemptState;
 import '../auth/auth_models.dart';
@@ -17,6 +18,8 @@ import 'payables_repository.dart';
 import 'pending_creation_card.dart';
 
 enum _Kind { single, installment, recurring }
+
+enum _InstallmentAmountMode { byInstallment, byTotal }
 
 /// Abre o fluxo de cadastro de conta a pagar (Modal Dialog em Desktop / Bottom Sheet em Mobile).
 Future<void> showPayableFormModal(
@@ -99,6 +102,8 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
   late DateTime _date = DateUtils.dateOnly(widget.today ?? DateTime.now());
   DateTime? _endDate;
   _Kind _kind = _Kind.single;
+  _InstallmentAmountMode _installmentAmountMode =
+      _InstallmentAmountMode.byInstallment;
   List<ScheduleItem>? _schedule;
   String? _scheduleFor;
   RecurrencePreview? _recurrence;
@@ -123,6 +128,30 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
       controller.dispose();
     }
     super.dispose();
+  }
+
+  Money? get _computedInstallmentTotal {
+    final inputMoney = Money.fromInput(_amount.text);
+    if (inputMoney == null) return null;
+    final count = int.tryParse(_count.text);
+    if (count == null || count < 1) return null;
+    if (_installmentAmountMode == _InstallmentAmountMode.byInstallment) {
+      final totalCents = inputMoney.cents * count;
+      if (totalCents > Money.maxCents) return null;
+      return Money(totalCents);
+    }
+    return inputMoney;
+  }
+
+  Money? get _computedPerInstallmentAmount {
+    final inputMoney = Money.fromInput(_amount.text);
+    if (inputMoney == null) return null;
+    final count = int.tryParse(_count.text);
+    if (count == null || count < 1) return null;
+    if (_installmentAmountMode == _InstallmentAmountMode.byInstallment) {
+      return inputMoney;
+    }
+    return Money(inputMoney.cents ~/ count);
   }
 
   Future<void> _loadPending() async {
@@ -160,7 +189,7 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
       _Kind.installment => {
         'kind': 'installment',
         ...common,
-        'total': amount.toApi(),
+        'total': (_computedInstallmentTotal ?? amount).toApi(),
         'installment_count': int.tryParse(_count.text),
         'first_due_date': toApiDate(_date),
       },
@@ -185,9 +214,11 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
     final repository = context.read<PayablesRepository>();
     try {
       if (_kind == _Kind.installment) {
+        final total =
+            _computedInstallmentTotal ?? Money.fromInput(_amount.text)!;
         final schedule = await repository.preview(
           widget.space.id,
-          total: Money.fromInput(_amount.text)!,
+          total: total,
           count: int.parse(_count.text),
           firstDueDate: toApiDate(_date),
         );
@@ -413,6 +444,51 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
     );
   }
 
+  Widget _buildInstallmentModeSelector() {
+    return SegmentedButton<_InstallmentAmountMode>(
+      showSelectedIcon: false,
+      style: const ButtonStyle(
+        visualDensity: VisualDensity.compact,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      segments: const [
+        ButtonSegment(
+          value: _InstallmentAmountMode.byInstallment,
+          label: Text('Valor da parcela'),
+          icon: Icon(Icons.pin_outlined, size: 16),
+        ),
+        ButtonSegment(
+          value: _InstallmentAmountMode.byTotal,
+          label: Text('Valor total'),
+          icon: Icon(Icons.all_inclusive, size: 16),
+        ),
+      ],
+      selected: {_installmentAmountMode},
+      onSelectionChanged: (newSelection) {
+        if (newSelection.isEmpty) return;
+        final newMode = newSelection.first;
+        if (newMode == _installmentAmountMode) return;
+        final currentMoney = Money.fromInput(_amount.text);
+        final count = int.tryParse(_count.text);
+        if (currentMoney != null && count != null && count > 0) {
+          if (newMode == _InstallmentAmountMode.byTotal) {
+            final totalCents = currentMoney.cents * count;
+            if (totalCents <= Money.maxCents) {
+              _amount.text = Money(totalCents).plain;
+            }
+          } else {
+            final perInstallment = currentMoney.cents ~/ count;
+            _amount.text = Money(perInstallment).plain;
+          }
+        }
+        setState(() {
+          _installmentAmountMode = newMode;
+          _schedule = null;
+        });
+      },
+    );
+  }
+
   Widget _buildForm(BuildContext context, {required bool isModal}) {
     final theme = Theme.of(context);
     final fieldErrors = _error?.fieldErrors ?? const {};
@@ -439,7 +515,10 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
       decoration: InputDecoration(
         labelText: switch (_kind) {
           _Kind.single => 'Valor',
-          _Kind.installment => 'Valor total',
+          _Kind.installment =>
+            _installmentAmountMode == _InstallmentAmountMode.byInstallment
+                ? 'Valor da parcela'
+                : 'Valor total',
           _Kind.recurring => 'Valor mensal',
         },
         prefixText: r'R$ ',
@@ -449,7 +528,15 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
       inputFormatters: [MoneyInputFormatter()],
       validator: (value) {
         final amount = Money.fromInput(value ?? '');
-        return amount == null || amount.isZero ? 'Informe o valor.' : null;
+        if (amount == null || amount.isZero) return 'Informe o valor.';
+        if (_kind == _Kind.installment &&
+            _installmentAmountMode == _InstallmentAmountMode.byInstallment) {
+          final count = int.tryParse(_count.text) ?? 1;
+          if (amount.cents * count > Money.maxCents) {
+            return 'Valor total excede o limite suportado.';
+          }
+        }
+        return null;
       },
     );
 
@@ -557,6 +644,8 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
               ],
             )
           else if (isDesktop && _kind == _Kind.installment) ...[
+            _buildInstallmentModeSelector(),
+            const SizedBox(height: 16),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -577,6 +666,10 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
               ],
             ),
           ] else ...[
+            if (_kind == _Kind.installment) ...[
+              _buildInstallmentModeSelector(),
+              const SizedBox(height: 16),
+            ],
             amountField,
             if (_kind == _Kind.installment) ...[
               const SizedBox(height: 16),
@@ -584,6 +677,20 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
             ],
             const SizedBox(height: 16),
             dateField,
+          ],
+          if (_kind == _Kind.installment &&
+              _computedInstallmentTotal != null &&
+              _computedPerInstallmentAmount != null &&
+              (int.tryParse(_count.text) ?? 0) > 0) ...[
+            const SizedBox(height: 14),
+            InstallmentSummaryCard(
+              installmentCount: int.parse(_count.text),
+              installmentAmount: _computedPerInstallmentAmount!,
+              totalAmount: _computedInstallmentTotal!,
+              isByInstallmentMode:
+                  _installmentAmountMode ==
+                  _InstallmentAmountMode.byInstallment,
+            ),
           ],
           if (_kind == _Kind.recurring) ...[
             SwitchListTile(
