@@ -22,22 +22,30 @@
 
 ## 2. Estado Operacional Atual e Máquina de Estados
 
-- **Estado Operacional:** **`DESENVOLVIMENTO_LOCAL_FEATURE`** (Checkpoint `FINANCE-CATEGORIAS-FILTROS-MODAIS-01`, `FINANCE-CATEGORIAS-E-BAIXA-MULTIPLA-01`, `FINANCE-CHROME-MODAL-RENDER-FIX-01`).
-- **Feature Ativa:** Filtros por Categoria, Gerenciamento de Categorias e Ajuste Fino de Layout (Eliminação Total de Espaços Ociosos em Modais):
-  1. **Eliminação de Espaços Vazios em Modais e Telas:**
+- **Estado Operacional:** **`PRODUCAO_PUBLICADA_LIVE`** (Checkpoint `FINANCE-PROD-02`, `FINANCE-CATEGORIAS-FILTROS-MODAIS-01`, `FINANCE-CATEGORIAS-E-BAIXA-MULTIPLA-01`, `FINANCE-CHROME-MODAL-RENDER-FIX-01`).
+- **Feature Ativa:** Categorias Financeiras, Baixa Múltipla, Filtros em Listagens e Ajustes Finais de Layout 100% Deployed em Produção:
+  1. **Publicação Completa em Produção (`https://finance.bigdevz.com`):**
+     - Frontend Flutter Web SPA compilado em Release (`build/web`) sincronizado com sucesso e servido via Caddy com HTTP/2 e HTTPS.
+     - Backend Laravel 13 conteinerizado atualizado na VPS com imagem `bigdevz/finance-api:prod`.
+     - Migrations executadas no PostgreSQL de produção (`2026_11_07_100000_create_categories_table`).
+     - Rotas de API e configurações em cache (`config:cache`, `route:cache`).
+     - Categorias padrão pré-populadas nos espaços PF e PJ (44 categorias ativas).
+     - Health check operacional em `https://finance.bigdevz.com/api/up` (`HTTP 200 {"status":"ok"}`).
+  2. **Eliminação de Espaços Vazios em Modais e Telas:**
      - Modais adaptativos em `agreement_modal.dart`, `payable_modal.dart`, `agreement_form_screen.dart`, `account_form_screen.dart`, `transfer_form_screen.dart` e `categories_screen.dart`.
      - Utilização estrita de `ConstrainedBox(maxHeight: 0.85 * h)` combinada com `Column(mainAxisSize: MainAxisSize.min)` e `ListView(shrinkWrap: true)` ou `SingleChildScrollView`.
-     - O layout abraça o conteúdo com precisão sem deixar áreas vazias ou vácuos verticais, com rolagem automática se a lista de itens crescer.
-  2. **Filtros por Categoria nas Listagens (A pagar, A receber e Extrato):**
-     - Backend API com suporte a `category_id` nas rotas de `/payables`, `/agreements` e `/statements` (com busca profunda de movimentações por obrigação/acordo).
+     - Layout abraça o conteúdo com precisão sem áreas vazias ou vácuos verticais.
+  3. **Filtros por Categoria nas Listagens (A pagar, A receber e Extrato):**
+     - Backend API com suporte a `category_id` nas rotas de `/payables`, `/agreements` e `/statements`.
      - Componente reutilizável `CategoryFilterChip` integrado nas três abas com badge visual e seletor rápido.
-  3. **Tela de Gerenciamento de Categorias:**
-     - Implementada em `categories_screen.dart` com listagem por tipo (Despesas/Receitas), proteção contra exclusão de categorias padrão, edição e criação com seletor de 15 cores e 18 ícones.
+  4. **Tela de Gerenciamento de Categorias:**
+     - Implementada em `categories_screen.dart` com listagem por tipo (Despesas/Receitas), proteção contra exclusão de categorias padrão, edição e criação com seletor de cores e ícones.
      - Atalho direto na Top Bar desktop ao lado do sino de notificações e nas Configurações.
-  4. **Backpressure 100% Verde:**
+  5. **Backpressure 100% Verde:**
      - 216 testes Flutter passando.
      - 121 testes de integração da API Laravel passando (1.438 asserções).
      - Lint e formatação aprovados (`pint` e `dart format`).
+     - GitHub Actions CI na `main` 100% verde (Run #42400872283).
 - **Ambiente de Desenvolvimento Local:**
   - API Laravel 13 Docker ativa em `http://127.0.0.1:8000/api`.
   - PostgreSQL 18 Docker ativo em `127.0.0.1:5440`.
@@ -662,6 +670,22 @@ Mantido no diretório local de ensaios `prints/finance-mob-01/` fora do controle
   - Suíte Flutter: 176 testes aprovados (0 falhas).
   - API Laravel em PostgreSQL Real: 96 testes aprovados (1.357 asserções, 0 falhas).
 - **Estado Operacional:** `PRODUCAO_PUBLICADA_LIVE`. Monitoramento ativo com usuários em fase de testes reais.
+
+---
+
+## 17. Checkpoint FINANCE-PROD-02 (09/11/2026) — Deploy em Produção: Categorias, Baixa Múltipla, Filtros e Modais Adaptativos
+
+- **Objetivo**: Publicação completa das features de Baixa Múltipla, Módulo de Categorias, Filtros por Categoria e Layouts Adaptativos na VPS de produção (`finance.bigdevz.com`).
+- **Ambiente de Produção (VPS `bigdevz` / `179.198.113.104`):**
+  - **Domínio Canônico:** `https://finance.bigdevz.com` com Caddy HTTP/2 e HTTPS.
+  - **Frontend:** Flutter Web Release compilado com `API_BASE_URL=https://finance.bigdevz.com/api` e sincronizado em `/srv/finance/web/`.
+  - **Backend:** Laravel 13 reconstruído via `vps-deploy.sh` em container `bigdevz-finance-api-1` com dependências cacheadas (`config:cache`, `route:cache`).
+  - **Banco de Dados:** Migration `2026_11_07_100000_create_categories_table` executada com sucesso e categorias padrão pré-populadas em todos os espaços.
+  - **Health Check:** `https://finance.bigdevz.com/api/up` respondendo HTTP 200 OK.
+- **Resultados das Suítes Automatizadas:**
+  - GitHub Actions CI (Run #42400872283): 100% verde na branch `main`.
+  - Backpressure local: 216 testes Flutter, 121 testes API e 1.438 asserções aprovadas.
+- **Estado Operacional:** `PRODUCAO_PUBLICADA_LIVE`.
 
 ---
 
