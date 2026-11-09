@@ -22,35 +22,28 @@
 
 ## 2. Estado Operacional Atual e Máquina de Estados
 
-- **Estado Operacional:** **`PRODUCAO_PUBLICADA_LIVE`** (Checkpoint `FINANCE-PROD-02`, `FINANCE-CATEGORIAS-FILTROS-MODAIS-01`, `FINANCE-CATEGORIAS-E-BAIXA-MULTIPLA-01`, `FINANCE-CHROME-MODAL-RENDER-FIX-01`).
-- **Feature Ativa:** Categorias Financeiras, Baixa Múltipla, Filtros em Listagens e Ajustes Finais de Layout 100% Deployed em Produção:
-  1. **Publicação Completa em Produção (`https://finance.bigdevz.com`):**
-     - Frontend Flutter Web SPA compilado em Release (`build/web`) sincronizado com sucesso e servido via Caddy com HTTP/2 e HTTPS.
-     - Backend Laravel 13 conteinerizado atualizado na VPS com imagem `bigdevz/finance-api:prod`.
-     - Migrations executadas no PostgreSQL de produção (`2026_11_07_100000_create_categories_table`).
-     - Rotas de API e configurações em cache (`config:cache`, `route:cache`).
-     - Categorias padrão pré-populadas nos espaços PF e PJ (44 categorias ativas).
-     - Health check operacional em `https://finance.bigdevz.com/api/up` (`HTTP 200 {"status":"ok"}`).
-  2. **Eliminação de Espaços Vazios em Modais e Telas:**
-     - Modais adaptativos em `agreement_modal.dart`, `payable_modal.dart`, `agreement_form_screen.dart`, `account_form_screen.dart`, `transfer_form_screen.dart` e `categories_screen.dart`.
-     - Utilização estrita de `ConstrainedBox(maxHeight: 0.85 * h)` combinada com `Column(mainAxisSize: MainAxisSize.min)` e `ListView(shrinkWrap: true)` ou `SingleChildScrollView`.
-     - Layout abraça o conteúdo com precisão sem áreas vazias ou vácuos verticais.
-  3. **Filtros por Categoria nas Listagens (A pagar, A receber e Extrato):**
-     - Backend API com suporte a `category_id` nas rotas de `/payables`, `/agreements` e `/statements`.
-     - Componente reutilizável `CategoryFilterChip` integrado nas três abas com badge visual e seletor rápido.
-  4. **Tela de Gerenciamento de Categorias:**
-     - Implementada em `categories_screen.dart` com listagem por tipo (Despesas/Receitas), proteção contra exclusão de categorias padrão, edição e criação com seletor de cores e ícones.
-     - Atalho direto na Top Bar desktop ao lado do sino de notificações e nas Configurações.
-  5. **Backpressure 100% Verde:**
-     - 216 testes Flutter passando.
-     - 121 testes de integração da API Laravel passando (1.438 asserções).
-     - Lint e formatação aprovados (`pint` e `dart format`).
-     - GitHub Actions CI na `main` 100% verde (Run #42400872283).
+- **Estado Operacional:** **`HOMOLOGACAO_LOCAL_PRONTA`** (Checkpoint `FINANCE-MODO-ENTRADA-PARCELAS-01`, `FINANCE-PROD-02`, `FINANCE-CATEGORIAS-FILTROS-MODAIS-01`, `FINANCE-CATEGORIAS-E-BAIXA-MULTIPLA-01`, `FINANCE-CHROME-MODAL-RENDER-FIX-01`).
+- **Feature Ativa:** Modo de Entrada Flexível de Parcelas (Por Parcela vs. Valor Total) e Resumo Dinâmico:
+  1. **Seletor de Modo Intuitivo (`SegmentedButton`):**
+     - Disponível em `PayableFormScreen` (Contas a Pagar) e `AgreementFormScreen` (Contas a Receber).
+     - Modos: "Valor da parcela" (padrão) e "Valor total".
+     - Alternância suave com conversão bidirecional automática do valor digitado (`total = parcela * n` / `parcela = total ~/ n`).
+  2. **Cálculo Reativo com Exatidão Matemática (Zero Float):**
+     - O valor total é calculado em centavos inteiros de 64 bits (`Money`) sem qualquer uso de ponto flutuante.
+     - Contrato com a API Laravel 100% preservado (envio do total e do número de parcelas).
+  3. **Card Visual Discreto de Resumo (`InstallmentSummaryCard`):**
+     - Exibição compacta e discreta logo abaixo dos campos: `Nx de R$ X,XX • Total: R$ Y,YY`.
+     - Cores adaptativas para tema claro e escuro seguindo os tokens de design do sistema.
+  4. **Backpressure 100% Verde:**
+     - 219 testes Flutter passando (zero falhas).
+     - 13 testes de domínio PHP passando.
+     - `flutter analyze` com zero warnings/issues.
+     - `dart format` e `pint` 100% conformes.
 - **Ambiente de Desenvolvimento Local:**
   - API Laravel 13 Docker ativa em `http://127.0.0.1:8000/api`.
   - PostgreSQL 18 Docker ativo em `127.0.0.1:5440`.
-  - Frontend Flutter Web Server ativo em `http://127.0.0.1:8085`.
-- **Branch Ativa:** `feature/ux-nova-conta-a-receber` (a partir de `dev`).
+  - Frontend Flutter Web Server em `http://127.0.0.1:8085`.
+- **Branch Ativa:** `feature/modo-entrada-parcelas` (a partir de `dev`).
 - **Branch de Produção:** `main`.
 
 ---
