@@ -22,28 +22,35 @@
 
 ## 2. Estado Operacional Atual e Máquina de Estados
 
-- **Estado Operacional:** **`HOMOLOGACAO_LOCAL_PRONTA`** (Checkpoint `FINANCE-MODO-ENTRADA-PARCELAS-01`, `FINANCE-PROD-02`, `FINANCE-CATEGORIAS-FILTROS-MODAIS-01`, `FINANCE-CATEGORIAS-E-BAIXA-MULTIPLA-01`, `FINANCE-CHROME-MODAL-RENDER-FIX-01`).
-- **Feature Ativa:** Modo de Entrada Flexível de Parcelas (Por Parcela vs. Valor Total) e Resumo Dinâmico:
+- **Estado Operacional:** **`PRODUCAO_PUBLICADA_LIVE`** (Checkpoint `FINANCE-PROD-03`, `FINANCE-MODO-ENTRADA-PARCELAS-01`, `FINANCE-PROD-02`).
+- **Feature Ativa:** Modo de Entrada Flexível de Parcelas (Por Parcela vs. Valor Total), Seletor de Tipo em Contas a Receber e Resumo Dinâmico em Produção:
   1. **Seletor de Modo Intuitivo (`SegmentedButton`):**
      - Disponível em `PayableFormScreen` (Contas a Pagar) e `AgreementFormScreen` (Contas a Receber).
      - Modos: "Valor da parcela" (padrão) e "Valor total".
      - Alternância suave com conversão bidirecional automática do valor digitado (`total = parcela * n` / `parcela = total ~/ n`).
-  2. **Cálculo Reativo com Exatidão Matemática (Zero Float):**
+  2. **Seletor de Tipo em Contas a Receber (`[ Avulsa | Parcelada ]`):**
+     - Adicionado no topo de `AgreementFormScreen` padronizando a experiência com `PayableFormScreen`.
+     - Alterna instantaneamente entre o fluxo de recebimento único e o fluxo com cronograma de parcelas.
+  3. **Cálculo Reativo com Exatidão Matemática (Zero Float):**
      - O valor total é calculado em centavos inteiros de 64 bits (`Money`) sem qualquer uso de ponto flutuante.
      - Contrato com a API Laravel 100% preservado (envio do total e do número de parcelas).
-  3. **Card Visual Discreto de Resumo (`InstallmentSummaryCard`):**
+  4. **Card Visual Discreto de Resumo (`InstallmentSummaryCard`):**
      - Exibição compacta e discreta logo abaixo dos campos: `Nx de R$ X,XX • Total: R$ Y,YY`.
      - Cores adaptativas para tema claro e escuro seguindo os tokens de design do sistema.
-  4. **Backpressure 100% Verde:**
+  5. **Backpressure e CI 100% Verde:**
      - 219 testes Flutter passando (zero falhas).
+     - 121 testes de integração da API Laravel em PostgreSQL real passando (1.438 asserções).
      - 13 testes de domínio PHP passando.
-     - `flutter analyze` com zero warnings/issues.
-     - `dart format` e `pint` 100% conformes.
+     - GitHub Actions CI (Run #42632730513) 100% verde na branch `main`.
+  6. **Deploy em Produção (`https://finance.bigdevz.com`):**
+     - Frontend Flutter Web SPA compilado em Release (`build/web`) sincronizado em `/srv/finance/web/`.
+     - Backend Laravel 13 sincronizado e otimizado com cache de rotas e configurações.
+     - Health check `https://finance.bigdevz.com/api/up` validado com HTTP 200 OK.
 - **Ambiente de Desenvolvimento Local:**
   - API Laravel 13 Docker ativa em `http://127.0.0.1:8000/api`.
   - PostgreSQL 18 Docker ativo em `127.0.0.1:5440`.
   - Frontend Flutter Web Server em `http://127.0.0.1:8085`.
-- **Branch Ativa:** `feature/modo-entrada-parcelas` (a partir de `dev`).
+- **Branch Ativa:** `main` (sincronizada com `origin/main` e `origin/dev`).
 - **Branch de Produção:** `main`.
 
 ---
@@ -678,6 +685,21 @@ Mantido no diretório local de ensaios `prints/finance-mob-01/` fora do controle
 - **Resultados das Suítes Automatizadas:**
   - GitHub Actions CI (Run #42400872283): 100% verde na branch `main`.
   - Backpressure local: 216 testes Flutter, 121 testes API e 1.438 asserções aprovadas.
+- **Estado Operacional:** `PRODUCAO_PUBLICADA_LIVE`.
+
+---
+
+## 18. Checkpoint FINANCE-PROD-03 (09/11/2026) — Deploy em Produção: Modo de Entrada Flexível de Parcelas e Seletor em Contas a Receber
+
+- **Objetivo**: Publicação completa em produção (`finance.bigdevz.com`) do novo modo de entrada de parcelas ("Valor da parcela" vs "Valor total"), cálculo reativo com zero float, card visual discreto de resumo (`InstallmentSummaryCard`) e seletor `[ Avulsa | Parcelada ]` em Contas a Receber.
+- **Ambiente de Produção (VPS `bigdevz` / `179.198.113.104`):**
+  - **Domínio Canônico:** `https://finance.bigdevz.com` com Caddy HTTP/2 e HTTPS.
+  - **Frontend:** Flutter Web Release compilado com `API_BASE_URL=https://finance.bigdevz.com/api` e sincronizado em `/srv/finance/web/`.
+  - **Backend:** Laravel 13 conteinerizado com rotas e configurações em cache (`config:cache`, `route:cache`).
+  - **Health Check:** `https://finance.bigdevz.com/api/up` respondendo HTTP 200 OK (`{"status":"ok"}`).
+- **Resultados das Suítes Automatizadas:**
+  - GitHub Actions CI (Run #42632730513): 100% verde na branch `main`.
+  - Backpressure local: 219 testes Flutter, 121 testes API e 1.438 asserções aprovadas.
 - **Estado Operacional:** `PRODUCAO_PUBLICADA_LIVE`.
 
 ---
