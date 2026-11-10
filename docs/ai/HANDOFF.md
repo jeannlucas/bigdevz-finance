@@ -22,7 +22,27 @@
 
 ## 2. Estado Operacional Atual e Máquina de Estados
 
-- **Estado Operacional:** **`HOMOLOGACAO_LOCAL_APROVADA`** (Checkpoint `FINANCE-BLOQUEADORES-P0-VISUAL-FINALIZADO-01`, `FINANCE-BLOQUEADORES-P0-RBAC-PERIODO-AUDITORIA-01`, `FINANCE-AUDITORIA-PRODUTO-UX-ERP-01`, `FINANCE-QA-MCP-CHROME-E2E-01`, `FINANCE-P1-BAIXAS-PARCIAIS-FLUXO-CAIXA-OFX-01`, `FINANCE-PRE-PRODUCAO-HARDENING-SEGURANCA-01`, `FINANCE-RELEASE-READINESS-PILOTO-CONTROLADO-01`).
+- **Estado Operacional:** **`PRODUCAO_INFRA_READY`** (Checkpoint `FINANCE-BLOQUEADORES-P0-VISUAL-FINALIZADO-01`, `FINANCE-BLOQUEADORES-P0-RBAC-PERIODO-AUDITORIA-01`, `FINANCE-AUDITORIA-PRODUTO-UX-ERP-01`, `FINANCE-QA-MCP-CHROME-E2E-01`, `FINANCE-P1-BAIXAS-PARCIAIS-FLUXO-CAIXA-OFX-01`, `FINANCE-PRE-PRODUCAO-HARDENING-SEGURANCA-01`, `FINANCE-RELEASE-READINESS-PILOTO-CONTROLADO-01`, `FINANCE-PRODUCAO-INFRAESTRUTURA-READINESS-01`).
+- **Ciclo de Preparação da Infraestrutura de Produção (100% Concluído):**
+  1. **Decisão Arquitetural de Ambiente Único (Produção):**
+     - O projeto operará com ambiente único de produção na branch `main`. A branch atual de funcionalidades (`feature/edicao-cancelamento-lancamentos`) será integrada via Pull Request após revisão humana.
+     - Toda e qualquer menção, arquivo ou configuração de staging foi integralmente substituída pela arquitetura canônica de produção.
+  2. **Arquitetura Declarativa de Produção Implementada (Alinhada à VPS):**
+     - `docker-compose.production.yml`: Orquestração com `postgres:17-alpine` (base `bigdevz_finance`, volume persistente `postgres-data`), `api` Laravel 13 em PHP 8.3 CLI com 4 workers em `127.0.0.1:8510` e `scheduler` para recorrências contínuas. Sem container Nginx no Compose (o Caddy no host gerencia HTTPS e arquivos estáticos SPA em `/srv/finance/web`).
+     - `apps/api/Dockerfile.production` e `apps/api/docker/entrypoint.production.sh`: Multi-stage build otimizado com Composer sem dependências de dev (`--no-dev`), usuário não-root `appuser:appgroup` e validação fail-safe obrigatória de `APP_KEY`, `DB_PASSWORD` e `APP_URL`.
+     - `.env.production.example`: Especificação estrita e segura das variáveis de produção com placeholders e zero segredos expostos.
+     - `scripts/backup-production.sh`: Script de backup do PostgreSQL 17 em formato custom (`pg_dump -Fc`) na base `bigdevz_finance`, com cálculo automático de checksum SHA-256 e rotação/retenção de 30 dias.
+     - `scripts/deploy-production.sh`: Script idempotente de deploy com validação de branch `main`, backup automático pré-migração, build, migrations `--force`, caches e rollback automático em falhas.
+     - `scripts/rollback-production.sh`: Script de reversão emergencial de código (`--code-only`) e restauração segura do banco `bigdevz_finance` (`--with-db-restore <dump>`).
+     - `docs/operations/production-deployment.md`: Guia de deploy alinhado à topologia real da VPS (PostgreSQL 17, `/srv/finance`, Caddy).
+     - `docs/operations/production-runbook.md`: Manual operacional com inventário real dos containers e playbooks de incidentes.
+  3. **Validação Local dos Artefatos de Produção:**
+     - Validação de sintaxe do Docker Compose e de todos os scripts bash.
+     - Build de release do Flutter Web e build de produção da API Laravel aprovados.
+     - Teste de restauração de dump em banco descartável com 32 tabelas verificadas.
+     - Quality gate completo aprovado (`php tests/domain.php`, `vendor/bin/pint --test`, `flutter analyze`, `dart format`, `scripts/smoke-api.sh`).
+  4. **Garantia de Soberania e Não-Publicação:**
+     - Nenhum deploy remoto, merge ou push para `main` foi executado. O repositório aguarda as definições do proprietário Jeann Lucas para publicação.
 - **Ciclo de Release Readiness para Piloto Controlado (100% Concluído):**
   1. **Eliminação Integral de Warnings:**
      - Investigação minuciosa e eliminação da raiz de warnings emitidos pelo phpdotenv sob PHPUnit 10+, atingindo 100% PASS com zero warnings e zero falhas em todas as 1.708 asserções da API.

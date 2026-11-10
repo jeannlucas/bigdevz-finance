@@ -1,0 +1,47 @@
+# Multi-stage build para produção do BigDev.Z Finance API
+# Estágio 1: Instalação de dependências de produção sem pacotes de dev
+FROM composer:2 AS vendor
+WORKDIR /app
+COPY composer.json composer.lock ./
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --prefer-dist \
+    --optimize-autoloader \
+    --ignore-platform-reqs \
+    --no-scripts
+
+# Estágio 2: Runtime PHP 8.3 CLI Alpine enxuto e seguro
+FROM php:8.3-cli-alpine AS runtime
+LABEL com.bigdevz.project="finance" com.bigdevz.service="api" com.bigdevz.env="production"
+
+# Dependências nativas: libpq-dev e icu-dev para compilar; libpq e icu-libs para runtime
+RUN apk add --no-cache --virtual .build-deps libpq-dev icu-dev \
+    && apk add --no-cache libpq icu-libs \
+    && docker-php-ext-install pdo_pgsql intl bcmath \
+    && apk del .build-deps
+
+# Usuário não-root dedicado sem privilégios administrativos
+RUN addgroup -g 1000 appgroup && \
+    adduser -u 1000 -G appgroup -s /bin/sh -D appuser
+
+WORKDIR /app
+
+# Copia dependências pré-instaladas do Composer
+COPY --from=vendor /app/vendor /app/vendor
+
+# Copia código-fonte da aplicação
+COPY . /app
+
+# Limpa caches locais que possam ter sido copiados do ambiente de desenvolvimento
+RUN rm -f /app/bootstrap/cache/*.php /app/storage/logs/*.log \
+    && chown -R appuser:appgroup /app \
+    && chmod -R 775 /app/storage /app/bootstrap/cache \
+    && cp /app/docker/entrypoint.production.sh /usr/local/bin/bigdevz-entrypoint \
+    && chmod +x /usr/local/bin/bigdevz-entrypoint
+
+USER appuser
+
+EXPOSE 8000
+ENTRYPOINT ["bigdevz-entrypoint"]
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]

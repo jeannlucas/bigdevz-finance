@@ -1,0 +1,95 @@
+name: bigdevz-finance
+
+# Configuração de produção alinhada à topologia real da VPS (Caddy no host + Postgres 17 Alpine)
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    env_file:
+      - path: ${ENV_FILE:-.env.production}
+        required: false
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-bigdevz}
+      POSTGRES_DB: ${DB_DATABASE:-bigdevz_finance}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Defina a variavel DB_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-bigdevz} -d ${DB_DATABASE:-bigdevz_finance}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  api:
+    image: bigdevz/finance-api:prod
+    build:
+      context: ${API_BUILD_CONTEXT:-./apps/api}
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - path: ${ENV_FILE:-.env.production}
+        required: false
+    environment: &api-environment
+      APP_NAME: "${APP_NAME:-BigDev.Z Finance}"
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_URL: ${APP_URL:-https://finance.bigdevz.com}
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-bigdevz_finance}
+      DB_USERNAME: ${DB_USERNAME:-bigdevz}
+      DB_PASSWORD: ${DB_PASSWORD:?Defina a variavel DB_PASSWORD}
+      LOG_CHANNEL: stack
+      LOG_LEVEL: ${LOG_LEVEL:-error}
+      SESSION_DRIVER: cookie
+      CACHE_STORE: database
+      QUEUE_CONNECTION: database
+      FINANCE_TIMEZONE: America/Sao_Paulo
+      PHP_CLI_SERVER_WORKERS: ${PHP_CLI_SERVER_WORKERS:-4}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://finance.bigdevz.com}
+    ports:
+      - "${BIGDEVZ_API_BIND:-127.0.0.1}:${BIGDEVZ_API_PORT:-8510}:8000"
+    volumes:
+      - ${API_APP_VOLUME:-./apps/api}:/app
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8000/up >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  scheduler:
+    image: bigdevz/finance-api:prod
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    env_file:
+      - path: ${ENV_FILE:-.env.production}
+        required: false
+    environment: *api-environment
+    volumes:
+      - ${API_APP_VOLUME:-./apps/api}:/app
+    command: ["php", "artisan", "schedule:work"]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  postgres-data:
