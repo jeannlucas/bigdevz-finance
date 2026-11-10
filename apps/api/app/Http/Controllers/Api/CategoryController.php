@@ -27,6 +27,7 @@ class CategoryController extends Controller
     public function store(Request $request, string $space): JsonResponse
     {
         $spaceModel = $this->space($request, $space);
+        $spaceModel->ensureCan($request->user(), 'manage_categories');
 
         $data = $request->validate([
             'name' => [
@@ -55,6 +56,8 @@ class CategoryController extends Controller
     public function update(Request $request, string $space, string $category): CategoryResource
     {
         $spaceModel = $this->space($request, $space);
+        $spaceModel->ensureCan($request->user(), 'manage_categories');
+
         /** @var Category $categoryModel */
         $categoryModel = $spaceModel->categories()->findOrFail($category);
 
@@ -80,6 +83,8 @@ class CategoryController extends Controller
     public function destroy(Request $request, string $space, string $category): JsonResponse
     {
         $spaceModel = $this->space($request, $space);
+        $spaceModel->ensureCan($request->user(), 'manage_categories');
+
         /** @var Category $categoryModel */
         $categoryModel = $spaceModel->categories()->findOrFail($category);
 

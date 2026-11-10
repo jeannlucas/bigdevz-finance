@@ -226,7 +226,7 @@ class _PaymentFixScreenState extends State<PaymentFixScreen> {
               decoration: InputDecoration(
                 labelText: 'Valor correto',
                 prefixText: r'R$ ',
-                helperText: 'Até ${_available.brl} nesta obrigação.',
+                helperText: 'Até ${_available.brl} nesta conta a pagar.',
               ),
               keyboardType: TextInputType.number,
               inputFormatters: [MoneyInputFormatter()],
@@ -358,7 +358,7 @@ class _PaymentFixScreenState extends State<PaymentFixScreen> {
                         }()),
                       line(
                         'Restante',
-                        'Restante da obrigação',
+                        'Restante da conta a pagar',
                         '${remaining.brl} → ${remainingAfter.brl}',
                       ),
                       line(

@@ -6,6 +6,7 @@ use App\Domain\Receivables\Money;
 use App\Models\Account;
 use App\Models\AccountMovement;
 use App\Models\Installment;
+use App\Models\ObligationChange;
 use App\Models\Receipt;
 use App\Models\ReceiptReversal;
 use App\Models\Space;
@@ -88,6 +89,9 @@ class ReverseReceipt
                 'user_id' => $user->id,
                 'reason' => $reason,
             ]);
+            $oldReceived = $installment->received_cents;
+            $oldRemaining = $installment->remainingCents();
+
             AccountMovement::create([
                 'account_id' => $original->account_id,
                 'receipt_reversal_id' => $reversal->id,
@@ -95,6 +99,28 @@ class ReverseReceipt
                 'effective_date' => $original->received_on->toDateString(),
             ]);
             $installment->decrement('received_cents', $original->amount_cents);
+
+            ObligationChange::create([
+                'space_id' => $space->id,
+                'user_id' => $user->id,
+                'subject' => 'receipt',
+                'subject_id' => $original->id,
+                'action' => 'reverse',
+                'before' => [
+                    'installment_id' => $installment->id,
+                    'amount_cents' => $installment->amount_cents,
+                    'received_cents' => $oldReceived,
+                    'remaining_cents' => $oldRemaining,
+                ],
+                'after' => [
+                    'installment_id' => $installment->id,
+                    'amount_cents' => $installment->amount_cents,
+                    'received_cents' => $oldReceived - $original->amount_cents,
+                    'remaining_cents' => $oldRemaining + $original->amount_cents,
+                    'reversal_id' => $reversal->id,
+                ],
+                'reason' => $reason,
+            ]);
 
             if ($replacement !== null) {
                 $substitute = Receipt::create([

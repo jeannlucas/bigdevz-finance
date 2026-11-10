@@ -6,6 +6,7 @@ use App\Domain\Receivables\Money;
 use App\Models\Account;
 use App\Models\AccountMovement;
 use App\Models\Installment;
+use App\Models\ObligationChange;
 use App\Models\Receipt;
 use App\Models\Space;
 use App\Models\User;
@@ -83,6 +84,9 @@ class ReceiveInstallment
                 'idempotency_key' => $idempotencyKey,
                 'request_fingerprint' => $fingerprint,
             ]);
+            $oldReceived = $installment->received_cents;
+            $oldRemaining = $installment->remainingCents();
+
             AccountMovement::create([
                 'account_id' => $account->id,
                 'receipt_id' => $receipt->id,
@@ -91,6 +95,29 @@ class ReceiveInstallment
             ]);
             // Incremento no SQL: se o lock regredir, a CHECK do banco ainda barra o excesso.
             $installment->increment('received_cents', $amountCents);
+
+            ObligationChange::create([
+                'space_id' => $space->id,
+                'user_id' => $user->id,
+                'subject' => 'receipt',
+                'subject_id' => $receipt->id,
+                'action' => 'receive',
+                'before' => [
+                    'installment_id' => $installment->id,
+                    'amount_cents' => $installment->amount_cents,
+                    'received_cents' => $oldReceived,
+                    'remaining_cents' => $oldRemaining,
+                ],
+                'after' => [
+                    'installment_id' => $installment->id,
+                    'amount_cents' => $installment->amount_cents,
+                    'received_cents' => $oldReceived + $amountCents,
+                    'remaining_cents' => $oldRemaining - $amountCents,
+                    'receipt_id' => $receipt->id,
+                    'account_id' => $account->id,
+                    'received_on' => $receivedOn,
+                ],
+            ]);
 
             return ['receipt_id' => $receipt->id];
         }, $legacy);

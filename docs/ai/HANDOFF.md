@@ -22,35 +22,99 @@
 
 ## 2. Estado Operacional Atual e Máquina de Estados
 
-- **Estado Operacional:** **`PRODUCAO_PUBLICADA_LIVE`** (Checkpoint `FINANCE-PROD-03`, `FINANCE-MODO-ENTRADA-PARCELAS-01`, `FINANCE-PROD-02`).
-- **Feature Ativa:** Modo de Entrada Flexível de Parcelas (Por Parcela vs. Valor Total), Seletor de Tipo em Contas a Receber e Resumo Dinâmico em Produção:
-  1. **Seletor de Modo Intuitivo (`SegmentedButton`):**
-     - Disponível em `PayableFormScreen` (Contas a Pagar) e `AgreementFormScreen` (Contas a Receber).
-     - Modos: "Valor da parcela" (padrão) e "Valor total".
-     - Alternância suave com conversão bidirecional automática do valor digitado (`total = parcela * n` / `parcela = total ~/ n`).
-  2. **Seletor de Tipo em Contas a Receber (`[ Avulsa | Parcelada ]`):**
-     - Adicionado no topo de `AgreementFormScreen` padronizando a experiência com `PayableFormScreen`.
-     - Alterna instantaneamente entre o fluxo de recebimento único e o fluxo com cronograma de parcelas.
-  3. **Cálculo Reativo com Exatidão Matemática (Zero Float):**
-     - O valor total é calculado em centavos inteiros de 64 bits (`Money`) sem qualquer uso de ponto flutuante.
-     - Contrato com a API Laravel 100% preservado (envio do total e do número de parcelas).
-  4. **Card Visual Discreto de Resumo (`InstallmentSummaryCard`):**
-     - Exibição compacta e discreta logo abaixo dos campos: `Nx de R$ X,XX • Total: R$ Y,YY`.
-     - Cores adaptativas para tema claro e escuro seguindo os tokens de design do sistema.
-  5. **Backpressure e CI 100% Verde:**
-     - 219 testes Flutter passando (zero falhas).
-     - 121 testes de integração da API Laravel em PostgreSQL real passando (1.438 asserções).
+- **Estado Operacional:** **`PRODUCAO_INFRA_READY`** (Checkpoint `FINANCE-BLOQUEADORES-P0-VISUAL-FINALIZADO-01`, `FINANCE-BLOQUEADORES-P0-RBAC-PERIODO-AUDITORIA-01`, `FINANCE-AUDITORIA-PRODUTO-UX-ERP-01`, `FINANCE-QA-MCP-CHROME-E2E-01`, `FINANCE-P1-BAIXAS-PARCIAIS-FLUXO-CAIXA-OFX-01`, `FINANCE-PRE-PRODUCAO-HARDENING-SEGURANCA-01`, `FINANCE-RELEASE-READINESS-PILOTO-CONTROLADO-01`, `FINANCE-PRODUCAO-INFRAESTRUTURA-READINESS-01`).
+- **Ciclo de Preparação da Infraestrutura de Produção (100% Concluído):**
+  1. **Decisão Arquitetural de Ambiente Único (Produção):**
+     - O projeto operará com ambiente único de produção na branch `main`. A branch atual de funcionalidades (`feature/edicao-cancelamento-lancamentos`) será integrada via Pull Request após revisão humana.
+     - Toda e qualquer menção, arquivo ou configuração de staging foi integralmente substituída pela arquitetura canônica de produção.
+  2. **Arquitetura Declarativa de Produção Implementada (Alinhada à VPS):**
+     - `docker-compose.production.yml`: Orquestração com `postgres:17-alpine` (base `bigdevz_finance`, volume persistente `postgres-data`), `api` Laravel 13 em PHP 8.3 CLI com 4 workers em `127.0.0.1:8510` e `scheduler` para recorrências contínuas. Sem container Nginx no Compose (o Caddy no host gerencia HTTPS e arquivos estáticos SPA em `/srv/finance/web`).
+     - `apps/api/Dockerfile.production` e `apps/api/docker/entrypoint.production.sh`: Multi-stage build otimizado com Composer sem dependências de dev (`--no-dev`), usuário não-root `appuser:appgroup` e validação fail-safe obrigatória de `APP_KEY`, `DB_PASSWORD` e `APP_URL`.
+     - `.env.production.example`: Especificação estrita e segura das variáveis de produção com placeholders e zero segredos expostos.
+     - `scripts/backup-production.sh`: Script de backup do PostgreSQL 17 em formato custom (`pg_dump -Fc`) na base `bigdevz_finance`, com cálculo automático de checksum SHA-256 e rotação/retenção de 30 dias.
+     - `scripts/deploy-production.sh`: Script idempotente de deploy com validação de branch `main`, backup automático pré-migração, build, migrations `--force`, caches e rollback automático em falhas.
+     - `scripts/rollback-production.sh`: Script de reversão emergencial de código (`--code-only`) e restauração segura do banco `bigdevz_finance` (`--with-db-restore <dump>`).
+     - `docs/operations/production-deployment.md`: Guia de deploy alinhado à topologia real da VPS (PostgreSQL 17, `/srv/finance`, Caddy).
+     - `docs/operations/production-runbook.md`: Manual operacional com inventário real dos containers e playbooks de incidentes.
+  3. **Validação Local dos Artefatos de Produção:**
+     - Validação de sintaxe do Docker Compose e de todos os scripts bash.
+     - Build de release do Flutter Web e build de produção da API Laravel aprovados.
+     - Teste de restauração de dump em banco descartável com 32 tabelas verificadas.
+     - Quality gate completo aprovado (`php tests/domain.php`, `vendor/bin/pint --test`, `flutter analyze`, `dart format`, `scripts/smoke-api.sh`).
+  4. **Garantia de Soberania e Não-Publicação:**
+     - Nenhum deploy remoto, merge ou push para `main` foi executado. O repositório aguarda as definições do proprietário Jeann Lucas para publicação.
+- **Ciclo de Release Readiness para Piloto Controlado (100% Concluído):**
+  1. **Eliminação Integral de Warnings:**
+     - Investigação minuciosa e eliminação da raiz de warnings emitidos pelo phpdotenv sob PHPUnit 10+, atingindo 100% PASS com zero warnings e zero falhas em todas as 1.708 asserções da API.
+  2. **Observabilidade e Tracing:**
+     - Middleware `AssignRequestId` implementado e registrado no pipeline global, injetando `X-Request-ID` UUID em todas as requisições e respostas HTTP e context logging.
+     - Endpoint de monitoramento detalhado `GET /api/health` avaliando conectividade com PostgreSQL, latência em ms, driver e storage.
+     - Proteção de Rate Limiting com `throttle:30,1` nos endpoints de processamento OFX.
+  3. **Rotina de Backup, Restauração e DR:**
+     - Procedimento de backup e restauração estruturado em formato custom (`pg_dump -Fc`), preservando integridade das 32 tabelas, restrições compostas `(id, space_id)`, auditoria (`obligation_changes`), RBAC (`space_users`) e encerramentos contábeis.
+     - Teste de restauração real executado com sucesso em banco isolado (`bigdevz_finance_restore_test`) sem impacto nos bancos de produção/desenvolvimento.
+     - Runbook operacional completo em `docs/operations/pilot-runbook.md` com critérios de entrada/saída, checklists pré/pós-deploy e protocolo de resposta a incidentes.
+  4. **Quality Gate e Backpressure 100% Verde (`./scripts/check.sh --full`):**
+     - 172 testes de feature da API Laravel (1.708 asserções) com ZERO warnings e ZERO falhas.
+     - 248 testes de widgets e integração Flutter aprovados.
+     - 13 testes de domínio financeiro aprovados.
+     - 154 arquivos PHP validados pelo Laravel Pint.
+     - 141 arquivos Dart validados e sem advertências no `flutter analyze`.
+     - Laravel Pint (141 arquivos) e Dart format (131 arquivos) 100% limpos.
+     - Flutter analyze com zero avisos ou erros ("No issues found!").
+  5. **Auditoria Integral de Produto, UX/UI, Linguagem e Benchmark ERP com 100% de Aprovação:
+  1. **Auditoria E2E e Avaliação de Produto via Google Chrome MCP (28 Casos em 6 Lotes):**
+     - Homologação completa de ponta a ponta dos módulos de Autenticação, Dashboard, Contas Bancárias, Contas a Pagar, Contas a Receber, Extrato, Categorias e Transferências internas.
+  2. **Refinamento de Linguagem e Eliminação de Jargões Técnicos:**
+     - Substituição de termos jurídicos/contábeis ("Obrigações", "Baixa múltipla de obrigações", "Anula a obrigação") por linguagem clara e orientada ao usuário final brasileiro ("Contas a pagar", "Pagamento em lote de contas", "Esta ação cancela a conta a pagar") em `payable_modal.dart`, `payment_form_screen.dart`, `payment_fix_screen.dart`, `batch_payable_modal.dart` e `categories_screen.dart`.
+  3. **Integração de Funcionalidades Ocultas (Empréstimos e Financiamentos):**
+     - Desbloqueio e integração de ponto de entrada direto para `LoansScreen` no menu superior desktop (`_DesktopTopBar`) e no menu de contexto mobile (`home_shell.dart`), permitindo gestão de dívidas tomadas e créditos concedidos com amortização.
+  4. **Matriz Estratégica de ERP e Benchmark de Mercado:**
+     - Relatório executivo consolidado em `product-ux-erp-analysis.md` com comparação competitiva frente a Conta Azul, Omie e TOTVS, proposta de nova arquitetura de informação e roadmap priorizado (P0 a P3).
+  5. **Quality Gate e Backpressure 100% Verde:**
+     - Suíte Flutter com 227 testes passando 100% verde.
+     - 127 testes da API Laravel passando com 1.483 asserções no banco PostgreSQL real.
+     - 13 testes de domínio financeiro PHP passando.
+     - Dart format e Pint 100% limpos.
+  6. **Diálogo Reutilizável de Double-Check (`ConfirmChangesDialog`):**
+     - Criado em [`apps/mobile/lib/ui/confirm_changes_dialog.dart`](../../apps/mobile/lib/ui/confirm_changes_dialog.dart) com suporte a exibição de diff estruturado (`ChangeDifference`: label, oldValue com tachado e newValue em destaque).
+     - Alerta visual dinâmico caso haja recálculo determinístico de parcelas em aberto.
+     - Botões "Revisar" (cancela) e "Confirmar e salvar".
+     - Integrado em:
+       - `EditAgreementDialog` (Contas a Receber / Agreements no modal e tela de detalhes);
+       - `PayableModal` (Contas a Pagar no modal desktop);
+       - `PayableEditScreen` (Contas a Pagar na tela mobile).
+  2. **Contas a Receber (Agreements) com Edição de Valor e Recálculo no Backend:**
+     - Migration `2026_11_09_120000_add_cancelled_at_to_agreements.php` adicionando `cancelled_at`, `cancel_reason`, `edited_at` e atualizando `obligation_changes_subject_check` com subject `'agreement'`.
+     - Action `ChangeAgreements` implementando `cancel` (com validação estrita de ausência de recebimentos ativos) e `edit` (descrição, categoria, valor total, número de parcelas e primeiro vencimento). Quando há alteração de valor ou parcelas, regenera deterministicamente o cronograma de parcelas via `InstallmentSchedule::generate` e audita em `obligation_changes`. Rejeita alteração de valor caso já haja parcelas recebidas (`422`).
+     - Endpoints `PATCH /api/spaces/{space}/agreements/{agreement}` e `POST /api/spaces/{space}/agreements/{agreement}/cancel`.
+     - `AgreementController::index` ocultando automaticamente contas canceladas das listas de abertos/vencidos e suportando filtro explícito `status=cancelled`.
+  3. **Contas a Receber no Frontend (Web/Desktop e Mobile):**
+     - `AgreementModal` e `AgreementScreen` com botões de ação "Editar conta" e "Cancelar conta a receber" para contas em aberto sem recebimento.
+     - Diálogo de cancelamento com justificativa obrigatória e anulação contábil segura (sem tocar em saldos bancários).
+     - Diálogo de edição completa `EditAgreementDialog` com suporte a:
+       - Alteração de descrição e categoria (`income`).
+       - Edição de valor (por parcela ou total) e número de parcelas.
+       - Pré-visualização em tempo real das novas parcelas via `InstallmentSummaryCard`.
+       - Alerta visual dinâmico avisando que as parcelas abertas serão recalculadas deterministicamente.
+       - Double-check explícito "Deseja realmente salvar?" exibindo o comparativo de cada campo alterado.
+     - Banner de status "Conta a receber cancelada" e bloqueio de novas baixas para títulos cancelados.
+  4. **Paridade no Contas a Pagar (`PayableModal` Web/Desktop e Mobile):**
+     - Inclusão dos botões "Editar conta a pagar" e "Cancelar conta a pagar" no cabeçalho do `PayableModal` executivo.
+     - Suporte a cancelamento com justificativa e edição direta de descrição, credor, valor e data de vencimento.
+     - Double-check de confirmação exibindo cada campo modificado antes de efetivar o update.
+     - Banner de status cancelado e desativação de botão de pagamento para contas a pagar canceladas.
+  5. **Quality Gate e Backpressure 100% Verde:**
+     - `./scripts/check.sh --full` aprovado com ZERO erros.
+     - Suíte Flutter com 226 testes passando 100% verde (incluindo testes de double-check em Contas a Pagar e Receber).
+     - 127 testes de API Laravel passando com 1.483 asserções no banco PostgreSQL real `bigdevz_finance_test`.
      - 13 testes de domínio PHP passando.
-     - GitHub Actions CI (Run #42632730513) 100% verde na branch `main`.
-  6. **Deploy em Produção (`https://finance.bigdevz.com`):**
-     - Frontend Flutter Web SPA compilado em Release (`build/web`) sincronizado em `/srv/finance/web/`.
-     - Backend Laravel 13 sincronizado e otimizado com cache de rotas e configurações.
-     - Health check `https://finance.bigdevz.com/api/up` validado com HTTP 200 OK.
+     - Pint e Dart format 100% limpos.
 - **Ambiente de Desenvolvimento Local:**
   - API Laravel 13 Docker ativa em `http://127.0.0.1:8000/api`.
   - PostgreSQL 18 Docker ativo em `127.0.0.1:5440`.
   - Frontend Flutter Web Server em `http://127.0.0.1:8085`.
-- **Branch Ativa:** `main` (sincronizada com `origin/main` e `origin/dev`).
+- **Branch Ativa:** `feature/edicao-cancelamento-lancamentos`.
 - **Branch de Produção:** `main`.
 
 ---

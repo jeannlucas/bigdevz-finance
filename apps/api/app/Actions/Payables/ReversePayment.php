@@ -7,6 +7,7 @@ use App\Actions\Receivables\KeyedResult;
 use App\Domain\Receivables\Money;
 use App\Models\Account;
 use App\Models\AccountMovement;
+use App\Models\ObligationChange;
 use App\Models\Payable;
 use App\Models\Payment;
 use App\Models\PaymentReversal;
@@ -82,11 +83,36 @@ class ReversePayment
                 'space_id' => $space->id, 'payable_id' => $payable->id, 'payment_id' => $original->id,
                 'account_id' => $original->account_id, 'user_id' => $user->id, 'reason' => $reason,
             ]);
+            $oldPaid = $payable->paid_cents;
+            $oldRemaining = $payable->remainingCents();
+
             AccountMovement::create([
                 'account_id' => $original->account_id, 'payment_reversal_id' => $reversal->id,
                 'amount_cents' => $original->amount_cents, 'effective_date' => $original->paid_on->toDateString(),
             ]);
             $payable->decrement('paid_cents', $original->amount_cents);
+
+            ObligationChange::create([
+                'space_id' => $space->id,
+                'user_id' => $user->id,
+                'subject' => 'payment',
+                'subject_id' => $original->id,
+                'action' => 'reverse',
+                'before' => [
+                    'payable_id' => $payable->id,
+                    'amount_cents' => $payable->amount_cents,
+                    'paid_cents' => $oldPaid,
+                    'remaining_cents' => $oldRemaining,
+                ],
+                'after' => [
+                    'payable_id' => $payable->id,
+                    'amount_cents' => $payable->amount_cents,
+                    'paid_cents' => $oldPaid - $original->amount_cents,
+                    'remaining_cents' => $oldRemaining !== null ? $oldRemaining + $original->amount_cents : null,
+                    'reversal_id' => $reversal->id,
+                ],
+                'reason' => $reason,
+            ]);
 
             if ($replacement !== null) {
                 $substitute = Payment::create([

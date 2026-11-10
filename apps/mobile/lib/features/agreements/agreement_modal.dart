@@ -5,12 +5,15 @@ import '../../core/api_client.dart';
 import '../../core/dates.dart';
 import '../../core/money.dart';
 import '../../ui/app_tokens.dart';
+import '../../ui/confirm_changes_dialog.dart';
 import '../../ui/date_field.dart';
+import '../../ui/installment_summary_card.dart';
 import '../accounts/account.dart';
 import '../accounts/accounts_repository.dart';
 import '../auth/auth_models.dart';
 import '../auth/session_controller.dart';
 import '../categories/category_badge.dart';
+import '../categories/category_picker_field.dart';
 import 'agreement.dart';
 import 'agreements_repository.dart';
 import 'receipt_attempts.dart';
@@ -231,6 +234,122 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
       _submitError = null;
       _success = false;
     });
+  }
+
+  Future<void> _cancelAgreement() async {
+    final agreement = _agreement;
+    if (agreement == null) return;
+
+    final reasonController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.cancel_outlined, color: Colors.redAccent),
+            SizedBox(width: 8),
+            Expanded(child: Text('Cancelar conta a receber')),
+          ],
+        ),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Tem certeza que deseja cancelar esta conta a receber? '
+                'Esta ação anula o compromisso e não altera saldos bancários.',
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: reasonController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Motivo do cancelamento *',
+                  hintText: 'Ex.: Lançado por engano, desistência do cliente',
+                ),
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Informe o motivo do cancelamento.';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(false),
+            child: const Text('Voltar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.of(dialogCtx).pop(true);
+              }
+            },
+            child: const Text('Confirmar cancelamento'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    if (!mounted) return;
+
+    try {
+      await context.read<AgreementsRepository>().cancel(
+        widget.space.id,
+        agreement.id,
+        reasonController.text.trim(),
+      );
+      if (!mounted) return;
+      context.read<SessionController>().dataChanged();
+      widget.onUpdated?.call();
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Conta a receber cancelada com sucesso.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao cancelar: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _editAgreement() async {
+    final agreement = _agreement;
+    if (agreement == null) return;
+
+    final updated = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) =>
+          EditAgreementDialog(space: widget.space, agreement: agreement),
+    );
+
+    if (updated == true && mounted) {
+      context.read<SessionController>().dataChanged();
+      widget.onUpdated?.call();
+      await _loadData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Conta a receber atualizada e parcelas recalculadas com sucesso.',
+            ),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _submitBaixa() async {
@@ -529,6 +648,22 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
                   ],
                 ),
               ),
+              if (!agreement.isCancelled && agreement.received.isZero) ...[
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, size: 20),
+                  tooltip: 'Editar conta a receber',
+                  onPressed: _editAgreement,
+                ),
+                IconButton(
+                  icon: Icon(
+                    Icons.cancel_outlined,
+                    size: 20,
+                    color: theme.colorScheme.error,
+                  ),
+                  tooltip: 'Cancelar conta a receber',
+                  onPressed: _cancelAgreement,
+                ),
+              ],
               IconButton(
                 icon: const Icon(Icons.close_rounded),
                 onPressed: () => Navigator.of(context).pop(),
@@ -546,6 +681,55 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
             shrinkWrap: true,
             padding: const EdgeInsets.all(AppTokens.p20),
             children: [
+              // Banner de Cancelamento
+              if (agreement.isCancelled) ...[
+                Container(
+                  padding: const EdgeInsets.all(AppTokens.p14),
+                  margin: const EdgeInsets.only(bottom: AppTokens.p16),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.errorContainer.withValues(
+                      alpha: 0.35,
+                    ),
+                    borderRadius: BorderRadius.circular(AppTokens.r12),
+                    border: Border.all(
+                      color: theme.colorScheme.error.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.cancel_outlined,
+                        color: theme.colorScheme.error,
+                        size: 22,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Conta a receber cancelada',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: theme.colorScheme.error,
+                                fontSize: 14,
+                              ),
+                            ),
+                            if (agreement.cancelReason != null &&
+                                agreement.cancelReason!.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                'Motivo: ${agreement.cancelReason}',
+                                style: theme.textTheme.bodySmall,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               // Card Executivo de Totais
               Container(
                 padding: const EdgeInsets.all(AppTokens.p16),
@@ -655,7 +839,9 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
                   installment: inst,
                   totalInstallments: agreement.installmentCount,
                   primaryColor: primaryColor,
+                  isCancelled: agreement.isCancelled,
                   isSelectable:
+                      !agreement.isCancelled &&
                       _pendingInstallments.length > 1 &&
                       inst.status != InstallmentStatus.paid &&
                       inst.remaining.cents > 0,
@@ -922,6 +1108,9 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
                     final m = Money.fromInput(value.trim());
                     if (m == null || m.cents <= 0) {
                       return 'O valor deve ser maior que zero';
+                    }
+                    if (m.cents > installment.remaining.cents) {
+                      return 'O valor excede o saldo restante (${installment.remaining.brl})';
                     }
                     return null;
                   },
@@ -1401,6 +1590,7 @@ class _InstallmentCard extends StatelessWidget {
     required this.totalInstallments,
     required this.primaryColor,
     required this.onDarBaixa,
+    this.isCancelled = false,
     this.isSelectable = false,
     this.isSelected = false,
     this.onToggleSelect,
@@ -1410,6 +1600,7 @@ class _InstallmentCard extends StatelessWidget {
   final int totalInstallments;
   final Color primaryColor;
   final VoidCallback onDarBaixa;
+  final bool isCancelled;
   final bool isSelectable;
   final bool isSelected;
   final VoidCallback? onToggleSelect;
@@ -1516,7 +1707,24 @@ class _InstallmentCard extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             // Ação / Status
-            if (isPaid)
+            if (isCancelled)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(AppTokens.r8),
+                ),
+                child: Text(
+                  'Cancelada',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              )
+            else if (isPaid)
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -1562,6 +1770,453 @@ class _InstallmentCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+enum _EditInstallmentMode { byInstallment, byTotal }
+
+class EditAgreementDialog extends StatefulWidget {
+  const EditAgreementDialog({
+    super.key,
+    required this.space,
+    required this.agreement,
+  });
+
+  final Space space;
+  final Agreement agreement;
+
+  @override
+  State<EditAgreementDialog> createState() => _EditAgreementDialogState();
+}
+
+class _EditAgreementDialogState extends State<EditAgreementDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _descController;
+  late final TextEditingController _amountController;
+  late final TextEditingController _countController;
+  late int? _selectedCategory;
+  late DateTime _firstDueDate;
+  late _EditInstallmentMode _mode;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final agr = widget.agreement;
+    _descController = TextEditingController(text: agr.description);
+    _selectedCategory = agr.categoryId;
+    _countController = TextEditingController(
+      text: agr.installmentCount.toString(),
+    );
+    _mode = agr.installmentCount > 1
+        ? _EditInstallmentMode.byInstallment
+        : _EditInstallmentMode.byTotal;
+
+    final initialPerInstallment = agr.installments.isNotEmpty
+        ? agr.installments.first.amount
+        : agr.total;
+
+    _amountController = TextEditingController(
+      text: _mode == _EditInstallmentMode.byInstallment
+          ? initialPerInstallment.plain
+          : agr.total.plain,
+    );
+
+    if (agr.installments.isNotEmpty) {
+      _firstDueDate = parseApiDate(agr.installments.first.dueDate);
+    } else if (agr.nextDueDate != null) {
+      _firstDueDate = parseApiDate(agr.nextDueDate!);
+    } else {
+      _firstDueDate = DateUtils.dateOnly(DateTime.now());
+    }
+
+    _countController.addListener(_onChanged);
+    _amountController.addListener(_onChanged);
+  }
+
+  void _onChanged() {
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _countController.removeListener(_onChanged);
+    _amountController.removeListener(_onChanged);
+    _descController.dispose();
+    _amountController.dispose();
+    _countController.dispose();
+    super.dispose();
+  }
+
+  int get _parsedCount => int.tryParse(_countController.text) ?? 1;
+
+  Money? get _computedTotal {
+    final inputMoney = Money.fromInput(_amountController.text);
+    if (inputMoney == null) return null;
+    final count = _parsedCount;
+    if (count <= 1) return inputMoney;
+    if (_mode == _EditInstallmentMode.byInstallment) {
+      final totalCents = inputMoney.cents * count;
+      if (totalCents > Money.maxCents) return null;
+      return Money(totalCents);
+    }
+    return inputMoney;
+  }
+
+  Money? get _computedPerInstallment {
+    final inputMoney = Money.fromInput(_amountController.text);
+    if (inputMoney == null) return null;
+    final count = _parsedCount;
+    if (count <= 1) return inputMoney;
+    if (_mode == _EditInstallmentMode.byInstallment) {
+      return inputMoney;
+    }
+    return Money(inputMoney.cents ~/ count);
+  }
+
+  bool get _hasRecalculationChanged {
+    final computed = _computedTotal;
+    if (computed == null) return false;
+    final agr = widget.agreement;
+    return computed.cents != agr.total.cents ||
+        _parsedCount != agr.installmentCount ||
+        toApiDate(_firstDueDate) !=
+            (agr.installments.isNotEmpty
+                ? agr.installments.first.dueDate
+                : agr.nextDueDate);
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    final total = _computedTotal;
+    if (total == null || total.isZero) return;
+
+    final agr = widget.agreement;
+    final changes = <ChangeDifference>[];
+
+    final newDesc = _descController.text.trim();
+    if (newDesc != agr.description) {
+      changes.add(
+        ChangeDifference(
+          label: 'Descrição',
+          oldValue: agr.description,
+          newValue: newDesc,
+        ),
+      );
+    }
+
+    if (_selectedCategory != agr.categoryId) {
+      changes.add(
+        ChangeDifference(
+          label: 'Categoria',
+          oldValue: agr.categoryId != null
+              ? 'Categoria vinculada'
+              : 'Sem categoria',
+          newValue: _selectedCategory != null
+              ? 'Nova categoria selecionada'
+              : 'Sem categoria',
+        ),
+      );
+    }
+
+    if (total.cents != agr.total.cents) {
+      changes.add(
+        ChangeDifference(
+          label: 'Valor total',
+          oldValue: agr.total.brl,
+          newValue: total.brl,
+        ),
+      );
+    }
+
+    if (_parsedCount != agr.installmentCount) {
+      changes.add(
+        ChangeDifference(
+          label: 'Número de parcelas',
+          oldValue: '${agr.installmentCount}x',
+          newValue: '${_parsedCount}x',
+        ),
+      );
+    }
+
+    final oldDueDate = agr.installments.isNotEmpty
+        ? agr.installments.first.dueDate
+        : (agr.nextDueDate ?? '');
+    final newDueDate = toApiDate(_firstDueDate);
+    if (oldDueDate.isNotEmpty && oldDueDate != newDueDate) {
+      changes.add(
+        ChangeDifference(
+          label: 'Primeiro vencimento',
+          oldValue: formatDateBr(oldDueDate),
+          newValue: formatDateBr(newDueDate),
+        ),
+      );
+    }
+
+    if (changes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nenhuma alteração foi realizada.')),
+      );
+      Navigator.of(context).pop(false);
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => ConfirmChangesDialog(
+        changes: changes,
+        warning: _hasRecalculationChanged
+            ? 'As parcelas em aberto desta conta serão excluídas e recalculadas deterministicamente.'
+            : null,
+      ),
+    );
+    if (confirm != true) return;
+    if (!mounted) return;
+
+    setState(() => _saving = true);
+    try {
+      await context.read<AgreementsRepository>().update(
+        widget.space.id,
+        widget.agreement.id,
+        {
+          'description': _descController.text.trim(),
+          'category_id': _selectedCategory,
+          'total': total.toApi(),
+          'installment_count': _parsedCount,
+          'first_due_date': toApiDate(_firstDueDate),
+        },
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao atualizar: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final agr = widget.agreement;
+    final isUnreceived = agr.received.isZero;
+    final total = _computedTotal;
+    final perInst = _computedPerInstallment;
+    final count = _parsedCount;
+
+    return AlertDialog(
+      title: const Row(
+        children: [
+          Icon(Icons.edit_outlined),
+          SizedBox(width: 8),
+          Expanded(child: Text('Editar conta a receber')),
+        ],
+      ),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextFormField(
+                  controller: _descController,
+                  decoration: const InputDecoration(labelText: 'Descrição *'),
+                  maxLength: 120,
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Informe a descrição.'
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                CategoryPickerField(
+                  spaceId: widget.space.id,
+                  type: 'income',
+                  selectedCategoryId: _selectedCategory,
+                  onChanged: (catId) =>
+                      setState(() => _selectedCategory = catId),
+                ),
+                if (isUnreceived) ...[
+                  const SizedBox(height: 16),
+                  const Divider(height: 1),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Valor e Parcelamento',
+                    style: Theme.of(context).textTheme.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 10),
+                  SegmentedButton<_EditInstallmentMode>(
+                    showSelectedIcon: false,
+                    style: const ButtonStyle(
+                      visualDensity: VisualDensity.compact,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    segments: const [
+                      ButtonSegment(
+                        value: _EditInstallmentMode.byInstallment,
+                        label: Text('Valor da parcela'),
+                        icon: Icon(Icons.pin_outlined, size: 16),
+                      ),
+                      ButtonSegment(
+                        value: _EditInstallmentMode.byTotal,
+                        label: Text('Valor total'),
+                        icon: Icon(Icons.all_inclusive, size: 16),
+                      ),
+                    ],
+                    selected: {_mode},
+                    onSelectionChanged: (newSelection) {
+                      if (newSelection.isEmpty) return;
+                      final newMode = newSelection.first;
+                      if (newMode == _mode) return;
+                      final currentMoney = Money.fromInput(
+                        _amountController.text,
+                      );
+                      final c = _parsedCount;
+                      if (currentMoney != null && c > 0) {
+                        if (newMode == _EditInstallmentMode.byTotal) {
+                          final totalCents = currentMoney.cents * c;
+                          if (totalCents <= Money.maxCents) {
+                            _amountController.text = Money(totalCents).plain;
+                          }
+                        } else {
+                          _amountController.text = Money(
+                            currentMoney.cents ~/ c,
+                          ).plain;
+                        }
+                      }
+                      setState(() => _mode = newMode);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: TextFormField(
+                          controller: _amountController,
+                          decoration: InputDecoration(
+                            labelText:
+                                _mode == _EditInstallmentMode.byInstallment
+                                ? 'Valor da parcela *'
+                                : 'Valor total *',
+                            prefixText: 'R\$ ',
+                          ),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          validator: (v) {
+                            final m = Money.fromInput(v ?? '');
+                            if (m == null || m.isZero) {
+                              return 'Informe um valor válido.';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: TextFormField(
+                          controller: _countController,
+                          decoration: const InputDecoration(
+                            labelText: 'Nº Parcelas *',
+                          ),
+                          keyboardType: TextInputType.number,
+                          validator: (v) {
+                            final n = int.tryParse(v ?? '');
+                            if (n == null || n < 1 || n > 1200) {
+                              return 'De 1 a 1200';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  DateField(
+                    label: 'Primeiro Vencimento *',
+                    value: _firstDueDate,
+                    onChanged: (d) => setState(() => _firstDueDate = d),
+                  ),
+                  const SizedBox(height: 14),
+                  if (total != null && perInst != null) ...[
+                    InstallmentSummaryCard(
+                      installmentCount: count,
+                      installmentAmount: perInst,
+                      totalAmount: total,
+                      isByInstallmentMode:
+                          _mode == _EditInstallmentMode.byInstallment,
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  if (_hasRecalculationChanged)
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50.withValues(alpha: 0.8),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.amber.shade300),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline_rounded,
+                            size: 18,
+                            color: Colors.amber.shade900,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'As parcelas em aberto serão recalculadas e redistribuídas deterministicamente.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.amber.shade900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _submit,
+          child: _saving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Text(
+                  _hasRecalculationChanged
+                      ? 'Salvar e Recalcular'
+                      : 'Salvar alterações',
+                ),
+        ),
+      ],
     );
   }
 }

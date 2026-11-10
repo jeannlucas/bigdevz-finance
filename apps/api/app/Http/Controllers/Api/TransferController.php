@@ -38,6 +38,11 @@ class TransferController extends Controller
         IdempotentOperations $keys
     ): JsonResponse {
         $space = $this->space($request, $space);
+        $space->ensureCan($request->user(), 'transfer_funds');
+        if ($request->filled('transferred_at')) {
+            $space->ensureDateNotClosed($request->input('transferred_at'), 'transferência entre contas');
+        }
+
         $key = $this->idempotencyKey($request);
 
         $rules = [

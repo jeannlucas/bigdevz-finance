@@ -34,11 +34,15 @@ class AccountController extends Controller
     public function store(Request $request, string $space): JsonResponse
     {
         $space = $this->space($request, $space);
+        $space->ensureCan($request->user(), 'create_account');
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:80'],
             'opening_balance' => ['required', new MoneyAmount(positive: false)],
             'opening_balance_date' => ['required', 'date_format:Y-m-d'],
         ]);
+
+        $space->ensureDateNotClosed($data['opening_balance_date'], 'criação de conta');
 
         $account = $space->accounts()->create([
             'name' => $data['name'],
@@ -80,18 +84,31 @@ class AccountController extends Controller
     /** Arquivar não muda dinheiro; serializado com recebimentos pelo lock da conta. */
     public function archive(Request $request, string $space, string $account, ArchiveAccount $archive): AccountResource
     {
-        return $this->setArchived($this->space($request, $space), $account, $archive, archived: true);
+        $spaceModel = $this->space($request, $space);
+        $spaceModel->ensureCan($request->user(), 'archive_account');
+
+        return $this->setArchived($spaceModel, $account, $archive, archived: true);
     }
 
     public function unarchive(Request $request, string $space, string $account, ArchiveAccount $archive): AccountResource
     {
-        return $this->setArchived($this->space($request, $space), $account, $archive, archived: false);
+        $spaceModel = $this->space($request, $space);
+        $spaceModel->ensureCan($request->user(), 'archive_account');
+
+        return $this->setArchived($spaceModel, $account, $archive, archived: false);
     }
 
     public function adjustOpening(Request $request, string $space, string $account, AdjustAccountOpening $adjust, IdempotentOperations $keys): JsonResponse
     {
         $space = $this->space($request, $space);
+        $space->ensureCan($request->user(), 'adjust_opening_balance');
+
         $model = $space->accounts()->findOrFail($account);
+        $space->ensureDateNotClosed($model->opening_balance_date, 'ajuste de saldo inicial');
+        if ($request->filled('opening_balance_date')) {
+            $space->ensureDateNotClosed($request->input('opening_balance_date'), 'ajuste de saldo inicial');
+        }
+
         $key = $this->idempotencyKey($request);
 
         $validator = Validator::make($request->all(), [

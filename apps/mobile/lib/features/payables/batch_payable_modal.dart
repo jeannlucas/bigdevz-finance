@@ -287,7 +287,7 @@ class _BatchPayableModalContentState extends State<_BatchPayableModalContent> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Baixa múltipla de obrigações',
+                      'Pagamento em lote de contas',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),

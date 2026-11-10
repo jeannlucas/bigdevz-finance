@@ -15,6 +15,10 @@ class Agreement {
     required this.installments,
     this.categoryId,
     this.category,
+    this.isCancelled = false,
+    this.cancelReason,
+    this.cancelledAt,
+    this.editedAt,
   });
 
   factory Agreement.fromJson(Map<String, dynamic> json) => Agreement(
@@ -31,6 +35,10 @@ class Agreement {
     category: json['category'] != null
         ? Category.fromJson(json['category'] as Map<String, dynamic>)
         : null,
+    isCancelled: (json['is_cancelled'] as bool?) ?? false,
+    cancelReason: json['cancel_reason'] as String?,
+    cancelledAt: json['cancelled_at'] as String?,
+    editedAt: json['edited_at'] as String?,
     installments: (json['installments'] as List? ?? const [])
         .map((item) => Installment.fromJson(item as Map<String, dynamic>))
         .toList(),
@@ -47,6 +55,10 @@ class Agreement {
   final String? nextDueDate;
   final int? categoryId;
   final Category? category;
+  final bool isCancelled;
+  final String? cancelReason;
+  final String? cancelledAt;
+  final String? editedAt;
   final List<Installment> installments;
 }
 
@@ -114,6 +126,12 @@ class Installment {
   final String? agreementDescription;
   final int? installmentCount;
   final List<Receipt> receipts;
+
+  String get detailedStatusLabel => switch (status) {
+    InstallmentStatus.partial => 'Parcialmente recebido',
+    InstallmentStatus.paid => 'Quitada',
+    InstallmentStatus.pending => overdue ? 'Vencida' : 'Pendente',
+  };
 }
 
 class Receipt {

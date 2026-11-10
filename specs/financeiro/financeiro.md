@@ -95,6 +95,72 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
 
 ---
 
+### 2.7. Edição e Cancelamento de Lançamentos em Aberto
+
+- **AC-FIN-017 [Edição e Cancelamento Seguro de Obrigações e Acordos]:**
+  - **Obrigações e Acordos sem Liquidação (Valor Pago/Recebido Zero):**
+    - Podem ser cancelados a qualquer momento pelo usuário mediante fornecimento de justificativa obrigatória (`cancel_reason`).
+    - Uma vez cancelados, deixam de ser listados em filtros de pendências abertas/vencidas e não alteram fluxo de caixa projetado nem saldos disponíveis.
+    - É estritamente proibido cancelar obrigações ou acordos que possuam pagamentos ou recebimentos ativos (`paid_cents > 0` ou `received_cents > 0`). Caso haja liquidação ativa, exige-se o estorno contábil prévio de todas as liquidações antes do cancelamento.
+  - **Edição de Dados Cadastrais:**
+    - Antes da liquidação, é permitida a edição de dados descritivos (`description`, `category_id`, `payee` e datas de vencimento).
+    - Obrigações ou acordos cancelados são imutáveis e não aceitam edições nem liquidações.
+
+---
+
+### 2.5. Segurança Operacional, RBAC e Integridade de Fechamento
+
+- **AC-FIN-018 [Controle de Acesso Baseado em Papéis — RBAC Real por Espaço PJ]:**
+  - Espaços empresariais (PJ) suportam perfis dedicados: `administrador`, `financeiro`, `operador` e `contador`.
+  - No espaço pessoal (PF), o usuário autenticado opera nativamente como administrador.
+  - O perfil `operador` pode cadastrar lançamentos e baixas rotineiras, mas é estritamente bloqueado (HTTP 403) de: cancelar acordos/obrigações, estornar pagamentos/recebimentos, exportar dados e alterar saldos iniciais de contas.
+  - O perfil `contador` possui acesso exclusivamente de consulta e exportação, sendo estritamente impedido (HTTP 403) de realizar mutações financeiras (criação, edição, baixas, estornos e transferências).
+  - O perfil `administrador` possui autoridade total, incluindo gestão de membros (`/members`), fechamento e reabertura contábil.
+  - As permissões são aplicadas por espaço, garantindo isolamento total sem vazamento entre organizações.
+
+- **AC-FIN-019 [Período Contábil Fechado e Bloqueio de Mutações Retroativas]:**
+  - O sistema permite definir uma data limite de fechamento contábil por espaço (`spaces.closed_until`).
+  - Nenhuma operação financeira (criação, edição, pagamento, baixa, estorno ou cancelamento) pode ser gravada ou alterada com data contábil menor ou igual à data de fechamento (`<= closed_until`), retornando erro de validação HTTP 422.
+  - Apenas administradores do espaço podem fechar ou reabrir o período contábil.
+  - A reabertura exige obrigatoriamente justificativa detalhada (mínimo de 5 caracteres), registrada permanentemente na trilha de auditoria (`space_closing_logs` e `obligation_changes`).
+
+- **AC-FIN-020 [Auditoria Imutável para o Gestor e Rastreabilidade Integral]:**
+  - Todas as mutações críticas (estornos, cancelamentos, alterações de valores monetários e reaberturas de período) são registradas de forma indelével na tabela de auditoria.
+  - Registros de auditoria são estritamente imutáveis (tentativas de `UPDATE` ou `DELETE` são rejeitadas com exceção em nível de domínio e banco).
+  - O endpoint `GET /spaces/{space}/audit` disponibiliza histórico cronológico completo contendo autor, data/hora, ação, diff estruturado (`before` vs. `after`) e sinalizador de criticidade (`is_critical`).
+
+---
+
+### 2.6. Operações Financeiras Avançadas, Planejamento e Conciliação (P1 Interno)
+
+- **AC-FIN-021 [Baixas Parciais com Auditoria e Saldo Residual Exato]:**
+  - O sistema permite o pagamento ou recebimento parcial de obrigações (`Payable`) e parcelas (`Installment`).
+  - Cada baixa parcial calcula e mantém o saldo residual exato em centavos inteiros (`amount_cents - paid_cents` / `amount_cents - received_cents`).
+  - O status evolui dinamicamente para 'Parcialmente pago' / 'Parcialmente recebido' (badge 'Parcial' em layouts compactos) enquanto houver saldo devedor/credor pendente.
+  - Cada evento de baixa ou estorno parcial gera um registro indelével em `obligation_changes` contendo o valor amortizado, saldo anterior e saldo restante.
+  - É proibido registrar baixa cujo valor somado aos pagamentos/recebimentos anteriores ultrapasse o valor facial total da obrigação/parcela, retornando HTTP 422.
+  - Cada baixa parcial pode ser estornada de forma atômica e independente sem afetar as demais amortizações prévias, restaurando o saldo restante na proporção exata daquela baixa.
+  - Baixas e estornos respeitam integralmente os bloqueios de RBAC e período contábil fechado (`closed_until`).
+
+- **AC-FIN-022 [Fluxo de Caixa Realizado vs. Previsto e Planejamento Financeiro]:**
+  - O módulo de planejamento disponibiliza projeção de fluxo de caixa em janelas pré-configuradas de 30, 60 e 90 dias a partir da data de referência.
+  - Suporta segregação entre visão de Caixa (`cash` - baseado nas datas de liquidação/vencimento efetivas) e Competência (`accrual` - baseado nas datas de emissão/competência contábil).
+  - O saldo inicial projetado é composto exclusivamente pelo saldo real consolidado das contas bancárias ativas no espaço no início do horizonte.
+  - Cada dia da projeção agrega entradas realizadas, entradas previstas, saídas realizadas, saídas previstas e saldo final acumulado dia a dia sem descontinuidade matemática.
+  - Filtros granulares permitem consultar por espaço (PF/PJ), conta bancária específica e categoria orçamentária.
+  - O sistema suporta estados visuais de carregamento, vazio (sem movimentações no horizonte) e erro de rede.
+  - A exportação dos dados projetados (ex.: CSV estruturado) é protegida por permissão (`export_data`), bloqueando operadores rotineiros com HTTP 403.
+
+- **AC-FIN-023 [Conciliação Bancária OFX com Deduplicação e Confirmação Humana]:**
+  - Importação de arquivos de extrato bancário no padrão OFX (suporte a tags abertas e fechadas em SGML 1.02 e XML 2.0) sem consumo de bibliotecas ou dependências externas não homologadas.
+  - Prévia estruturada dos lançamentos antes de qualquer persistência contábil, exibindo data, descrição, valor (crédito/débito) e identificador único (`FITID`).
+  - Algoritmo de sugestão automática de correspondência (*fuzzy match*) por valor monetário exato e proximidade de data de vencimento (+/- 7 dias) contra contas a pagar em aberto e parcelas de recebíveis ativas.
+  - Deduplicação rigorosa baseada em chave única composta `(space_id, account_id, fitid)` na tabela `reconciled_transactions`. Transações já conciliadas no espaço são sinalizadas com badge e bloqueadas para duplicação.
+  - Confirmação humana obrigatória para conclusão da conciliação: cada item pode ser confirmado como liquidação de obrigação existente, recebimento de acordo ou lançamento de movimentação avulsa.
+  - Zero conexões automáticas ou chamadas a APIs de Open Finance nesta fase (operação estritamente local/manual via upload ou colagem de conteúdo).
+
+---
+
 ## 3. Matriz de Rastreabilidade (Spec ↔ Código ↔ Testes)
 
 | Critério | Implementação Backend / Mobile | Testes Automatizados |
@@ -115,3 +181,10 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
 | **AC-FIN-014** | `ArchiveAccount.php`, `AccountController::archive` | `AccountManagementTest.php`, `accounts_test.dart` |
 | **AC-FIN-015** | `IdempotentOperations.php`, `HandlesIdempotency.php` | `ConcurrentReceiptsTest.php`, `ConcurrentPaymentsTest.php` |
 | **AC-FIN-016** | `lockForUpdate` ordenado, locks advisory Postgres | `ConcurrentReceiptsTest.php`, `ConcurrentPaymentsTest.php` |
+| **AC-FIN-017** | `ChangeObligations.php`, `ChangeAgreements.php`, Modais Web/Mobile | `PayablesTest.php`, `AgreementCancellationAndEditTest.php`, `agreement_cancel_and_edit_test.dart` |
+| **AC-FIN-018** | `Space::ensureCan`, `space_users`, `SpaceMemberController`, `SpaceMembersScreen` | `RbacSecurityTest.php`, `auth_models_test.dart`, `space_members_screen_test.dart`, `space_members_repository_test.dart` |
+| **AC-FIN-019** | `Space::ensureDateNotClosed`, `AccountingPeriodController`, `space_closing_logs`, `AccountingPeriodDialog` | `AccountingPeriodClosingTest.php` |
+| **AC-FIN-020** | `ObligationChange`, `AuditController`, `RecordsChanges`, `AuditScreen` | `AuditTrailTest.php`, `audit_screen_test.dart`, `audit_repository_test.dart` |
+| **AC-FIN-021** | `PayPayable.php`, `ReceiveInstallment.php`, `ReversePayment.php`, `ReverseReceipt.php`, `agreement_modal.dart`, `payable_modal.dart` | `PartialPaymentsAndReceiptsAuditTest.php`, `agreement_modal_test.dart`, `payable_modal_edit_test.dart` |
+| **AC-FIN-022** | `CashFlowController.php`, `planning_models.dart`, `planning_repository.dart`, `PlanningScreen.dart` | `CashFlowPlanningTest.php`, `planning_screen_test.dart`, `planning_repository_test.dart` |
+| **AC-FIN-023** | `OfxParserService.php`, `OfxReconciliationController.php`, `ReconciledTransaction.php`, `ofx_screen.dart`, `ofx_repository.dart` | `OfxReconciliationTest.php`, `ofx_screen_test.dart`, `ofx_repository_test.dart` |

@@ -39,7 +39,14 @@ class ReceiptReversalController extends Controller
     private function handle(Request $request, string $space, string $receipt, ReverseReceipt $reverse, IdempotentOperations $keys, bool $correction): JsonResponse
     {
         $space = $this->space($request, $space);
+        $space->ensureCan($request->user(), 'reverse_receipt');
+
         $receipt = $space->receipts()->findOrFail($receipt);
+        $space->ensureDateNotClosed($receipt->received_on, 'estorno de recebimento');
+        if ($correction && $request->filled('received_on')) {
+            $space->ensureDateNotClosed($request->input('received_on'), 'correção de recebimento');
+        }
+
         $key = $this->idempotencyKey($request);
 
         $rules = ['reason' => ['required', 'string', 'min:3', 'max:500']];

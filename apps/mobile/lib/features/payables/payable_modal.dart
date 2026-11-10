@@ -5,6 +5,7 @@ import '../../core/api_client.dart';
 import '../../core/dates.dart';
 import '../../core/money.dart';
 import '../../ui/app_tokens.dart';
+import '../../ui/confirm_changes_dialog.dart';
 import '../../ui/date_field.dart';
 import '../accounts/account.dart';
 import '../accounts/accounts_repository.dart';
@@ -199,6 +200,287 @@ class _PayableModalContentState extends State<_PayableModalContent> {
       _submitError = null;
       _success = false;
     });
+  }
+
+  Future<void> _cancelPayable(Payable payable) async {
+    final reasonController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.block, color: Colors.redAccent),
+            SizedBox(width: 8),
+            Expanded(child: Text('Cancelar conta a pagar')),
+          ],
+        ),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Tem certeza que deseja cancelar esta conta a pagar? '
+                'Esta ação cancela a conta a pagar e não altera saldos bancários.',
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: reasonController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Motivo do cancelamento *',
+                  hintText: 'Ex.: Lançado por engano, boleto cancelado',
+                ),
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Informe o motivo do cancelamento.';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(false),
+            child: const Text('Voltar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.of(dialogCtx).pop(true);
+              }
+            },
+            child: const Text('Confirmar cancelamento'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    if (!mounted) return;
+
+    try {
+      await context.read<PayablesRepository>().cancel(
+        widget.space.id,
+        payable.id,
+        reasonController.text.trim(),
+      );
+      if (!mounted) return;
+      context.read<SessionController>().dataChanged();
+      widget.onUpdated?.call();
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Conta a pagar cancelada com sucesso.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao cancelar: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _editPayable(Payable payable) async {
+    final descController = TextEditingController(text: payable.description);
+    final payeeController = TextEditingController(text: payable.payee ?? '');
+    final amountController = TextEditingController(
+      text: payable.amount?.plain ?? '',
+    );
+    DateTime due = parseApiDate(payable.dueDate);
+    final formKey = GlobalKey<FormState>();
+
+    final updated = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.edit_outlined),
+              SizedBox(width: 8),
+              Expanded(child: Text('Editar conta a pagar')),
+            ],
+          ),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextFormField(
+                      controller: descController,
+                      decoration: const InputDecoration(
+                        labelText: 'Descrição *',
+                      ),
+                      maxLength: 120,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Informe a descrição.'
+                          : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: payeeController,
+                      decoration: const InputDecoration(
+                        labelText: 'Credor / Beneficiário (opcional)',
+                      ),
+                      maxLength: 120,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: amountController,
+                      decoration: const InputDecoration(
+                        labelText: 'Valor *',
+                        prefixText: 'R\$ ',
+                      ),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      validator: (v) {
+                        final parsed = Money.fromInput(v ?? '');
+                        if (parsed == null || parsed.isZero) {
+                          return 'Informe um valor válido.';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    DateField(
+                      label: 'Vencimento *',
+                      value: due,
+                      onChanged: (newDate) =>
+                          setDialogState(() => due = newDate),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (!formKey.currentState!.validate()) return;
+                final newDesc = descController.text.trim();
+                final newPayee = payeeController.text.trim();
+                final newAmount = Money.fromInput(amountController.text)!;
+                final newDueDate = toApiDate(due);
+
+                final changes = <ChangeDifference>[];
+                if (newDesc != payable.description) {
+                  changes.add(
+                    ChangeDifference(
+                      label: 'Descrição',
+                      oldValue: payable.description,
+                      newValue: newDesc,
+                    ),
+                  );
+                }
+                final oldPayee = payable.payee ?? '';
+                if (newPayee != oldPayee) {
+                  changes.add(
+                    ChangeDifference(
+                      label: 'Beneficiário',
+                      oldValue: oldPayee.isEmpty ? '(nenhum)' : oldPayee,
+                      newValue: newPayee.isEmpty ? '(nenhum)' : newPayee,
+                    ),
+                  );
+                }
+                if (payable.amount != null &&
+                    newAmount.cents != payable.amount!.cents) {
+                  changes.add(
+                    ChangeDifference(
+                      label: 'Valor',
+                      oldValue: payable.amount!.brl,
+                      newValue: newAmount.brl,
+                    ),
+                  );
+                }
+                if (payable.dueDate != newDueDate) {
+                  changes.add(
+                    ChangeDifference(
+                      label: 'Vencimento',
+                      oldValue: formatDateBr(payable.dueDate),
+                      newValue: formatDateBr(newDueDate),
+                    ),
+                  );
+                }
+
+                if (changes.isEmpty) {
+                  Navigator.of(dialogCtx).pop(false);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Nenhuma alteração foi realizada.'),
+                    ),
+                  );
+                  return;
+                }
+
+                final confirmed = await showDialog<bool>(
+                  context: dialogCtx,
+                  builder: (confirmCtx) =>
+                      ConfirmChangesDialog(changes: changes),
+                );
+                if (confirmed == true && dialogCtx.mounted) {
+                  Navigator.of(dialogCtx).pop(true);
+                }
+              },
+              child: const Text('Salvar alterações'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (updated != true) return;
+    if (!mounted) return;
+
+    try {
+      await context.read<PayablesRepository>().update(
+        widget.space.id,
+        payable.id,
+        {
+          'description': descController.text.trim(),
+          'payee': payeeController.text.trim().isEmpty
+              ? null
+              : payeeController.text.trim(),
+          'amount': Money.fromInput(amountController.text)!.toApi(),
+          'due_date': toApiDate(due),
+        },
+      );
+      if (!mounted) return;
+      context.read<SessionController>().dataChanged();
+      widget.onUpdated?.call();
+      await _loadData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Conta a pagar atualizada com sucesso.'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao atualizar: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _submitBillAmount() async {
@@ -495,6 +777,22 @@ class _PayableModalContentState extends State<_PayableModalContent> {
                   ],
                 ),
               ),
+              if (!payable.isCancelled && payable.paid.isZero) ...[
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, size: 20),
+                  tooltip: 'Editar conta a pagar',
+                  onPressed: () => _editPayable(payable),
+                ),
+                IconButton(
+                  icon: Icon(
+                    Icons.block,
+                    size: 20,
+                    color: theme.colorScheme.error,
+                  ),
+                  tooltip: 'Cancelar conta a pagar',
+                  onPressed: () => _cancelPayable(payable),
+                ),
+              ],
               IconButton(
                 icon: const Icon(Icons.close_rounded),
                 onPressed: () => Navigator.of(context).pop(),
@@ -512,6 +810,55 @@ class _PayableModalContentState extends State<_PayableModalContent> {
             shrinkWrap: true,
             padding: const EdgeInsets.all(AppTokens.p20),
             children: [
+              // Banner de Cancelamento
+              if (payable.isCancelled) ...[
+                Container(
+                  padding: const EdgeInsets.all(AppTokens.p14),
+                  margin: const EdgeInsets.only(bottom: AppTokens.p16),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.errorContainer.withValues(
+                      alpha: 0.35,
+                    ),
+                    borderRadius: BorderRadius.circular(AppTokens.r12),
+                    border: Border.all(
+                      color: theme.colorScheme.error.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.block,
+                        color: theme.colorScheme.error,
+                        size: 22,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Conta a pagar cancelada',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: theme.colorScheme.error,
+                                fontSize: 14,
+                              ),
+                            ),
+                            if (payable.cancelReason != null &&
+                                payable.cancelReason!.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                'Motivo: ${payable.cancelReason}',
+                                style: theme.textTheme.bodySmall,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               // Card de Valores
               if (isAwaitingAmount)
                 Container(
@@ -727,7 +1074,32 @@ class _PayableModalContentState extends State<_PayableModalContent> {
               const SizedBox(height: 24),
 
               // Ações Principais
-              if (isAwaitingAmount) ...[
+              if (payable.isCancelled) ...[
+                Container(
+                  padding: const EdgeInsets.all(AppTokens.p16),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.errorContainer.withValues(
+                      alpha: 0.2,
+                    ),
+                    borderRadius: BorderRadius.circular(AppTokens.r12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.block, color: theme.colorScheme.error),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Esta conta foi cancelada',
+                        style: TextStyle(
+                          color: theme.colorScheme.error,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else if (isAwaitingAmount) ...[
                 SizedBox(
                   height: 50,
                   child: FilledButton.icon(
@@ -1225,6 +1597,10 @@ class _PayableModalContentState extends State<_PayableModalContent> {
                     final m = Money.fromInput(value.trim());
                     if (m == null || m.cents <= 0) {
                       return 'O valor deve ser maior que zero';
+                    }
+                    if (payable.remaining != null &&
+                        m.cents > payable.remaining!.cents) {
+                      return 'O valor excede o saldo restante (${payable.remaining!.brl})';
                     }
                     return null;
                   },

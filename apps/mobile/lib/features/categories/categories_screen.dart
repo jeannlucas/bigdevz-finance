@@ -356,7 +356,7 @@ class _CategoriesContentState extends State<_CategoriesContent> {
         title: const Text('Excluir Categoria?'),
         content: Text(
           'Deseja excluir a categoria "${category.name}"?\n\n'
-          'Os lançamentos e obrigações vinculados a ela não serão excluídos, '
+          'Os lançamentos e contas a pagar vinculados a ela não serão excluídos, '
           'apenas ficarão sem categoria.',
         ),
         actions: [

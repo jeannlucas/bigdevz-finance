@@ -15,6 +15,10 @@ class StatementController extends Controller
     {
         $space = $this->space($request, $space);
 
+        if ($request->boolean('export')) {
+            $space->ensureCan($request->user(), 'export_data');
+        }
+
         $request->validate([
             'account_id' => ['nullable', 'integer'],
             'from' => ['nullable', 'date_format:Y-m-d'],

@@ -7,6 +7,7 @@ use App\Actions\Receivables\KeyedResult;
 use App\Domain\Receivables\Money;
 use App\Models\Account;
 use App\Models\AccountMovement;
+use App\Models\ObligationChange;
 use App\Models\Payable;
 use App\Models\Payment;
 use App\Models\Space;
@@ -44,11 +45,37 @@ class PayPayable
                 'space_id' => $space->id, 'payable_id' => $payable->id, 'account_id' => $account->id,
                 'user_id' => $user->id, 'amount_cents' => $amountCents, 'paid_on' => $paidOn,
             ]);
+            $oldPaid = $payable->paid_cents;
+            $oldRemaining = $payable->remainingCents();
+
             AccountMovement::create([
                 'account_id' => $account->id, 'payment_id' => $payment->id,
                 'amount_cents' => -$amountCents, 'effective_date' => $paidOn,
             ]);
             $payable->increment('paid_cents', $amountCents);
+
+            ObligationChange::create([
+                'space_id' => $space->id,
+                'user_id' => $user->id,
+                'subject' => 'payment',
+                'subject_id' => $payment->id,
+                'action' => 'payment',
+                'before' => [
+                    'payable_id' => $payable->id,
+                    'amount_cents' => $payable->amount_cents,
+                    'paid_cents' => $oldPaid,
+                    'remaining_cents' => $oldRemaining,
+                ],
+                'after' => [
+                    'payable_id' => $payable->id,
+                    'amount_cents' => $payable->amount_cents,
+                    'paid_cents' => $oldPaid + $amountCents,
+                    'remaining_cents' => $oldRemaining !== null ? $oldRemaining - $amountCents : null,
+                    'payment_id' => $payment->id,
+                    'account_id' => $account->id,
+                    'paid_on' => $paidOn,
+                ],
+            ]);
 
             return ['payment_id' => $payment->id];
         });

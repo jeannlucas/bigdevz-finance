@@ -97,6 +97,18 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Recarrega a lista de espaços e atualiza permissões do espaço ativo.
+  Future<void> reloadSpaces() async {
+    final currentId = activeSpace?.id;
+    spaces = await _auth.spaces();
+    activeSpace =
+        spaces.where((space) => space.id == currentId).firstOrNull ??
+        spaces.where((space) => space.isPf).firstOrNull ??
+        spaces.firstOrNull;
+    dataVersion++;
+    notifyListeners();
+  }
+
   Future<void> _loadSpaces() async {
     spaces = await _auth.spaces();
     final saved = int.tryParse(await _storage.read(_spaceKey) ?? '');
