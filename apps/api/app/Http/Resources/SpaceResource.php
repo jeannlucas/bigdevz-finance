@@ -11,6 +11,12 @@ class SpaceResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        return ['id' => $this->id, 'kind' => $this->kind, 'name' => $this->name];
+        return [
+            'id' => $this->id,
+            'kind' => $this->kind,
+            'name' => $this->name,
+            'role' => $request->user() ? $this->roleFor($request->user()) : 'administrador',
+            'closed_until' => $this->closed_until?->format('Y-m-d'),
+        ];
     }
 }

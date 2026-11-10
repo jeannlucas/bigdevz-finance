@@ -5,8 +5,13 @@ import '../../core/config.dart';
 import '../../ui/app_brand.dart';
 import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
+import '../audit/audit_screen.dart';
 import '../auth/session_controller.dart';
 import '../categories/categories_screen.dart';
+import '../members/space_members_screen.dart';
+import '../period/accounting_period_dialog.dart';
+import '../planning/planning_screen.dart';
+import '../reconciliation/ofx_screen.dart';
 import 'preferences_controller.dart';
 
 /// Central de Configurações do BigDev.Z Finance:
@@ -15,6 +20,16 @@ import 'preferences_controller.dart';
 /// - Sobre o aplicativo: Identidade institucional e versão
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
+
+  static String _formatDate(String iso) {
+    try {
+      final parts = iso.split('-');
+      if (parts.length == 3) {
+        return '${parts[2]}/${parts[1]}/${parts[0]}';
+      }
+    } catch (_) {}
+    return iso;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -140,6 +155,148 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
+
+          // SEÇÃO D: SEGURANÇA E GOVERNANÇA (ADMINISTRADOR E FINANCEIRO)
+          Builder(
+            builder: (context) {
+              final space = context.watch<SessionController?>()?.activeSpace;
+              if (space == null || (!space.isAdmin && !space.isFinancial)) {
+                return const SizedBox.shrink();
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SectionHeader(
+                    title: 'Segurança e Governança',
+                    subtitle: 'Auditoria de lançamentos, fechamento contábil e equipe.',
+                    icon: AppIcons.lock,
+                  ),
+                  const SizedBox(height: 10),
+                  Card(
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      children: [
+                        // Auditoria e Conformidade
+                        ListTile(
+                          leading: const Icon(
+                            Icons.history_edu_rounded,
+                            color: AppTokens.brandPrimary,
+                          ),
+                          title: const Text('Auditoria e Conformidade'),
+                          subtitle: const Text(
+                            'Linha do tempo de alterações, estornos e cancelamentos',
+                          ),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const AuditScreen(),
+                              ),
+                            );
+                          },
+                        ),
+
+                        // Fluxo de Caixa Realizado vs. Previsto
+                        const Divider(height: 1, indent: 56),
+                        ListTile(
+                          leading: const Icon(
+                            Icons.insights_rounded,
+                            color: Color(0xFF10B981),
+                          ),
+                          title: const Text('Fluxo de Caixa e Planejamento'),
+                          subtitle: const Text(
+                            'Projeção para 30, 60 e 90 dias com saldo diário e filtros',
+                          ),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => PlanningScreen(space: space),
+                              ),
+                            );
+                          },
+                        ),
+
+                        // Conciliação Bancária OFX
+                        const Divider(height: 1, indent: 56),
+                        ListTile(
+                          leading: const Icon(
+                            Icons.receipt_long_rounded,
+                            color: Color(0xFF0284C7),
+                          ),
+                          title: const Text('Conciliação Bancária OFX'),
+                          subtitle: const Text(
+                            'Importe extratos OFX, confira correspondências e elimine duplicidades',
+                          ),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => OfxScreen(space: space),
+                              ),
+                            );
+                          },
+                        ),
+
+                        // Período Contábil (Apenas Administrador)
+                        if (space.isAdmin) ...[
+                          const Divider(height: 1, indent: 56),
+                          ListTile(
+                            leading: Icon(
+                              space.closedUntil != null
+                                  ? Icons.lock_clock_rounded
+                                  : Icons.lock_open_rounded,
+                              color: space.closedUntil != null
+                                  ? AppTokens.warning
+                                  : AppTokens.income,
+                            ),
+                            title: const Text('Período Contábil'),
+                            subtitle: Text(
+                              space.closedUntil != null
+                                  ? 'Fechado até ${_formatDate(space.closedUntil!)}'
+                                  : 'Aberto para lançamentos e correções',
+                            ),
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                            onTap: () {
+                              AccountingPeriodDialog.show(
+                                context,
+                                space: space,
+                              );
+                            },
+                          ),
+                        ],
+
+                        // Gestão de Equipe e Perfis (Apenas Administrador em Espaço PJ)
+                        if (space.isAdmin && !space.isPf) ...[
+                          const Divider(height: 1, indent: 56),
+                          ListTile(
+                            leading: const Icon(
+                              Icons.group_rounded,
+                              color: Color(0xFF0284C7),
+                            ),
+                            title: const Text('Equipe e Perfis de Acesso'),
+                            subtitle: const Text(
+                              'Gerencie os membros da empresa e alçadas de permissão',
+                            ),
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const SpaceMembersScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              );
+            },
+          ),
 
           // SEÇÃO D: SOBRE O APLICATIVO
           _SectionHeader(

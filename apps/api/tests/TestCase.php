@@ -38,6 +38,11 @@ abstract class TestCase extends BaseTestCase
             throw new RuntimeException("Suíte recusada: PDO de escrita conectado a banco inesperado [{$currentDb}].");
         }
 
+        // Garante que o phpdotenv não emita warnings de arquivo inexistente sob PHPUnit
+        if (! file_exists(base_path('.env'))) {
+            @touch(base_path('.env'));
+        }
+
         // Somente migrations pendentes; nunca recria nem esvazia o banco.
         if (! self::$migrated) {
             Artisan::call('migrate');

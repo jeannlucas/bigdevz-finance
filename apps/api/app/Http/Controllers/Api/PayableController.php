@@ -80,8 +80,20 @@ class PayableController extends Controller
     public function store(Request $request, string $space, CreatePayable $create, IdempotentOperations $keys): JsonResponse
     {
         $space = $this->space($request, $space);
+        $space->ensureCan($request->user(), 'create_payable');
+
         $key = $this->idempotencyKey($request);
         $kind = $request->input('kind');
+
+        $targetDate = match ($kind) {
+            'installment' => $request->input('first_due_date'),
+            'recurring' => $request->input('start_date'),
+            default => $request->input('due_date'),
+        };
+        if ($targetDate) {
+            $space->ensureDateNotClosed($targetDate, 'criação de conta a pagar');
+        }
+
         $common = [
             'description' => ['required', 'string', 'max:120'],
             'payee' => ['nullable', 'string', 'max:120'],
@@ -184,7 +196,11 @@ class PayableController extends Controller
     public function update(Request $request, string $space, string $payable, ChangeObligations $change): JsonResponse
     {
         $space = $this->space($request, $space);
+        $space->ensureCan($request->user(), 'edit_payable');
+
         $model = $space->payables()->findOrFail($payable);
+        $space->ensureDateNotClosed($model->due_date, 'edição de conta a pagar');
+
         $data = $request->validate([
             'description' => ['sometimes', 'required', 'string', 'max:120'],
             'payee' => ['sometimes', 'nullable', 'string', 'max:120'],
@@ -193,6 +209,11 @@ class PayableController extends Controller
             'reason' => ['nullable', 'string', 'max:500'],
             'space_id' => ['prohibited'],
         ], ['space_id.prohibited' => 'A obrigação não pode mudar de espaço.']);
+
+        if (isset($data['due_date'])) {
+            $space->ensureDateNotClosed($data['due_date'], 'edição de conta a pagar');
+        }
+
         $reason = $data['reason'] ?? null;
         unset($data['reason']);
         $updated = $change->edit($request->user(), $space, $model->id, $data, $reason);
@@ -203,7 +224,11 @@ class PayableController extends Controller
     public function cancel(Request $request, string $space, string $payable, ChangeObligations $change): JsonResponse
     {
         $space = $this->space($request, $space);
+        $space->ensureCan($request->user(), 'cancel_payable');
+
         $model = $space->payables()->findOrFail($payable);
+        $space->ensureDateNotClosed($model->due_date, 'cancelamento de conta a pagar');
+
         $data = $request->validate(['reason' => ['required', 'string', 'min:3', 'max:500']], [
             'reason.required' => 'Informe o motivo.',
         ]);

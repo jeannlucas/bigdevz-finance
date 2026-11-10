@@ -16,4 +16,9 @@ String formatDateBr(String apiDate) {
   return '${_two(date.day)}/${_two(date.month)}/${date.year}';
 }
 
+String formatDateTimeBr(DateTime dt) {
+  final d = dt.toLocal();
+  return '${_two(d.day)}/${_two(d.month)}/${d.year} às ${_two(d.hour)}:${_two(d.minute)}';
+}
+
 String _two(int value) => value.toString().padLeft(2, '0');

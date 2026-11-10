@@ -69,6 +69,23 @@ class AgreementsRepository {
             as Map<String, dynamic>,
       );
 
+  Future<Agreement> update(
+    int spaceId,
+    int agreementId,
+    Map<String, dynamic> data,
+  ) async => Agreement.fromJson(
+    (await _api.patch('/spaces/$spaceId/agreements/$agreementId', data))['data']
+        as Map<String, dynamic>,
+  );
+
+  Future<Agreement> cancel(int spaceId, int agreementId, String reason) async =>
+      Agreement.fromJson(
+        (await _api.post('/spaces/$spaceId/agreements/$agreementId/cancel', {
+              'reason': reason,
+            }))['data']
+            as Map<String, dynamic>,
+      );
+
   /// A mesma [idempotencyKey] deve ser reenviada em novas tentativas da mesma
   /// operação; assim a API não duplica o recebimento.
   Future<ReceiptResult> receive(

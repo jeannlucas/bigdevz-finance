@@ -140,7 +140,7 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
           _state = ReceiptAttemptState.ready;
           _reviewing = false;
           _localError =
-              'Há um estorno ou correção sem confirmação nesta obrigação. '
+              'Há um estorno ou correção sem confirmação nesta conta a pagar. '
               'Volte e verifique antes de pagar.';
         });
       case _:
@@ -262,7 +262,7 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                       return 'Esse é o valor integral: escolha Total.';
                     }
                     if (amount.cents > _remaining.cents) {
-                      return 'Máximo nesta obrigação: ${_remaining.brl}.';
+                      return 'Máximo nesta conta a pagar: ${_remaining.brl}.';
                     }
                     return null;
                   },

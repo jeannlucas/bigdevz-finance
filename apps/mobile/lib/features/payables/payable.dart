@@ -110,6 +110,14 @@ class Payable {
   bool get canPay =>
       !isCancelled && amount != null && (remaining?.cents ?? 0) > 0;
 
+  String get detailedStatusLabel => switch (status) {
+    PayableStatus.partial => 'Parcialmente pago',
+    PayableStatus.paid => 'Paga',
+    PayableStatus.cancelled => 'Cancelada',
+    PayableStatus.awaitingAmount => 'Valor a informar',
+    PayableStatus.open => overdue ? 'Vencida' : 'Em aberto',
+  };
+
   String get kindLabel => switch (kind) {
     'installment' =>
       'Parcela ${installmentNumber ?? '?'}/${installmentCount ?? '?'}',

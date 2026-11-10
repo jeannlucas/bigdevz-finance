@@ -67,6 +67,11 @@ class LoanController extends Controller
         IdempotentOperations $keys
     ): JsonResponse {
         $space = $this->space($request, $space);
+        $space->ensureCan($request->user(), 'create_loan');
+        if ($request->filled('first_due_date')) {
+            $space->ensureDateNotClosed($request->input('first_due_date'), 'empréstimo');
+        }
+
         $key = $this->idempotencyKey($request);
 
         $rules = [

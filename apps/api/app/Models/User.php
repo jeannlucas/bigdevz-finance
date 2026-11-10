@@ -7,6 +7,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -23,17 +24,29 @@ class User extends Authenticatable
     protected static function booted(): void
     {
         static::created(function (User $user): void {
-            $user->spaces()->createMany([
-                ['kind' => Space::PF, 'name' => 'Pessoal'],
-                ['kind' => Space::PJ, 'name' => 'Empresa'],
+            $pf = $user->ownedSpaces()->create(['kind' => Space::PF, 'name' => 'Pessoal']);
+            $pj = $user->ownedSpaces()->create(['kind' => Space::PJ, 'name' => 'Empresa']);
+
+            $user->spaces()->attach([
+                $pf->id => ['role' => Space::ROLE_ADMIN],
+                $pj->id => ['role' => Space::ROLE_ADMIN],
             ]);
         });
     }
 
     /** @return HasMany<Space, $this> */
-    public function spaces(): HasMany
+    public function ownedSpaces(): HasMany
     {
         return $this->hasMany(Space::class)->orderBy('kind');
+    }
+
+    /** @return BelongsToMany<Space, $this> */
+    public function spaces(): BelongsToMany
+    {
+        return $this->belongsToMany(Space::class, 'space_users')
+            ->withPivot('role')
+            ->withTimestamps()
+            ->orderBy('kind');
     }
 
     /**

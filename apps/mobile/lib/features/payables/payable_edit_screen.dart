@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/dates.dart';
 import '../../core/money.dart';
+import '../../ui/confirm_changes_dialog.dart';
 import '../../ui/date_field.dart';
 import '../../ui/widgets.dart';
 import '../auth/auth_models.dart';
@@ -52,6 +53,68 @@ class _PayableEditScreenState extends State<PayableEditScreen> {
 
   Future<void> _save() async {
     if (_saving || !_form.currentState!.validate()) return;
+
+    final newDesc = _description.text.trim();
+    final newPayee = _payee.text.trim();
+    final newAmount = Money.fromInput(_amount.text)!;
+    final newDueDate = toApiDate(_due);
+
+    final changes = <ChangeDifference>[];
+    if (!widget.payable.isCardBill && newDesc != widget.payable.description) {
+      changes.add(
+        ChangeDifference(
+          label: 'Descrição',
+          oldValue: widget.payable.description,
+          newValue: newDesc,
+        ),
+      );
+    }
+    final oldPayee = widget.payable.payee ?? '';
+    if (!widget.payable.isCardBill && newPayee != oldPayee) {
+      changes.add(
+        ChangeDifference(
+          label: 'Beneficiário',
+          oldValue: oldPayee.isEmpty ? '(nenhum)' : oldPayee,
+          newValue: newPayee.isEmpty ? '(nenhum)' : newPayee,
+        ),
+      );
+    }
+    if (widget.payable.amount != null &&
+        newAmount.cents != widget.payable.amount!.cents) {
+      changes.add(
+        ChangeDifference(
+          label: 'Valor',
+          oldValue: widget.payable.amount!.brl,
+          newValue: newAmount.brl,
+        ),
+      );
+    }
+    if (widget.payable.dueDate != newDueDate) {
+      changes.add(
+        ChangeDifference(
+          label: 'Vencimento',
+          oldValue: formatDateBr(widget.payable.dueDate),
+          newValue: formatDateBr(newDueDate),
+        ),
+      );
+    }
+
+    if (!widget.payable.isCardBill) {
+      if (changes.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Nenhuma alteração foi realizada.')),
+        );
+        return;
+      }
+
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (_) => ConfirmChangesDialog(changes: changes),
+      );
+      if (confirmed != true) return;
+      if (!mounted) return;
+    }
+
     setState(() {
       _saving = true;
       _error = null;

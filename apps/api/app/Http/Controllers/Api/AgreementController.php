@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\Receivables\ChangeAgreements;
 use App\Actions\Receivables\CreateAgreement;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AgreementResource;
@@ -10,11 +11,12 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
 
 class AgreementController extends Controller
 {
-    private const STATUSES = ['all', 'open', 'overdue', 'today', 'next_30_days', 'paid'];
+    private const STATUSES = ['all', 'open', 'overdue', 'today', 'next_30_days', 'paid', 'cancelled'];
 
     public function index(Request $request, string $space): AnonymousResourceCollection
     {
@@ -36,11 +38,12 @@ class AgreementController extends Controller
         }
 
         match ($status) {
-            'open' => $query->whereHas('installments', fn ($q) => $q->whereColumn('received_cents', '<', 'amount_cents')),
-            'overdue' => $query->whereHas('installments', fn ($q) => $q->whereColumn('received_cents', '<', 'amount_cents')->where('due_date', '<', $today)),
-            'today' => $query->whereHas('installments', fn ($q) => $q->whereColumn('received_cents', '<', 'amount_cents')->where('due_date', '=', $today)),
-            'next_30_days' => $query->whereHas('installments', fn ($q) => $q->whereColumn('received_cents', '<', 'amount_cents')->whereBetween('due_date', [$tomorrow, $in30Days])),
-            'paid' => $query->whereDoesntHave('installments', fn ($q) => $q->whereColumn('received_cents', '<', 'amount_cents')),
+            'open' => $query->whereNull('cancelled_at')->whereHas('installments', fn ($q) => $q->whereColumn('received_cents', '<', 'amount_cents')),
+            'overdue' => $query->whereNull('cancelled_at')->whereHas('installments', fn ($q) => $q->whereColumn('received_cents', '<', 'amount_cents')->where('due_date', '<', $today)),
+            'today' => $query->whereNull('cancelled_at')->whereHas('installments', fn ($q) => $q->whereColumn('received_cents', '<', 'amount_cents')->where('due_date', '=', $today)),
+            'next_30_days' => $query->whereNull('cancelled_at')->whereHas('installments', fn ($q) => $q->whereColumn('received_cents', '<', 'amount_cents')->whereBetween('due_date', [$tomorrow, $in30Days])),
+            'paid' => $query->whereNull('cancelled_at')->whereDoesntHave('installments', fn ($q) => $q->whereColumn('received_cents', '<', 'amount_cents')),
+            'cancelled' => $query->whereNotNull('cancelled_at'),
             default => null, // 'all'
         };
 
@@ -59,6 +62,8 @@ class AgreementController extends Controller
     public function store(Request $request, string $space, CreateAgreement $createAgreement): JsonResponse
     {
         $space = $this->space($request, $space);
+        $space->ensureCan($request->user(), 'create_agreement');
+
         $data = $request->validate([
             'description' => ['required', 'string', 'max:120'],
             'total' => ['required', new MoneyAmount],
@@ -66,6 +71,8 @@ class AgreementController extends Controller
             'first_due_date' => ['required', 'date_format:Y-m-d'],
             'category_id' => ['nullable', 'integer'],
         ]);
+
+        $space->ensureDateNotClosed($data['first_due_date'], 'criação de contrato');
 
         $agreement = $createAgreement->handle(
             $space,
@@ -82,7 +89,55 @@ class AgreementController extends Controller
     public function show(Request $request, string $space, string $agreement): AgreementResource
     {
         return (new AgreementResource(
-            $this->space($request, $space)->agreements()->with('installments')->findOrFail($agreement),
+            $this->space($request, $space)->agreements()->with(['installments', 'category'])->findOrFail($agreement),
         ))->withInstallments();
+    }
+
+    public function update(Request $request, string $space, string $agreement, ChangeAgreements $change): JsonResponse
+    {
+        $space = $this->space($request, $space);
+        $space->ensureCan($request->user(), 'edit_agreement');
+
+        $existing = $space->agreements()->findOrFail($agreement);
+        $space->ensureDateNotClosed($existing->first_due_date, 'edição de contrato');
+
+        $data = $request->validate([
+            'description' => ['sometimes', 'string', 'max:120'],
+            'category_id' => ['nullable', 'integer'],
+            'total' => ['sometimes', new MoneyAmount],
+            'installment_count' => ['sometimes', 'integer', 'between:1,1200'],
+            'first_due_date' => ['sometimes', 'date_format:Y-m-d'],
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        if (isset($data['first_due_date'])) {
+            $space->ensureDateNotClosed($data['first_due_date'], 'edição de contrato');
+        }
+
+        $updated = $change->edit(
+            $request->user(),
+            $space,
+            (int) $agreement,
+            Arr::except($data, ['reason']),
+            $data['reason'] ?? null,
+        );
+
+        return (new AgreementResource($updated->load(['installments', 'category'])))->withInstallments()->response();
+    }
+
+    public function cancel(Request $request, string $space, string $agreement, ChangeAgreements $change): JsonResponse
+    {
+        $space = $this->space($request, $space);
+        $space->ensureCan($request->user(), 'cancel_agreement');
+
+        $existing = $space->agreements()->findOrFail($agreement);
+        $space->ensureDateNotClosed($existing->first_due_date, 'cancelamento de contrato');
+
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
+        $cancelled = $change->cancel($request->user(), $space, (int) $agreement, $data['reason']);
+
+        return (new AgreementResource($cancelled->load(['installments', 'category'])))->withInstallments()->response();
     }
 }

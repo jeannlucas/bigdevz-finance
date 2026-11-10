@@ -49,6 +49,7 @@ class ConcurrentReceiptsTest extends TestCase
         DB::table('account_movements')->where('account_id', $this->account->id)->delete();
         DB::table('receipt_reversals')->where('space_id', $this->space->id)->delete();
         DB::table('receipts')->where('space_id', $this->space->id)->delete();
+        DB::table('obligation_changes')->where('space_id', $this->space->id)->delete();
         DB::table('installments')->where('space_id', $this->space->id)->delete();
         DB::table('agreements')->where('space_id', $this->space->id)->delete();
         DB::table('accounts')->where('space_id', $this->space->id)->delete();

@@ -5,7 +5,9 @@ import '../../core/dates.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import '../auth/auth_models.dart';
+import '../auth/session_controller.dart';
 import 'agreement.dart';
+import 'agreement_modal.dart';
 import 'agreements_repository.dart';
 import 'agreements_tab.dart';
 import 'installment_screen.dart';
@@ -38,6 +40,70 @@ class AgreementScreen extends StatelessWidget {
                   SpaceBadge(space),
                   const SizedBox(height: 16),
                   AgreementCard(agreement: agreement),
+                  if (agreement.isCancelled) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.errorContainer
+                            .withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.error
+                              .withValues(alpha: 0.5),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.cancel_outlined,
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Conta a receber cancelada'
+                              '${agreement.cancelReason != null ? ': ${agreement.cancelReason}' : ''}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  if (!agreement.isCancelled && agreement.received.isZero) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            icon: const Icon(Icons.edit_outlined),
+                            label: const Text('Editar conta'),
+                            onPressed: () => _edit(context, agreement, refresh),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            icon: Icon(
+                              Icons.cancel_outlined,
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                            label: Text(
+                              'Cancelar conta',
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                            onPressed: () => _cancel(context, agreement),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   Text(
                     'Parcelas do recebimento',
@@ -69,6 +135,118 @@ class AgreementScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _cancel(BuildContext context, Agreement agreement) async {
+    final reasonController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.cancel_outlined, color: Colors.redAccent),
+            SizedBox(width: 8),
+            Expanded(child: Text('Cancelar conta a receber')),
+          ],
+        ),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Tem certeza que deseja cancelar esta conta a receber? '
+                'Esta ação anula o compromisso e não altera saldos bancários.',
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: reasonController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Motivo do cancelamento *',
+                  hintText: 'Ex.: Lançado por engano, desistência do cliente',
+                ),
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) {
+                    return 'Informe o motivo do cancelamento.';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(false),
+            child: const Text('Voltar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.of(dialogCtx).pop(true);
+              }
+            },
+            child: const Text('Confirmar cancelamento'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    if (!context.mounted) return;
+
+    try {
+      await context.read<AgreementsRepository>().cancel(
+        space.id,
+        agreement.id,
+        reasonController.text.trim(),
+      );
+      if (!context.mounted) return;
+      context.read<SessionController>().dataChanged();
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Conta a receber cancelada com sucesso.')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao cancelar: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _edit(
+    BuildContext context,
+    Agreement agreement,
+    Future<void> Function() refresh,
+  ) async {
+    final updated = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) =>
+          EditAgreementDialog(space: space, agreement: agreement),
+    );
+
+    if (updated == true && context.mounted) {
+      context.read<SessionController>().dataChanged();
+      await refresh();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Conta a receber atualizada e parcelas recalculadas com sucesso.',
+            ),
+          ),
+        );
+      }
+    }
   }
 }
 

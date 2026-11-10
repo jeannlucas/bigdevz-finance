@@ -36,6 +36,10 @@ class AgreementResource extends JsonResource
             'paid_installments' => $installments->filter(fn ($item) => $item->remainingCents() === 0)->count(),
             'overdue_installments' => $installments->filter(fn ($item) => $item->isOverdue())->count(),
             'next_due_date' => $next?->due_date->toDateString(),
+            'is_cancelled' => $this->isCancelled(),
+            'cancelled_at' => $this->cancelled_at?->toIso8601String(),
+            'cancel_reason' => $this->cancel_reason,
+            'edited_at' => $this->edited_at?->toIso8601String(),
             'installments' => InstallmentResource::collection($installments),
         ];
     }

@@ -28,6 +28,11 @@ class PaymentController extends Controller
     public function store(Request $request, string $space, string $payable, PayPayable $pay, IdempotentOperations $keys): JsonResponse
     {
         $space = $this->space($request, $space);
+        $space->ensureCan($request->user(), 'pay_payable');
+        if ($request->filled('paid_on')) {
+            $space->ensureDateNotClosed($request->input('paid_on'), 'pagamento de conta');
+        }
+
         $model = $space->payables()->findOrFail($payable);
         $key = $this->idempotencyKey($request);
         $validator = Validator::make($request->all(), $this->rules(), $this->messages());
@@ -68,7 +73,14 @@ class PaymentController extends Controller
     private function fix(Request $request, string $space, string $payment, ReversePayment $reverse, IdempotentOperations $keys, bool $correction): JsonResponse
     {
         $space = $this->space($request, $space);
+        $space->ensureCan($request->user(), 'reverse_payment');
+
         $model = $space->payments()->findOrFail($payment);
+        $space->ensureDateNotClosed($model->paid_on, 'estorno de pagamento');
+        if ($correction && $request->filled('paid_on')) {
+            $space->ensureDateNotClosed($request->input('paid_on'), 'correção de pagamento');
+        }
+
         $key = $this->idempotencyKey($request);
         $rules = ['reason' => ['required', 'string', 'min:3', 'max:500']] + ($correction ? $this->rules() : []);
         $validator = Validator::make($request->all(), $rules, $this->messages());

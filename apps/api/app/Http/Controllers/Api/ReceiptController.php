@@ -25,6 +25,11 @@ class ReceiptController extends Controller
     public function store(Request $request, string $space, string $installment, ReceiveInstallment $receive, IdempotentOperations $keys): JsonResponse
     {
         $space = $this->space($request, $space);
+        $space->ensureCan($request->user(), 'receive_installment');
+        if ($request->filled('received_on')) {
+            $space->ensureDateNotClosed($request->input('received_on'), 'recebimento de parcela');
+        }
+
         $installment = $space->installments()->findOrFail($installment);
         $key = $this->idempotencyKey($request);
 
