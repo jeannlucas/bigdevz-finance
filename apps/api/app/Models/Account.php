@@ -2,12 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\NormalizesFinancialText;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Account extends Model
 {
+    use NormalizesFinancialText;
+
     protected $fillable = ['name', 'opening_balance_cents', 'opening_balance_date'];
 
     protected function casts(): array
@@ -17,6 +21,11 @@ class Account extends Model
             'opening_balance_date' => 'date:Y-m-d',
             'archived_at' => 'datetime',
         ];
+    }
+
+    protected function name(): Attribute
+    {
+        return self::uppercaseTextAttribute();
     }
 
     /** @return BelongsTo<Space, $this> */

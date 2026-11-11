@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
 import '../../core/dates.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
 import '../../ui/theme.dart';
@@ -62,10 +63,10 @@ class AccountScreen extends StatelessWidget {
         title: Text(archive ? 'Arquivar conta?' : 'Reativar conta?'),
         content: Text(
           archive
-              ? '${account.name} deixa de aparecer como destino de novos '
+              ? '${toFinancialUpper(account.name)} deixa de aparecer como destino de novos '
                     'recebimentos e correções. O saldo (${account.balance.brl}) '
                     'e o histórico continuam, e o saldo segue no total do espaço.'
-              : '${account.name} volta a aparecer como destino de recebimentos '
+              : '${toFinancialUpper(account.name)} volta a aparecer como destino de recebimentos '
                     'e correções.',
         ),
         actions: [
@@ -103,7 +104,7 @@ class AccountScreen extends StatelessWidget {
         final (account, pending) = data;
         final theme = Theme.of(context);
         return Scaffold(
-          appBar: AppBar(title: Text(account.name)),
+          appBar: AppBar(title: Text(toFinancialUpper(account.name))),
           body: RefreshIndicator(
             onRefresh: refresh,
             child: ListView(

@@ -54,8 +54,8 @@ class LoansTest extends TestCase
 
         $response->assertCreated()
             ->assertJsonPath('data.kind', 'taken')
-            ->assertJsonPath('data.title', 'Empréstimo Bancário')
-            ->assertJsonPath('data.counterparty', 'Banco Itaú')
+            ->assertJsonPath('data.title', 'EMPRÉSTIMO BANCÁRIO')
+            ->assertJsonPath('data.counterparty', 'BANCO ITAÚ')
             ->assertJsonPath('data.principal', '1000.00')
             ->assertJsonPath('data.total', '1200.00')
             ->assertJsonPath('data.interest', '200.00')
@@ -108,8 +108,8 @@ class LoansTest extends TestCase
 
         $response->assertCreated()
             ->assertJsonPath('data.kind', 'granted')
-            ->assertJsonPath('data.title', 'Mútuo Familiar')
-            ->assertJsonPath('data.counterparty', 'Carlos Silva')
+            ->assertJsonPath('data.title', 'MÚTUO FAMILIAR')
+            ->assertJsonPath('data.counterparty', 'CARLOS SILVA')
             ->assertJsonPath('data.principal', '500.00')
             ->assertJsonPath('data.total', '550.00')
             ->assertJsonPath('data.interest', '50.00')
@@ -314,7 +314,7 @@ class LoansTest extends TestCase
 
         $showResponse->assertOk()
             ->assertJsonPath('data.id', $loan2Id)
-            ->assertJsonPath('data.title', 'Empréstimo 2')
+            ->assertJsonPath('data.title', 'EMPRÉSTIMO 2')
             ->assertJsonPath('data.kind', 'granted')
             ->assertJsonPath('data.interest', '0.00')
             ->assertJsonStructure([

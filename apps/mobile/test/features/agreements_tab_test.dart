@@ -247,18 +247,18 @@ void main() {
       ],
     );
 
-    expect(find.text('Consultoria Financeira'), findsOneWidget);
+    expect(find.text('CONSULTORIA FINANCEIRA'), findsNWidgets(2));
     expect(find.text('1 conta a receber'), findsOneWidget);
 
     // Toca no filtro "Vencidas"
-    await tester.tap(find.text('Vencidas'));
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Vencidas'));
     await tester.pumpAndSettle();
 
     expect(requests.last.url.queryParameters['status'], 'overdue');
-    // Identifica naturalmente a parcela vencida
-    expect(find.text('Parcela 1 vencida'), findsOneWidget);
-    expect(find.text('Vencido no filtro'), findsOneWidget);
-    expect(find.text('Restante total'), findsOneWidget);
+    // Identifica naturalmente a parcela com card compacto e ação
+    expect(find.text('Parcela 1/3'), findsWidgets);
+    expect(find.text('Vencida'), findsWidgets);
+    expect(find.text('Receber'), findsWidgets);
   });
 
   group('Acessibilidade e Reflow em Contas a Receber (AC-MOB-001, 004, 005, 006)', () {

@@ -2,12 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\NormalizesFinancialText;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Loan extends Model
 {
+    use NormalizesFinancialText;
+
     public const KIND_TAKEN = 'taken';
 
     public const KIND_GRANTED = 'granted';
@@ -45,6 +49,16 @@ class Loan extends Model
             'first_due_date' => 'date:Y-m-d',
             'disbursed_at' => 'date:Y-m-d',
         ];
+    }
+
+    protected function title(): Attribute
+    {
+        return self::uppercaseTextAttribute();
+    }
+
+    protected function counterparty(): Attribute
+    {
+        return self::uppercaseTextAttribute();
     }
 
     /** @return BelongsTo<Space, $this> */

@@ -68,8 +68,8 @@ void main() {
 
         // Card Donut de Bancos
         expect(find.text('Distribuição por Bancos'), findsOneWidget);
-        expect(find.text('Nubank Principal'), findsOneWidget);
-        expect(find.text('Itaú Empresas'), findsOneWidget);
+        expect(find.text('NUBANK PRINCIPAL'), findsOneWidget);
+        expect(find.text('ITAÚ EMPRESAS'), findsOneWidget);
         expect(find.text('60%'), findsOneWidget);
         expect(find.text('40%'), findsOneWidget);
 

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/dates.dart';
 import '../../core/money.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/date_field.dart';
 import '../../ui/widgets.dart';
 import '../accounts/account.dart';
@@ -64,8 +65,9 @@ class _PaymentFixScreenState extends State<PaymentFixScreen> {
   );
   bool get _busy => _state == ReceiptAttemptState.sending;
   String get _verb => widget.correction ? 'correção' : 'estorno';
-  String _name(int id) =>
-      widget.accounts.where((a) => a.id == id).firstOrNull?.name ?? 'Conta';
+  String _name(int id) => toFinancialUpper(
+    widget.accounts.where((a) => a.id == id).firstOrNull?.name ?? 'Conta',
+  );
 
   ({int accountId, String accountName, Money amount, String receivedOn})?
   get _replacement {
@@ -214,7 +216,10 @@ class _PaymentFixScreenState extends State<PaymentFixScreen> {
               decoration: const InputDecoration(labelText: 'Conta de origem'),
               items: [
                 for (final item in _selectable)
-                  DropdownMenuItem(value: item.id, child: Text(item.name)),
+                  DropdownMenuItem(
+                    value: item.id,
+                    child: Text(toFinancialUpper(item.name)),
+                  ),
               ],
               validator: (value) =>
                   value == null ? 'Escolha a conta de origem.' : null,
@@ -341,7 +346,7 @@ class _PaymentFixScreenState extends State<PaymentFixScreen> {
                         'Depois',
                         replacement == null
                             ? 'Estornado, sem substituto'
-                            : '${replacement.amount.brl} · ${replacement.accountName} · ${formatDateBr(replacement.receivedOn)}',
+                            : '${replacement.amount.brl} · ${toFinancialUpper(replacement.accountName)} · ${formatDateBr(replacement.receivedOn)}',
                       ),
                       const Divider(height: 24),
                       for (final MapEntry(key: id, value: delta)

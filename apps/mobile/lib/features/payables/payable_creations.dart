@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import '../../core/api_client.dart';
+import '../../core/text_formatters.dart';
 import '../../core/token_storage.dart';
 import '../agreements/receipt_attempt.dart'
     show
@@ -82,7 +83,7 @@ class CreationOutcome {
   String get message => switch (state) {
     ReceiptAttemptState.confirmed =>
       '${replayed ? 'Cadastro já estava registrado' : 'Cadastro confirmado'}: '
-          '${pending.description}, ${payables.length} '
+          '${toFinancialUpper(pending.description)}, ${payables.length} '
           '${payables.length == 1 ? 'obrigação' : 'obrigações'}.',
     ReceiptAttemptState.rejected =>
       'A API recusou o cadastro e nada foi gravado. Revise os dados.',

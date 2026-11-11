@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/text_formatters.dart';
 import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
 import '../agreements/receipt_attempt.dart' show ReceiptAttemptState;
@@ -86,7 +87,7 @@ class _PendingCreationCardState extends State<PendingCreationCard> {
           ),
           const SizedBox(height: 6),
           Text(
-            '${widget.pending.description} · ${widget.pending.kindLabel}',
+            '${toFinancialUpper(widget.pending.description)} · ${widget.pending.kindLabel}',
             style: TextStyle(color: color, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),

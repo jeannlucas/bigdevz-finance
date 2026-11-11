@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/dates.dart';
 import '../../core/money.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/confirm_changes_dialog.dart';
 import '../../ui/date_field.dart';
 import '../../ui/widgets.dart';
@@ -32,9 +33,13 @@ class PayableEditScreen extends StatefulWidget {
 class _PayableEditScreenState extends State<PayableEditScreen> {
   final _form = GlobalKey<FormState>();
   late final _description = TextEditingController(
-    text: widget.payable.description,
+    text: toFinancialUpper(widget.payable.description),
   );
-  late final _payee = TextEditingController(text: widget.payable.payee ?? '');
+  late final _payee = TextEditingController(
+    text: widget.payable.payee != null
+        ? toFinancialUpper(widget.payable.payee!)
+        : '',
+  );
   late final _amount = TextEditingController(
     text: widget.payable.amount?.plain ?? '',
   );
@@ -60,21 +65,22 @@ class _PayableEditScreenState extends State<PayableEditScreen> {
     final newDueDate = toApiDate(_due);
 
     final changes = <ChangeDifference>[];
-    if (!widget.payable.isCardBill && newDesc != widget.payable.description) {
+    final currentUpperDesc = toFinancialUpper(widget.payable.description);
+    if (!widget.payable.isCardBill && newDesc != currentUpperDesc) {
       changes.add(
         ChangeDifference(
           label: 'Descrição',
-          oldValue: widget.payable.description,
+          oldValue: currentUpperDesc,
           newValue: newDesc,
         ),
       );
     }
-    final oldPayee = widget.payable.payee ?? '';
-    if (!widget.payable.isCardBill && newPayee != oldPayee) {
+    final currentUpperPayee = toFinancialUpper(widget.payable.payee);
+    if (!widget.payable.isCardBill && newPayee != currentUpperPayee) {
       changes.add(
         ChangeDifference(
           label: 'Beneficiário',
-          oldValue: oldPayee.isEmpty ? '(nenhum)' : oldPayee,
+          oldValue: currentUpperPayee.isEmpty ? '(nenhum)' : currentUpperPayee,
           newValue: newPayee.isEmpty ? '(nenhum)' : newPayee,
         ),
       );
@@ -169,6 +175,7 @@ class _PayableEditScreenState extends State<PayableEditScreen> {
             if (!payable.isCardBill) ...[
               TextFormField(
                 controller: _description,
+                inputFormatters: const [UpperCaseTextFormatter()],
                 decoration: InputDecoration(
                   labelText: 'Descrição',
                   errorText: fieldErrors['description'],
@@ -180,6 +187,7 @@ class _PayableEditScreenState extends State<PayableEditScreen> {
               ),
               TextFormField(
                 controller: _payee,
+                inputFormatters: const [UpperCaseTextFormatter()],
                 decoration: const InputDecoration(
                   labelText: 'Beneficiário (opcional)',
                 ),

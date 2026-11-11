@@ -1,5 +1,6 @@
 import '../../core/api_client.dart';
 import '../../core/money.dart';
+import '../../core/text_formatters.dart';
 import '../payables/payable.dart';
 import 'agreement.dart';
 
@@ -289,31 +290,32 @@ class ReceiptAttemptOutcome {
 
   String _confirmed() {
     final a = attempt;
+    final upperAccount = toFinancialUpper(a.accountName);
     return switch (a.operation) {
       ReceiptOperation.receipt =>
         replayed
-            ? 'Recebimento já estava registrado: ${a.amount.brl} em ${a.accountName}.'
-            : 'Recebimento confirmado: ${a.amount.brl} em ${a.accountName}.',
+            ? 'Recebimento já estava registrado: ${a.amount.brl} em $upperAccount.'
+            : 'Recebimento confirmado: ${a.amount.brl} em $upperAccount.',
       ReceiptOperation.reversal =>
         replayed
-            ? 'Estorno já estava registrado: ${a.amount.brl} de ${a.accountName}.'
-            : 'Estorno confirmado: ${a.amount.brl} retirados de ${a.accountName}.',
+            ? 'Estorno já estava registrado: ${a.amount.brl} de $upperAccount.'
+            : 'Estorno confirmado: ${a.amount.brl} retirados de $upperAccount.',
       ReceiptOperation.correction =>
         replayed
-            ? 'Correção já estava registrada: ${a.amount.brl} em ${a.accountName}.'
-            : 'Correção confirmada: ${a.amount.brl} em ${a.accountName}.',
+            ? 'Correção já estava registrada: ${a.amount.brl} em $upperAccount.'
+            : 'Correção confirmada: ${a.amount.brl} em $upperAccount.',
       ReceiptOperation.payment =>
         replayed
-            ? 'Pagamento já estava registrado: ${a.amount.brl} de ${a.accountName}.'
-            : 'Pagamento confirmado: ${a.amount.brl} de ${a.accountName}.',
+            ? 'Pagamento já estava registrado: ${a.amount.brl} de $upperAccount.'
+            : 'Pagamento confirmado: ${a.amount.brl} de $upperAccount.',
       ReceiptOperation.paymentReversal =>
         replayed
-            ? 'Estorno do pagamento já estava registrado: ${a.amount.brl} para ${a.accountName}.'
-            : 'Estorno do pagamento confirmado: ${a.amount.brl} devolvidos a ${a.accountName}.',
+            ? 'Estorno do pagamento já estava registrado: ${a.amount.brl} para $upperAccount.'
+            : 'Estorno do pagamento confirmado: ${a.amount.brl} devolvidos a $upperAccount.',
       ReceiptOperation.paymentCorrection =>
         replayed
-            ? 'Correção do pagamento já estava registrada: ${a.amount.brl} de ${a.accountName}.'
-            : 'Correção do pagamento confirmada: ${a.amount.brl} de ${a.accountName}.',
+            ? 'Correção do pagamento já estava registrada: ${a.amount.brl} de $upperAccount.'
+            : 'Correção do pagamento confirmada: ${a.amount.brl} de $upperAccount.',
     };
   }
 }

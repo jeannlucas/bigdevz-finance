@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/widgets.dart';
 import '../auth/auth_models.dart';
 import '../auth/session_controller.dart';
@@ -26,7 +27,9 @@ class AccountEditScreen extends StatefulWidget {
 
 class _AccountEditScreenState extends State<AccountEditScreen> {
   final _form = GlobalKey<FormState>();
-  late final _name = TextEditingController(text: widget.account.name);
+  late final _name = TextEditingController(
+    text: toFinancialUpper(widget.account.name),
+  );
   bool _saving = false;
   ApiException? _error;
 
@@ -76,6 +79,7 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
             ],
             TextFormField(
               controller: _name,
+              inputFormatters: const [UpperCaseTextFormatter()],
               decoration: InputDecoration(
                 labelText: 'Nome da conta',
                 errorText: fieldErrors['name'],

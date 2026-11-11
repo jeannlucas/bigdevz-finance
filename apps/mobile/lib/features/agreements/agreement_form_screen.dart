@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/dates.dart';
 import '../../core/money.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
 import '../../ui/date_field.dart';
@@ -331,12 +332,12 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
       const SizedBox(height: 16),
       TextFormField(
         controller: _description,
+        inputFormatters: const [UpperCaseTextFormatter()],
         decoration: InputDecoration(
           labelText: 'Descrição',
           hintText: 'Ex.: Salário, Venda de veículo, Consultoria',
           errorText: fieldErrors['description'],
         ),
-        textCapitalization: TextCapitalization.sentences,
         maxLength: 120,
         validator: (value) =>
             (value ?? '').trim().isEmpty ? 'Descreva a conta a receber.' : null,

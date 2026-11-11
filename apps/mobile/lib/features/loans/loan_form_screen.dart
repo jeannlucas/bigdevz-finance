@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/dates.dart';
 import '../../core/money.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/date_field.dart';
 import '../accounts/account.dart';
 import '../accounts/accounts_repository.dart';
@@ -247,6 +248,7 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _title,
+                    inputFormatters: const [UpperCaseTextFormatter()],
                     decoration: InputDecoration(
                       labelText: 'Descrição / Finalidade',
                       hintText: _kind == 'taken'
@@ -262,6 +264,7 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _counterparty,
+                    inputFormatters: const [UpperCaseTextFormatter()],
                     decoration: InputDecoration(
                       labelText: _kind == 'taken'
                           ? 'Credor (Instituição / Pessoa)'
@@ -423,7 +426,7 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
                                     (a) => DropdownMenuItem(
                                       value: a.id,
                                       child: Text(
-                                        '${a.name} (${a.balance.brl})',
+                                        '${toFinancialUpper(a.name)} (${a.balance.brl})',
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),

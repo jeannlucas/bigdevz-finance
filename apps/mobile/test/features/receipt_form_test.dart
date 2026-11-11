@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:bigdevz_finance/core/api_client.dart';
 import 'package:bigdevz_finance/core/money.dart';
+import 'package:bigdevz_finance/core/text_formatters.dart';
 import 'package:bigdevz_finance/features/accounts/account.dart';
 import 'package:bigdevz_finance/features/agreements/agreement.dart';
 import 'package:bigdevz_finance/features/agreements/agreements_repository.dart';
@@ -155,7 +156,7 @@ void main() {
   Future<void> chooseAccount(WidgetTester tester, String name) async {
     await tester.tap(find.byType(DropdownButtonFormField<int>));
     await tester.pumpAndSettle();
-    await tester.tap(find.text(name).last);
+    await tester.tap(find.text(toFinancialUpper(name)).last);
     await tester.pumpAndSettle();
   }
 
@@ -201,7 +202,7 @@ void main() {
     respond = (_) async => FakeBackend.json(success(), 201);
     await open(tester);
     expect(find.text('Recebimento no espaço Pessoal (PF)'), findsOneWidget);
-    expect(find.text('Banco PF'), findsNothing, reason: 'sem pré-seleção');
+    expect(find.text('BANCO PF'), findsNothing, reason: 'sem pré-seleção');
 
     await tapButton(tester, 'Revisar recebimento');
     expect(find.text('Escolha a conta de destino.'), findsOneWidget);
@@ -228,11 +229,11 @@ void main() {
     expect(find.text(r'R$ 2.000,00'), findsOneWidget);
 
     await tapButton(tester, 'Revisar recebimento');
-    expect(reviewValue('Acordo', 'Venda de veículo'), findsOneWidget);
+    expect(reviewValue('Acordo', 'VENDA DE VEÍCULO'), findsOneWidget);
     expect(reviewValue('Parcela', '2/12 · vence 10/03/2026'), findsOneWidget);
     expect(reviewValue('Tipo', 'Total'), findsOneWidget);
     expect(reviewValue('Valor', r'R$ 2.000,00'), findsOneWidget);
-    expect(reviewValue('Conta', 'Reserva PF'), findsOneWidget);
+    expect(reviewValue('Conta', 'RESERVA PF'), findsOneWidget);
     expect(reviewValue('Espaço', 'Pessoal (PF)'), findsOneWidget);
     expect(reviewValue('Data', '10/03/2026'), findsOneWidget);
     expect(
@@ -304,7 +305,7 @@ void main() {
     await tapButton(tester, 'Voltar e corrigir');
     expect(find.text('Revisar recebimento'), findsOneWidget);
     expect(find.text('500,00'), findsOneWidget);
-    expect(find.text('Banco PF'), findsOneWidget);
+    expect(find.text('BANCO PF'), findsOneWidget);
 
     // O voltar do sistema na revisão também retorna ao formulário.
     await tapButton(tester, 'Revisar recebimento');
@@ -390,7 +391,7 @@ void main() {
       expect(popped?.state, ReceiptAttemptState.confirmed);
       expect(
         popped?.message,
-        r'Recebimento já estava registrado: R$ 500,00 em Banco PF.',
+        r'Recebimento já estava registrado: R$ 500,00 em BANCO PF.',
       );
     },
   );

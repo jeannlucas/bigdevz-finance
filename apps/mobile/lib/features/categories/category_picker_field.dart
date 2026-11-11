@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/text_formatters.dart';
 import 'categories_repository.dart';
 import 'category.dart';
 
@@ -109,6 +110,7 @@ class _CategoryPickerFieldState extends State<CategoryPickerField> {
                     TextField(
                       controller: nameCtrl,
                       autofocus: true,
+                      inputFormatters: const [UpperCaseTextFormatter()],
                       decoration: const InputDecoration(
                         labelText: 'Nome da Categoria',
                         hintText: 'Ex: Consultoria, Combustível...',
@@ -350,7 +352,10 @@ class _CategoryPickerFieldState extends State<CategoryPickerField> {
                     Icon(cat.iconData, size: 16, color: cat.colorValue),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(cat.name, overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        toFinancialUpper(cat.name),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),

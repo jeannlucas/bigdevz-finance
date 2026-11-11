@@ -543,7 +543,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Verifica que os valores estão mascarados no AgreementCard
-        expect(find.text('Consultoria Especializada'), findsOneWidget);
+        expect(find.text('CONSULTORIA ESPECIALIZADA'), findsOneWidget);
         expect(find.text(r'R$ ••••••••'), findsWidgets);
         expect(find.text(r'R$ 2.000,00'), findsNothing);
         expect(find.text('Recebido: ••••••'), findsOneWidget);
@@ -558,7 +558,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Verifica que os valores estão mascarados no PayableCard
-        expect(find.text('Licença de Software'), findsOneWidget);
+        expect(find.text('LICENÇA DE SOFTWARE'), findsOneWidget);
         expect(find.text(r'R$ ••••••••'), findsWidgets);
         expect(find.text(r'R$ 1.500,00'), findsNothing);
       },

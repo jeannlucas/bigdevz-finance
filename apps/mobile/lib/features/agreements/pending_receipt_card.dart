@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/dates.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
 import 'receipt_attempts.dart';
@@ -116,7 +117,7 @@ class _PendingReceiptCardState extends State<PendingReceiptCard> {
               borderRadius: BorderRadius.circular(AppTokens.r8),
             ),
             child: Text(
-              '${attempt.accountName} · ${formatDateBr(attempt.receivedOn)}',
+              '${toFinancialUpper(attempt.accountName)} · ${formatDateBr(attempt.receivedOn)}',
               style: TextStyle(
                 color: color,
                 fontWeight: FontWeight.w600,

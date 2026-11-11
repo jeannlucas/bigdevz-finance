@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/dates.dart';
 import '../../core/money.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import '../accounts/account.dart';
@@ -201,7 +202,7 @@ class PayableScreen extends StatelessWidget {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    payable.description,
+                                    toFinancialUpper(payable.description),
                                     style: theme.textTheme.titleLarge?.copyWith(
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -212,7 +213,7 @@ class PayableScreen extends StatelessWidget {
                             ),
                             Text(
                               '${payable.kindLabel} · vence ${formatDateBr(payable.dueDate)}'
-                              '${payable.payee == null ? '' : '\n${payable.payee}'}',
+                              '${payable.payee == null ? '' : '\n${toFinancialUpper(payable.payee!)}'}',
                             ),
                             if (payable.cancelReason != null)
                               Text('Cancelada: ${payable.cancelReason}'),
@@ -324,7 +325,9 @@ class PayableScreen extends StatelessWidget {
                     for (final payment in payable.payments)
                       _PaymentTile(
                         payment: payment,
-                        accountName: names[payment.accountId] ?? 'Conta',
+                        accountName: toFinancialUpper(
+                          names[payment.accountId] ?? 'Conta',
+                        ),
                         onCorrect: free && !payment.isReversed
                             ? () => _push(
                                 context,
@@ -487,7 +490,7 @@ class _PaymentTile extends StatelessWidget {
         ),
         subtitle: Text(
           [
-            '${formatDateBr(payment.paidOn)} · $accountName',
+            '${formatDateBr(payment.paidOn)} · ${toFinancialUpper(accountName)}',
             if (payment.replacesPaymentId != null)
               'Substitui um pagamento corrigido',
             if (payment.reversalReason != null)

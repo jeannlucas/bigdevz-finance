@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/app_tokens.dart';
 import '../auth/auth_models.dart';
 import 'categories_repository.dart';
@@ -143,7 +144,9 @@ class _CategoriesContentState extends State<_CategoriesContent> {
   }
 
   Future<void> _showCreateOrEditDialog({Category? existing}) async {
-    final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    final nameCtrl = TextEditingController(
+      text: toFinancialUpper(existing?.name),
+    );
     String selectedIcon =
         existing?.icon ??
         (_selectedType == 'income' ? 'trending_up' : 'shopping_cart');
@@ -185,6 +188,7 @@ class _CategoriesContentState extends State<_CategoriesContent> {
                 TextField(
                   controller: nameCtrl,
                   autofocus: true,
+                  inputFormatters: const [UpperCaseTextFormatter()],
                   decoration: const InputDecoration(
                     labelText: 'Nome da Categoria *',
                     hintText: 'Ex: Moradia, Salário, Marketing...',
@@ -355,7 +359,7 @@ class _CategoriesContentState extends State<_CategoriesContent> {
       builder: (ctx) => AlertDialog(
         title: const Text('Excluir Categoria?'),
         content: Text(
-          'Deseja excluir a categoria "${category.name}"?\n\n'
+          'Deseja excluir a categoria "${toFinancialUpper(category.name)}"?\n\n'
           'Os lançamentos e contas a pagar vinculados a ela não serão excluídos, '
           'apenas ficarão sem categoria.',
         ),
@@ -383,7 +387,11 @@ class _CategoriesContentState extends State<_CategoriesContent> {
       _load();
       if (mounted) {
         messenger.showSnackBar(
-          SnackBar(content: Text('Categoria "${category.name}" excluída.')),
+          SnackBar(
+            content: Text(
+              'Categoria "${toFinancialUpper(category.name)}" excluída.',
+            ),
+          ),
         );
       }
     } catch (e) {

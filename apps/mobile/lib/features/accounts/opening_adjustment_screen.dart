@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/dates.dart';
 import '../../core/money.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/date_field.dart';
 import '../../ui/widgets.dart';
 import '../agreements/receipt_attempt.dart' show ReceiptAttemptState;
@@ -177,7 +178,7 @@ class _OpeningAdjustmentScreenState extends State<OpeningAdjustmentScreen> {
           const SizedBox(height: 12),
           Card(
             child: ListTile(
-              title: Text(account.name),
+              title: Text(toFinancialUpper(account.name)),
               subtitle: Text(
                 'Abertura atual: ${account.openingBalance.brl} em '
                 '${formatDateBr(account.openingBalanceDate)}\n'
@@ -294,7 +295,7 @@ class _OpeningAdjustmentScreenState extends State<OpeningAdjustmentScreen> {
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     children: [
-                      line('Conta', 'Conta', account.name),
+                      line('Conta', 'Conta', toFinancialUpper(account.name)),
                       line(
                         'Saldo-inicial',
                         'Saldo inicial',

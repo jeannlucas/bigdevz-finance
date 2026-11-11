@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/money.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
 import '../../ui/theme.dart';
@@ -359,7 +360,7 @@ class _AccountTile extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                account.name,
+                                toFinancialUpper(account.name),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -397,7 +398,7 @@ class _AccountTile extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            account.name,
+                            toFinancialUpper(account.name),
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                           Text(

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/dates.dart';
 import '../../core/money.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/app_icons.dart';
 import '../../ui/date_field.dart';
 import '../../ui/widgets.dart';
@@ -206,7 +207,7 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
               SpaceBadge(widget.space, prefix: 'Pagamento no espaço'),
               const SizedBox(height: 12),
               Text(
-                '${payable.description} · ${payable.kindLabel}\nFalta pagar ${_remaining.brl}',
+                '${toFinancialUpper(payable.description)} · ${payable.kindLabel}\nFalta pagar ${_remaining.brl}',
               ),
               const SizedBox(height: 20),
               if (banner != null) ...[
@@ -222,7 +223,10 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                 ),
                 items: [
                   for (final item in _selectable)
-                    DropdownMenuItem(value: item.id, child: Text(item.name)),
+                    DropdownMenuItem(
+                      value: item.id,
+                      child: Text(toFinancialUpper(item.name)),
+                    ),
                 ],
                 validator: (value) =>
                     value == null ? 'Escolha a conta de origem.' : null,
@@ -341,18 +345,22 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                           line(
                             'Obrigacao',
                             'Obrigação',
-                            '${payable.description} · ${payable.kindLabel}',
+                            '${toFinancialUpper(payable.description)} · ${payable.kindLabel}',
                           ),
                           line(
                             'Beneficiario',
                             'Beneficiário',
-                            payable.payee ?? '—',
+                            payable.payee != null
+                                ? toFinancialUpper(payable.payee!)
+                                : '—',
                           ),
                           line('Valor', 'Valor pago', value.brl),
                           line(
                             'Conta',
                             'Conta de origem',
-                            _attempt?.accountName ?? account?.name ?? '',
+                            toFinancialUpper(
+                              _attempt?.accountName ?? account?.name ?? '',
+                            ),
                           ),
                           line('Data', 'Data', formatDateBr(date)),
                           if (balanceAfter != null)
@@ -376,7 +384,7 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: FormErrorBanner(
-                        'O saldo de ${account!.name} ficará negativo (${balanceAfter.brl}).',
+                        'O saldo de ${toFinancialUpper(account!.name)} ficará negativo (${balanceAfter.brl}).',
                       ),
                     ),
                 ],

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../core/money.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
 import '../accounts/account.dart';
@@ -248,7 +249,7 @@ class BankDistributionDonutCard extends StatelessWidget {
                             const SizedBox(width: AppTokens.p8),
                             Expanded(
                               child: Text(
-                                account.name,
+                                toFinancialUpper(account.name),
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   fontWeight: FontWeight.w600,
                                   color: isDark
@@ -801,7 +802,7 @@ class _CategoryDistributionDonutCardState
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              item.name,
+                              toFinancialUpper(item.name),
                               style: theme.textTheme.bodySmall?.copyWith(
                                 fontWeight: FontWeight.w600,
                                 color: isDark

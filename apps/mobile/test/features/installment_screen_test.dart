@@ -95,12 +95,12 @@ void main() {
       // Outro usuário no mesmo aparelho: nada da tentativa é exibido.
       await openApp(tester, userId: 2);
       expect(find.text('Recebimento aguardando confirmação'), findsNothing);
-      expect(find.text('Banco PF · 10/03/2026'), findsNothing);
+      expect(find.text('BANCO PF · 10/03/2026'), findsNothing);
 
       // O usuário original reabre o app: a tentativa volta e bloqueia.
       await openApp(tester, userId: 1);
       expect(find.text('Recebimento aguardando confirmação'), findsOneWidget);
-      expect(find.text('Banco PF · 10/03/2026'), findsOneWidget);
+      expect(find.text('BANCO PF · 10/03/2026'), findsOneWidget);
       expect(find.text('Registrar recebimento'), findsNothing);
 
       await tester.tap(find.text('Verificar recebimento'));
@@ -109,7 +109,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.text(
-          r'Recebimento já estava registrado: R$ 500,00 em Banco PF. '
+          r'Recebimento já estava registrado: R$ 500,00 em BANCO PF. '
           r'Saldo da conta: R$ 1.500,00.',
         ),
         findsOneWidget,
@@ -132,7 +132,7 @@ void main() {
       expect(find.textContaining(r'Falta receber R$ 1.500,00'), findsOneWidget);
       await tester.tap(find.byType(DropdownButtonFormField<int>));
       await tester.pumpAndSettle();
-      await tapText(tester, 'Reserva PF');
+      await tapText(tester, 'RESERVA PF');
       await tapText(tester, 'Total');
       await tapText(tester, 'Revisar recebimento');
       expect(

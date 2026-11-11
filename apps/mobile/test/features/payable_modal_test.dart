@@ -120,7 +120,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verifica exibição do título e valor
-      expect(find.text('Internet Fibra'), findsOneWidget);
+      expect(find.text('INTERNET FIBRA'), findsOneWidget);
       expect(find.text('R\$ 150,00'), findsWidgets);
 
       // Verifica botão de dar baixa
@@ -204,7 +204,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verifica elementos de fatura com valor a informar
-      expect(find.text('Fatura Nubank'), findsOneWidget);
+      expect(find.text('FATURA NUBANK'), findsOneWidget);
       expect(find.text('Valor a informar'), findsWidgets);
       expect(find.text('Informar valor da fatura'), findsOneWidget);
 

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/dates.dart';
 import '../../core/money.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
 import '../../ui/widgets.dart';
@@ -306,7 +307,7 @@ class _LoansScreenState extends State<LoansScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          loan.title,
+                          toFinancialUpper(loan.title),
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
@@ -314,7 +315,7 @@ class _LoansScreenState extends State<LoansScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          loan.counterparty,
+                          toFinancialUpper(loan.counterparty),
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: AppTokens.neutral,
                           ),
@@ -512,12 +513,12 @@ class _LoansScreenState extends State<LoansScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               children: [
                 Text(
-                  loan.title,
+                  toFinancialUpper(loan.title),
                   style: Theme.of(ctx).textTheme.titleLarge
                       ?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  '${loan.counterparty} • ${loan.isTaken ? "Tomado" : "Concedido"}',
+                  '${toFinancialUpper(loan.counterparty)} • ${loan.isTaken ? "Tomado" : "Concedido"}',
                   style: const TextStyle(color: AppTokens.neutral),
                 ),
                 const SizedBox(height: 16),

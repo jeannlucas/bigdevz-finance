@@ -199,7 +199,7 @@ void main() {
         ),
       );
 
-      expect(find.text('Transporte'), findsOneWidget);
+      expect(find.text('TRANSPORTE'), findsOneWidget);
       expect(find.byIcon(Icons.directions_car_rounded), findsOneWidget);
     });
 
@@ -219,7 +219,7 @@ void main() {
         ),
       );
 
-      expect(find.text('Salário'), findsOneWidget);
+      expect(find.text('SALÁRIO'), findsOneWidget);
       expect(find.byIcon(Icons.work_rounded), findsOneWidget);
     });
 
@@ -323,15 +323,15 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Distribuição por Categoria'), findsOneWidget);
-      expect(find.text('Moradia'), findsOneWidget);
-      expect(find.text('Alimentação'), findsOneWidget);
+      expect(find.text('MORADIA'), findsOneWidget);
+      expect(find.text('ALIMENTAÇÃO'), findsOneWidget);
       expect(find.text('R\$ 1.500,00'), findsOneWidget);
 
       // Alterna para Receitas
       await tester.tap(find.text('Receitas'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Salário'), findsOneWidget);
+      expect(find.text('SALÁRIO'), findsOneWidget);
       expect(find.text('R\$ 5.000,00'), findsOneWidget);
     });
   });

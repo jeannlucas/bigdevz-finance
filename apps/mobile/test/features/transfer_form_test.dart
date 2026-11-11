@@ -155,14 +155,14 @@ void main() {
       // Seleciona a mesma conta na origem e no destino
       await tester.tap(find.byKey(const ValueKey('transfer_source_account')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Conta Corrente (R\$ 1.500,00)').last);
+      await tester.tap(find.text('CONTA CORRENTE (R\$ 1.500,00)').last);
       await tester.pumpAndSettle();
 
       await tester.tap(
         find.byKey(const ValueKey('transfer_destination_account')),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Conta Corrente (R\$ 1.500,00)').last);
+      await tester.tap(find.text('CONTA CORRENTE (R\$ 1.500,00)').last);
       await tester.pumpAndSettle();
 
       await tester.enterText(
@@ -209,7 +209,7 @@ void main() {
     // Seleciona conta 1 na origem
     await tester.tap(find.byKey(const ValueKey('transfer_source_account')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Conta Corrente (R\$ 1.500,00)').last);
+    await tester.tap(find.text('CONTA CORRENTE (R\$ 1.500,00)').last);
     await tester.pumpAndSettle();
 
     // Seleciona conta 2 no destino
@@ -217,7 +217,7 @@ void main() {
       find.byKey(const ValueKey('transfer_destination_account')),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Poupança (R\$ 500,00)').last);
+    await tester.tap(find.text('POUPANÇA (R\$ 500,00)').last);
     await tester.pumpAndSettle();
 
     // Digita valor

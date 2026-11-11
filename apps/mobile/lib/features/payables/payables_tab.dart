@@ -3,8 +3,12 @@ import 'package:provider/provider.dart';
 
 import '../../core/dates.dart';
 import '../../core/money.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
+import '../../ui/financial/financial_agenda_view.dart';
+import '../../ui/financial/financial_item_view.dart';
+import '../../ui/financial/financial_search_bar.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import '../auth/auth_models.dart';
@@ -17,6 +21,7 @@ import 'batch_payable_modal.dart';
 import 'payable.dart';
 import 'payable_creations.dart';
 import 'payable_form_screen.dart';
+import 'payable_item_adapter.dart';
 import 'payable_modal.dart';
 import 'payables_repository.dart';
 import 'pending_creation_card.dart';
@@ -52,6 +57,16 @@ class _PayablesTabState extends State<PayablesTab> {
   PendingCreation? _pending;
   bool _selectionMode = false;
   final Set<int> _selectedPayableIds = {};
+  String _searchQuery = '';
+  FinancialSortOption _sortOption = FinancialSortOption.dueDateAsc;
+  FinancialPeriodFilter _periodFilter = FinancialPeriodFilter.all;
+  final Set<FinancialDueDateGroup> _expandedGroups = {
+    FinancialDueDateGroup.overdue,
+    FinancialDueDateGroup.today,
+    FinancialDueDateGroup.next7Days,
+    FinancialDueDateGroup.thisMonth,
+    FinancialDueDateGroup.future,
+  };
 
   bool _isEligible(Payable p) =>
       p.status != PayableStatus.paid &&
@@ -237,6 +252,16 @@ class _PayablesTabState extends State<PayablesTab> {
               final eligibleItems = items.where(_isEligible).toList();
               final isSelectionActive =
                   _selectionMode || _selectedPayableIds.isNotEmpty;
+              final isDesktop = MediaQuery.sizeOf(context).width >= 840;
+
+              final adapters = items.map(PayableItemAdapter.new).toList();
+              final filteredAdapters = filterAndSortFinancialItems(
+                adapters,
+                query: _searchQuery,
+                sort: _sortOption,
+                period: _periodFilter,
+                categoryId: _selectedCategoryId,
+              );
 
               return Stack(
                 children: [
@@ -245,115 +270,222 @@ class _PayablesTabState extends State<PayablesTab> {
                     child: Center(
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 1040),
-                        child: ListView(
+                        child: Padding(
                           padding: const EdgeInsets.fromLTRB(
                             AppTokens.p16,
                             4,
                             AppTokens.p16,
-                            100,
+                            0,
                           ),
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Wrap(
-                                alignment: WrapAlignment.spaceBetween,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                spacing: 8,
-                                runSpacing: 4,
-                                children: [
-                                  Text(
-                                    items.length == 1
-                                        ? '1 conta a pagar'
-                                        : '${items.length} contas a pagar',
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurfaceVariant,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                  ),
-                                  if (eligibleItems.isNotEmpty) ...[
-                                    if (!isSelectionActive)
-                                      TextButton.icon(
-                                        onPressed: () => setState(
-                                          () => _selectionMode = true,
-                                        ),
-                                        icon: const Icon(
-                                          Icons.checklist_rounded,
-                                          size: 16,
-                                        ),
-                                        label: const Text('Selecionar várias'),
-                                        style: TextButton.styleFrom(
-                                          visualDensity: VisualDensity.compact,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Wrap(
+                                  alignment: WrapAlignment.spaceBetween,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  children: [
+                                    Text(
+                                      items.length == 1
+                                          ? '1 conta a pagar'
+                                          : '${items.length} contas a pagar',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                            fontWeight: FontWeight.w500,
                                           ),
-                                        ),
-                                      )
-                                    else
-                                      Wrap(
-                                        spacing: 4,
-                                        children: [
-                                          TextButton(
-                                            onPressed: () =>
-                                                _toggleSelectAll(eligibleItems),
-                                            style: TextButton.styleFrom(
-                                              visualDensity:
-                                                  VisualDensity.compact,
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 8,
-                                                  ),
-                                            ),
-                                            child: Text(
-                                              _selectedPayableIds.length ==
-                                                      eligibleItems.length
-                                                  ? 'Desmarcar todas'
-                                                  : 'Selecionar todas',
+                                    ),
+                                    if (eligibleItems.isNotEmpty) ...[
+                                      if (!isSelectionActive)
+                                        TextButton.icon(
+                                          onPressed: () => setState(
+                                            () => _selectionMode = true,
+                                          ),
+                                          icon: const Icon(
+                                            Icons.checklist_rounded,
+                                            size: 16,
+                                          ),
+                                          label: const Text(
+                                            'Selecionar várias',
+                                          ),
+                                          style: TextButton.styleFrom(
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
                                             ),
                                           ),
-                                          TextButton(
-                                            onPressed: () => setState(() {
-                                              _selectionMode = false;
-                                              _selectedPayableIds.clear();
-                                            }),
-                                            style: TextButton.styleFrom(
-                                              visualDensity:
-                                                  VisualDensity.compact,
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 8,
-                                                  ),
+                                        )
+                                      else
+                                        Wrap(
+                                          spacing: 4,
+                                          children: [
+                                            TextButton(
+                                              onPressed: () => _toggleSelectAll(
+                                                eligibleItems,
+                                              ),
+                                              style: TextButton.styleFrom(
+                                                visualDensity:
+                                                    VisualDensity.compact,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                    ),
+                                              ),
+                                              child: Text(
+                                                _selectedPayableIds.length ==
+                                                        eligibleItems.length
+                                                    ? 'Desmarcar todas'
+                                                    : 'Selecionar todas',
+                                              ),
                                             ),
-                                            child: const Text('Cancelar'),
-                                          ),
-                                        ],
+                                            TextButton(
+                                              onPressed: () => setState(() {
+                                                _selectionMode = false;
+                                                _selectedPayableIds.clear();
+                                              }),
+                                              style: TextButton.styleFrom(
+                                                visualDensity:
+                                                    VisualDensity.compact,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                    ),
+                                              ),
+                                              child: const Text('Cancelar'),
+                                            ),
+                                          ],
+                                        ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: FinancialSearchBar(
+                                  query: _searchQuery,
+                                  onQueryChanged: (q) =>
+                                      setState(() => _searchQuery = q),
+                                  sort: _sortOption,
+                                  onSortChanged: (s) =>
+                                      setState(() => _sortOption = s),
+                                  hintText:
+                                      'Buscar por descrição ou favorecido...',
+                                  activeFiltersCount:
+                                      (_searchQuery.isNotEmpty ? 1 : 0) +
+                                      (_filter != 'open' ? 1 : 0) +
+                                      (_periodFilter !=
+                                              FinancialPeriodFilter.all
+                                          ? 1
+                                          : 0) +
+                                      (_selectedCategoryId != null ? 1 : 0),
+                                  onOpenFilters: () =>
+                                      showFinancialFiltersSheet(
+                                        context: context,
+                                        currentStatus: _filter,
+                                        statusOptions: _filters,
+                                        onStatusSelected: (s) =>
+                                            setState(() => _filter = s),
+                                        currentPeriod: _periodFilter,
+                                        onPeriodSelected: (p) =>
+                                            setState(() => _periodFilter = p),
+                                        currentCategoryId: _selectedCategoryId,
+                                        onCategorySelected: (c) => setState(
+                                          () => _selectedCategoryId = c,
+                                        ),
+                                        spaceId: space.id,
+                                        categoryType: 'expense',
+                                        onClearAll: () => setState(() {
+                                          _filter = 'open';
+                                          _periodFilter =
+                                              FinancialPeriodFilter.all;
+                                          _selectedCategoryId = null;
+                                        }),
+                                      ),
+                                  activeFilterChips: [
+                                    if (_filter != 'open')
+                                      InputChip(
+                                        label: Text(
+                                          'Situação: ${_filters[_filter] ?? _filter}',
+                                        ),
+                                        onDeleted: () =>
+                                            setState(() => _filter = 'open'),
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                    if (_periodFilter !=
+                                        FinancialPeriodFilter.all)
+                                      InputChip(
+                                        label: Text(
+                                          'Período: ${_periodFilter.label}',
+                                        ),
+                                        onDeleted: () => setState(
+                                          () => _periodFilter =
+                                              FinancialPeriodFilter.all,
+                                        ),
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                    if (_selectedCategoryId != null)
+                                      InputChip(
+                                        label: const Text('Categoria filtrada'),
+                                        onDeleted: () => setState(
+                                          () => _selectedCategoryId = null,
+                                        ),
+                                        visualDensity: VisualDensity.compact,
                                       ),
                                   ],
-                                ],
-                              ),
-                            ),
-                            for (final item in items) ...[
-                              PayableCard(
-                                space: space,
-                                payable: item,
-                                isSelectable:
-                                    isSelectionActive && _isEligible(item),
-                                isSelected: _selectedPayableIds.contains(
-                                  item.id,
-                                ),
-                                onToggleSelect: () => _toggleSelect(item.id),
-                                onTap: () => showPayableModal(
-                                  context,
-                                  space: space,
-                                  payableId: item.id,
-                                  onUpdated: refresh,
+                                  onClearAllFilters: () => setState(() {
+                                    _searchQuery = '';
+                                    _filter = 'open';
+                                    _periodFilter = FinancialPeriodFilter.all;
+                                    _selectedCategoryId = null;
+                                    _sortOption =
+                                        FinancialSortOption.dueDateAsc;
+                                  }),
                                 ),
                               ),
-                              const SizedBox(height: 10),
+                              Expanded(
+                                child: FinancialAgendaView<PayableItemAdapter>(
+                                  items: filteredAdapters,
+                                  isDesktop: isDesktop,
+                                  expandedGroups: _expandedGroups,
+                                  onToggleGroup: (group) => setState(() {
+                                    if (_expandedGroups.contains(group)) {
+                                      _expandedGroups.remove(group);
+                                    } else {
+                                      _expandedGroups.add(group);
+                                    }
+                                  }),
+                                  isSelectionActive: isSelectionActive,
+                                  selectedIds: _selectedPayableIds,
+                                  onToggleSelect: _toggleSelect,
+                                  onTapItem: (adapter) => showPayableModal(
+                                    context,
+                                    space: space,
+                                    payableId: adapter.payable.id,
+                                    onUpdated: refresh,
+                                  ),
+                                  quickActionLabel: 'Pagar',
+                                  isQuickActionEnabled: (adapter) =>
+                                      adapter.payable.canPay,
+                                  onQuickAction: (adapter) => showPayableModal(
+                                    context,
+                                    space: space,
+                                    payableId: adapter.payable.id,
+                                    onUpdated: refresh,
+                                  ),
+                                  singularLabel: 'conta a pagar',
+                                  pluralLabel: 'contas a pagar',
+                                ),
+                              ),
                             ],
-                          ],
+                          ),
                         ),
                       ),
                     ),
@@ -546,7 +678,7 @@ class PayableCard extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                payable.description,
+                                toFinancialUpper(payable.description),
                                 style: theme.textTheme.titleSmall?.copyWith(
                                   fontWeight: FontWeight.w700,
                                   fontSize: 15,
@@ -565,7 +697,7 @@ class PayableCard extends StatelessWidget {
                                   payable.payee!.trim().isNotEmpty) ...[
                                 const SizedBox(height: 2),
                                 Text(
-                                  payable.payee!,
+                                  toFinancialUpper(payable.payee!),
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: theme.colorScheme.onSurfaceVariant
                                         .withValues(alpha: 0.8),

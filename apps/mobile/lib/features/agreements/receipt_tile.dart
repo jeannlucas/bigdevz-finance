@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/dates.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
 import '../../ui/widgets.dart';
@@ -68,7 +69,7 @@ class ReceiptTile extends StatelessWidget {
         ),
         subtitle: Text(
           [
-            '${formatDateBr(receipt.receivedOn)} · $accountName',
+            '${formatDateBr(receipt.receivedOn)} · ${toFinancialUpper(accountName)}',
             if (receipt.replacesReceiptId != null)
               'Substitui um recebimento corrigido',
             if (reversal != null) 'Motivo: ${reversal.reason}',

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:bigdevz_finance/core/api_client.dart';
 import 'package:bigdevz_finance/core/money.dart';
+import 'package:bigdevz_finance/core/text_formatters.dart';
 import 'package:bigdevz_finance/features/accounts/account.dart';
 import 'package:bigdevz_finance/features/accounts/account_card.dart';
 import 'package:bigdevz_finance/features/accounts/account_form_screen.dart';
@@ -214,9 +215,13 @@ void main() {
     }
 
     Future<void> tapText(WidgetTester tester, String text) async {
-      await tester.ensureVisible(find.text(text).last);
+      final upper = toFinancialUpper(text);
+      final finder = find.text(upper).evaluate().isNotEmpty
+          ? find.text(upper).last
+          : find.text(text).last;
+      await tester.ensureVisible(finder);
       await tester.pump();
-      await tester.tap(find.text(text).last);
+      await tester.tap(finder);
       await tester.pumpAndSettle();
     }
 
@@ -252,13 +257,13 @@ void main() {
         );
         await tapText(tester, 'Salvar alterações');
         expect(find.text('Conta atualizada.'), findsOneWidget);
-        expect(find.text('Banco Novo'), findsWidgets);
+        expect(find.text('BANCO NOVO'), findsWidgets);
         expect(writes(), ['PATCH /api/spaces/1/accounts/7']);
         expect(
           jsonDecode(
             fake.requests.singleWhere((r) => r.method == 'PATCH').body,
           ),
-          {'name': 'Banco Novo'},
+          {'name': 'BANCO NOVO'},
         );
         expect(fake.balanceCents, 150000);
       },
@@ -390,14 +395,14 @@ void main() {
         await tapText(tester, 'Registrar recebimento');
         await tester.tap(find.byType(DropdownButtonFormField<int>));
         await tester.pumpAndSettle();
-        expect(find.text('Reserva PF'), findsWidgets);
-        expect(find.text('Banco PF'), findsNothing);
+        expect(find.text('RESERVA PF'), findsWidgets);
+        expect(find.text('BANCO PF'), findsNothing);
         await tester.tapAt(const Offset(10, 10));
         await tester.pumpAndSettle();
         await tester.pageBack();
         await tester.pumpAndSettle();
         // Histórico preservado com o nome da conta arquivada.
-        expect(find.textContaining('Banco PF'), findsOneWidget);
+        expect(find.textContaining('BANCO PF'), findsOneWidget);
 
         await pump(tester, const AccountsTab(space: pf));
         await tapText(tester, 'Banco PF');
@@ -459,7 +464,7 @@ void main() {
 
         // Nó semântico deve anunciar "saldo oculto" e não o valor real
         expect(
-          find.bySemanticsLabel('Conta Nubank Principal, saldo oculto'),
+          find.bySemanticsLabel('Conta NUBANK PRINCIPAL, saldo oculto'),
           findsOneWidget,
         );
         expect(find.bySemanticsLabel(RegExp(r'1\.500,00')), findsNothing);
@@ -479,7 +484,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(
-          find.bySemanticsLabel('Conta Nubank Principal, saldo R\$ 1.500,00'),
+          find.bySemanticsLabel('Conta NUBANK PRINCIPAL, saldo R\$ 1.500,00'),
           findsOneWidget,
         );
 
@@ -500,11 +505,11 @@ void main() {
         await tester.pumpAndSettle();
 
         final nodeFinder = find.bySemanticsLabel(
-          'Conta Nubank Principal, saldo R\$ 1.500,00',
+          'Conta NUBANK PRINCIPAL, saldo R\$ 1.500,00',
         );
         expect(nodeFinder, findsOneWidget);
         semantics.tap(
-          find.semantics.byLabel('Conta Nubank Principal, saldo R\$ 1.500,00'),
+          find.semantics.byLabel('Conta NUBANK PRINCIPAL, saldo R\$ 1.500,00'),
         );
         expect(
           tapped,
@@ -705,7 +710,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Todas as contas'), findsOneWidget);
-        expect(find.text('Banco do Brasil - Corrente'), findsWidgets);
+        expect(find.text('BANCO DO BRASIL - CORRENTE'), findsWidgets);
         expect(find.text('Corrente · Saldo disponível'), findsOneWidget);
         expect(
           find.byWidgetPredicate(
@@ -741,6 +746,32 @@ void main() {
         expect(find.byKey(const ValueKey('accounts-total')), findsOneWidget);
         expect(find.text('Todas as contas'), findsOneWidget);
         expect(find.text('Nova conta'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'conta bancária legada em minúsculas é renderizada em MAIÚSCULAS no Card e Detalhe sem mutar o modelo',
+      (tester) async {
+        final legacyAccount = Account(
+          id: 99,
+          name: 'carteira pessoal antiga',
+          balance: Money.parse('350.00'),
+          openingBalance: Money.parse('100.00'),
+          openingBalanceDate: '2026-01-01',
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: AccountCard(space: pf, account: legacyAccount),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Na UI, deve aparecer em MAIÚSCULAS
+        expect(find.text('CARTEIRA PESSOAL ANTIGA'), findsOneWidget);
+        // Modelo original em memória permanece estritamente em minúsculas (sem mutação)
+        expect(legacyAccount.name, 'carteira pessoal antiga');
       },
     );
   });

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
 import '../../core/dates.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/app_tokens.dart';
 import '../../ui/widgets.dart';
 import '../accounts/account.dart';
@@ -334,7 +335,10 @@ class _OfxScreenState extends State<OfxScreen> {
                 ),
                 items: [
                   for (final acc in _accounts)
-                    DropdownMenuItem(value: acc.id, child: Text(acc.name)),
+                    DropdownMenuItem(
+                      value: acc.id,
+                      child: Text(toFinancialUpper(acc.name)),
+                    ),
                 ],
                 onChanged: (val) => setState(() => _selectedAccountId = val),
               ),
@@ -561,7 +565,7 @@ class _OfxScreenState extends State<OfxScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Correspondência sugerida: ${tx.suggestedMatch!.title} (${tx.suggestedMatch!.amount})',
+                                  'Correspondência sugerida: ${toFinancialUpper(tx.suggestedMatch!.title)} (${tx.suggestedMatch!.amount})',
                                   style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
@@ -607,7 +611,7 @@ class _OfxScreenState extends State<OfxScreen> {
                                         ? 'match_payable'
                                         : 'match_installment',
                                     child: Text(
-                                      'Conciliar com "${tx.suggestedMatch!.title}"',
+                                      'Conciliar com "${toFinancialUpper(tx.suggestedMatch!.title)}"',
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),

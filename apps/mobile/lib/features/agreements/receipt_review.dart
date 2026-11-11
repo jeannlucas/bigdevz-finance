@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/dates.dart';
 import '../../core/money.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/widgets.dart';
 import '../auth/auth_models.dart';
 import 'agreement.dart';
@@ -105,7 +106,9 @@ class ReceiptReview extends StatelessWidget {
                             id: 'Acordo',
                             label: 'Acordo',
                             value: Text(
-                              installment.agreementDescription ?? 'Acordo',
+                              toFinancialUpper(
+                                installment.agreementDescription ?? 'Acordo',
+                              ),
                             ),
                           ),
                           _Line(
@@ -139,7 +142,7 @@ class ReceiptReview extends StatelessWidget {
                           _Line(
                             id: 'Conta',
                             label: 'Conta de destino',
-                            value: Text(draft.accountName),
+                            value: Text(toFinancialUpper(draft.accountName)),
                           ),
                           _Line(
                             id: 'Espaço',

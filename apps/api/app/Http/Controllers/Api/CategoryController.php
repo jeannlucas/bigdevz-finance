@@ -29,6 +29,10 @@ class CategoryController extends Controller
         $spaceModel = $this->space($request, $space);
         $spaceModel->ensureCan($request->user(), 'manage_categories');
 
+        if ($request->has('name')) {
+            $request->merge(['name' => Category::financialUpper($request->input('name'))]);
+        }
+
         $data = $request->validate([
             'name' => [
                 'required',
@@ -60,6 +64,10 @@ class CategoryController extends Controller
 
         /** @var Category $categoryModel */
         $categoryModel = $spaceModel->categories()->findOrFail($category);
+
+        if ($request->has('name')) {
+            $request->merge(['name' => Category::financialUpper($request->input('name'))]);
+        }
 
         $data = $request->validate([
             'name' => [

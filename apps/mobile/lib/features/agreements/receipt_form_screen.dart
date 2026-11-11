@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/dates.dart';
 import '../../core/money.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/app_icons.dart';
 import '../../ui/date_field.dart';
 import '../../ui/widgets.dart';
@@ -261,7 +262,7 @@ class _ReceiptFormScreenState extends State<ReceiptFormScreen> {
               const SizedBox(height: 12),
               Text(
                 'Parcela ${installment.number}${installment.installmentCount != null ? '/${installment.installmentCount}' : ''}'
-                '${installment.agreementDescription != null ? ' · ${installment.agreementDescription}' : ''}\n'
+                '${installment.agreementDescription != null ? ' · ${toFinancialUpper(installment.agreementDescription!)}' : ''}\n'
                 'Falta receber ${installment.remaining.brl}',
                 style: theme.textTheme.bodyMedium,
               ),
@@ -279,7 +280,10 @@ class _ReceiptFormScreenState extends State<ReceiptFormScreen> {
                 ),
                 items: [
                   for (final item in _selectable)
-                    DropdownMenuItem(value: item.id, child: Text(item.name)),
+                    DropdownMenuItem(
+                      value: item.id,
+                      child: Text(toFinancialUpper(item.name)),
+                    ),
                 ],
                 validator: (value) =>
                     value == null ? 'Escolha a conta de destino.' : null,

@@ -152,11 +152,11 @@ void main() {
         await openScreen(tester, child: const LoansScreen(space: pf));
 
         expect(find.text('Empréstimos'), findsOneWidget);
-        expect(find.text('Financiamento Imóvel'), findsOneWidget);
-        expect(find.text('Caixa Econômica'), findsOneWidget);
+        expect(find.text('FINANCIAMENTO IMÓVEL'), findsOneWidget);
+        expect(find.text('CAIXA ECONÔMICA'), findsOneWidget);
         expect(find.text('Tomado'), findsOneWidget);
-        expect(find.text('Empréstimo João'), findsOneWidget);
-        expect(find.text('João da Silva'), findsOneWidget);
+        expect(find.text('EMPRÉSTIMO JOÃO'), findsOneWidget);
+        expect(find.text('JOÃO DA SILVA'), findsOneWidget);
         expect(find.text('Concedido'), findsOneWidget);
 
         // Resumo de dívidas e a receber
@@ -237,8 +237,8 @@ void main() {
       backend.overrides['POST /spaces/1/loans'] = (request) {
         final body = jsonDecode(request.body) as Map<String, dynamic>;
         expect(body['kind'], 'taken');
-        expect(body['title'], 'Empréstimo Investimento');
-        expect(body['counterparty'], 'Itaú BBA');
+        expect(body['title'], 'EMPRÉSTIMO INVESTIMENTO');
+        expect(body['counterparty'], 'ITAÚ BBA');
         expect(body['principal'], '10000.00');
         expect(body['total'], '12000.00');
         expect(body['installment_count'], 12);

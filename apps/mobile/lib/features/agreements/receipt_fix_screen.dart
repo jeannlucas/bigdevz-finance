@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/dates.dart';
 import '../../core/money.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/date_field.dart';
 import '../../ui/widgets.dart';
 import '../accounts/account.dart';
@@ -75,8 +76,9 @@ class _ReceiptFixScreenState extends State<ReceiptFixScreen> {
   bool get _busy => _state == ReceiptAttemptState.sending;
   String get _verb => widget.correction ? 'correção' : 'estorno';
 
-  String _accountName(int id) =>
-      widget.accounts.where((a) => a.id == id).firstOrNull?.name ?? 'Conta';
+  String _accountName(int id) => toFinancialUpper(
+    widget.accounts.where((a) => a.id == id).firstOrNull?.name ?? 'Conta',
+  );
 
   ReceiptReplacement? get _replacement {
     final attempt = _attempt;
@@ -274,7 +276,10 @@ class _ReceiptFixScreenState extends State<ReceiptFixScreen> {
               ),
               items: [
                 for (final item in _selectable)
-                  DropdownMenuItem(value: item.id, child: Text(item.name)),
+                  DropdownMenuItem(
+                    value: item.id,
+                    child: Text(toFinancialUpper(item.name)),
+                  ),
               ],
               hint: const Text('Escolha a conta'),
               validator: (value) =>

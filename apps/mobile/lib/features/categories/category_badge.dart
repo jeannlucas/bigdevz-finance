@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/text_formatters.dart';
 import '../../ui/app_tokens.dart';
 import 'category.dart';
 
@@ -36,15 +37,17 @@ class CategoryBadge extends StatelessWidget {
           children: [
             Icon(category.iconData, size: 11, color: catColor),
             const SizedBox(width: 4),
-            Text(
-              category.name,
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w600,
-                color: isDark ? catColor.withValues(alpha: 0.95) : catColor,
+            Flexible(
+              child: Text(
+                toFinancialUpper(category.name),
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? catColor.withValues(alpha: 0.95) : catColor,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -73,15 +76,17 @@ class CategoryBadge extends StatelessWidget {
             child: Icon(category.iconData, size: 12, color: catColor),
           ),
           const SizedBox(width: 6),
-          Text(
-            category.name,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: isDark ? Colors.white70 : theme.colorScheme.onSurface,
+          Flexible(
+            child: Text(
+              toFinancialUpper(category.name),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white70 : theme.colorScheme.onSurface,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

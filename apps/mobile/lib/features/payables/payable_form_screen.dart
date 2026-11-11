@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/dates.dart';
 import '../../core/money.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/app_tokens.dart';
 import '../../ui/date_field.dart';
 import '../../ui/installment_summary_card.dart';
@@ -597,6 +598,7 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
           const SizedBox(height: 16),
           TextFormField(
             controller: _description,
+            inputFormatters: const [UpperCaseTextFormatter()],
             decoration: InputDecoration(
               labelText: 'Descrição',
               hintText: 'Ex.: Aluguel, material da obra',
@@ -616,6 +618,7 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
                 final isTextEnlarged = textScaler.scale(1.0) > 1.2;
                 return TextFormField(
                   controller: _payee,
+                  inputFormatters: const [UpperCaseTextFormatter()],
                   decoration: InputDecoration(
                     labelText: isTextEnlarged
                         ? null

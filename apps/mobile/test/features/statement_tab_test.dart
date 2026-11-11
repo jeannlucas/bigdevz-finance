@@ -105,8 +105,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Extrato'), findsOneWidget);
-    expect(find.text('Pagamento de Internet'), findsOneWidget);
-    expect(find.text('Recebimento de Salário'), findsOneWidget);
+    expect(find.text('PAGAMENTO DE INTERNET'), findsOneWidget);
+    expect(find.text('RECEBIMENTO DE SALÁRIO'), findsOneWidget);
     expect(find.text('- R\$ 350,00'), findsOneWidget);
     expect(find.text('+ R\$ 1.200,00'), findsOneWidget);
   });

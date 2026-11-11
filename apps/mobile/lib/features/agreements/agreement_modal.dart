@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/dates.dart';
 import '../../core/money.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/app_tokens.dart';
 import '../../ui/confirm_changes_dialog.dart';
 import '../../ui/date_field.dart';
@@ -29,6 +30,7 @@ Future<void> showAgreementModal(
   BuildContext context, {
   required Space space,
   required int agreementId,
+  int? initialInstallmentId,
   VoidCallback? onUpdated,
 }) async {
   final isDesktop = MediaQuery.sizeOf(context).width >= 840;
@@ -51,6 +53,7 @@ Future<void> showAgreementModal(
           child: _AgreementModalContent(
             space: space,
             agreementId: agreementId,
+            initialInstallmentId: initialInstallmentId,
             onUpdated: onUpdated,
           ),
         ),
@@ -74,6 +77,7 @@ Future<void> showAgreementModal(
         child: _AgreementModalContent(
           space: space,
           agreementId: agreementId,
+          initialInstallmentId: initialInstallmentId,
           onUpdated: onUpdated,
         ),
       ),
@@ -85,11 +89,13 @@ class _AgreementModalContent extends StatefulWidget {
   const _AgreementModalContent({
     required this.space,
     required this.agreementId,
+    this.initialInstallmentId,
     this.onUpdated,
   });
 
   final Space space;
   final int agreementId;
+  final int? initialInstallmentId;
   final VoidCallback? onUpdated;
 
   @override
@@ -199,12 +205,32 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
         context.read<AccountsRepository>().list(widget.space.id),
       ]);
       if (mounted) {
+        final agreement = results[0] as Agreement;
+        final accounts = (results[1] as List<Account>)
+            .where((a) => !a.isArchived)
+            .toList();
+
+        Installment? preselected;
+        if (widget.initialInstallmentId != null) {
+          preselected = agreement.installments
+              .where((i) => i.id == widget.initialInstallmentId)
+              .firstOrNull;
+        }
+
         setState(() {
-          _agreement = results[0] as Agreement;
-          _accounts = (results[1] as List<Account>)
-              .where((a) => !a.isArchived)
-              .toList();
+          _agreement = agreement;
+          _accounts = accounts;
           _loading = false;
+          if (preselected != null &&
+              preselected.status != InstallmentStatus.paid &&
+              preselected.remaining.cents > 0) {
+            _selectedInstallment = preselected;
+            _amountController.text = preselected.remaining.plain;
+            _selectedDate = DateUtils.dateOnly(DateTime.now());
+            _selectedAccountId = accounts.isNotEmpty ? accounts.first.id : null;
+            _submitError = null;
+            _success = false;
+          }
         });
       }
     } catch (e) {
@@ -428,7 +454,9 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
           }
         }
       }
-    } catch (e) {
+    } catch (e, stack) {
+      // ignore: avoid_print
+      print('DEBUG _loadData error: $e\n$stack');
       if (mounted) {
         setState(() {
           _submitting = false;
@@ -618,7 +646,7 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      agreement.description,
+                      toFinancialUpper(agreement.description),
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -1141,7 +1169,9 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
                     for (final acc in _accounts)
                       DropdownMenuItem(
                         value: acc.id,
-                        child: Text('${acc.name} (${acc.balance.brl})'),
+                        child: Text(
+                          '${toFinancialUpper(acc.name)} (${acc.balance.brl})',
+                        ),
                       ),
                   ],
                   onChanged: (id) => setState(() => _selectedAccountId = id),
@@ -1474,7 +1504,9 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
                     for (final acc in _accounts)
                       DropdownMenuItem(
                         value: acc.id,
-                        child: Text('${acc.name} (${acc.balance.brl})'),
+                        child: Text(
+                          '${toFinancialUpper(acc.name)} (${acc.balance.brl})',
+                        ),
                       ),
                   ],
                   onChanged: (id) => setState(() => _selectedAccountId = id),
@@ -1804,7 +1836,9 @@ class _EditAgreementDialogState extends State<EditAgreementDialog> {
   void initState() {
     super.initState();
     final agr = widget.agreement;
-    _descController = TextEditingController(text: agr.description);
+    _descController = TextEditingController(
+      text: toFinancialUpper(agr.description),
+    );
     _selectedCategory = agr.categoryId;
     _countController = TextEditingController(
       text: agr.installmentCount.toString(),
@@ -1896,11 +1930,12 @@ class _EditAgreementDialogState extends State<EditAgreementDialog> {
     final changes = <ChangeDifference>[];
 
     final newDesc = _descController.text.trim();
-    if (newDesc != agr.description) {
+    final currentUpperDesc = toFinancialUpper(agr.description);
+    if (newDesc != currentUpperDesc) {
       changes.add(
         ChangeDifference(
           label: 'Descrição',
-          oldValue: agr.description,
+          oldValue: currentUpperDesc,
           newValue: newDesc,
         ),
       );
@@ -1989,7 +2024,9 @@ class _EditAgreementDialogState extends State<EditAgreementDialog> {
       );
       if (!mounted) return;
       Navigator.of(context).pop(true);
-    } catch (e) {
+    } catch (e, stack) {
+      // ignore: avoid_print
+      print('DEBUG _loadData error: $e\n$stack');
       if (mounted) {
         setState(() => _saving = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2029,6 +2066,7 @@ class _EditAgreementDialogState extends State<EditAgreementDialog> {
               children: [
                 TextFormField(
                   controller: _descController,
+                  inputFormatters: const [UpperCaseTextFormatter()],
                   decoration: const InputDecoration(labelText: 'Descrição *'),
                   maxLength: 120,
                   validator: (v) => (v == null || v.trim().isEmpty)

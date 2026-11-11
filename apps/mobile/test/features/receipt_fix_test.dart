@@ -90,21 +90,21 @@ void main() {
       await openApp(tester);
       await openAction(tester, 'Corrigir recebimento');
       expect(
-        find.textContaining(r'R$ 500,00 · Banco PF · 10/03/2026'),
+        find.textContaining(r'R$ 500,00 · BANCO PF · 10/03/2026'),
         findsOneWidget,
       );
 
       await tester.tap(find.byType(DropdownButtonFormField<int>));
       await tester.pumpAndSettle();
-      await tapText(tester, 'Reserva PF');
+      await tapText(tester, 'RESERVA PF');
       await tester.enterText(
         find.widgetWithText(TextFormField, 'Motivo'),
         'Conta errada',
       );
       await tapText(tester, 'Revisar correção');
 
-      expect(line('Antes-Conta', 'Banco PF'), findsOneWidget);
-      expect(line('Depois-Conta', 'Reserva PF'), findsOneWidget);
+      expect(line('Antes-Conta', 'BANCO PF'), findsOneWidget);
+      expect(line('Depois-Conta', 'RESERVA PF'), findsOneWidget);
       expect(
         line('Saldo-7', r'−R$ 500,00 · R$ 1.500,00 → R$ 1.000,00'),
         findsOneWidget,
@@ -123,7 +123,7 @@ void main() {
       await tapText(tester, 'Revisar correção');
       await tapText(tester, 'Confirmar correção');
       expect(
-        find.textContaining(r'Correção confirmada: R$ 500,00 em Reserva PF'),
+        find.textContaining(r'Correção confirmada: R$ 500,00 em RESERVA PF'),
         findsOneWidget,
       );
       expect(jsonDecode(fake.receiptRequests.single.body), {
@@ -196,7 +196,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.textContaining(
-          r'Estorno já estava registrado: R$ 500,00 de Banco PF',
+          r'Estorno já estava registrado: R$ 500,00 de BANCO PF',
         ),
         findsOneWidget,
       );

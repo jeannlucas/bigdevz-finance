@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/text_formatters.dart';
 import '../../ui/app_tokens.dart';
 import 'categories_repository.dart';
 import 'category.dart';
@@ -136,7 +137,7 @@ class _CategoryFilterChipState extends State<CategoryFilterChip> {
                             color: cat.colorValue,
                           ),
                         ),
-                        title: Text(cat.name),
+                        title: Text(toFinancialUpper(cat.name)),
                         trailing: widget.selectedCategoryId == cat.id
                             ? Icon(
                                 Icons.check,
@@ -184,7 +185,7 @@ class _CategoryFilterChipState extends State<CategoryFilterChip> {
               )
             : const Icon(Icons.label_outline_rounded, size: 16),
         label: Text(
-          isFiltered ? selectedCat.name : 'Categoria',
+          isFiltered ? toFinancialUpper(selectedCat.name) : 'Categoria',
           style: TextStyle(
             fontSize: 12,
             fontWeight: isFiltered ? FontWeight.w700 : FontWeight.w500,

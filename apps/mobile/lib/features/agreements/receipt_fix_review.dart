@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/dates.dart';
 import '../../core/money.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/widgets.dart';
 import '../accounts/account.dart';
 import '../auth/auth_models.dart';
@@ -52,8 +53,9 @@ class ReceiptFixReview extends StatelessWidget {
 
   bool get _correction => replacement != null;
 
-  String _accountName(int id) =>
-      accounts.where((a) => a.id == id).firstOrNull?.name ?? 'Conta';
+  String _accountName(int id) => toFinancialUpper(
+    accounts.where((a) => a.id == id).firstOrNull?.name ?? 'Conta',
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -121,7 +123,7 @@ class ReceiptFixReview extends StatelessWidget {
                         _Line(
                           'Depois-Conta',
                           'Conta',
-                          Text(replacement.accountName),
+                          Text(toFinancialUpper(replacement.accountName)),
                         ),
                         _Line(
                           'Depois-Data',

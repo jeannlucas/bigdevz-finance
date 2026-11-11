@@ -22,7 +22,114 @@
 
 ## 2. Estado Operacional Atual e Máquina de Estados
 
-- **Estado Operacional:** **`PRODUCAO_INFRA_READY`** (Checkpoint `FINANCE-BLOQUEADORES-P0-VISUAL-FINALIZADO-01`, `FINANCE-BLOQUEADORES-P0-RBAC-PERIODO-AUDITORIA-01`, `FINANCE-AUDITORIA-PRODUTO-UX-ERP-01`, `FINANCE-QA-MCP-CHROME-E2E-01`, `FINANCE-P1-BAIXAS-PARCIAIS-FLUXO-CAIXA-OFX-01`, `FINANCE-PRE-PRODUCAO-HARDENING-SEGURANCA-01`, `FINANCE-RELEASE-READINESS-PILOTO-CONTROLADO-01`, `FINANCE-PRODUCAO-INFRAESTRUTURA-READINESS-01`).
+- **Estado Operacional:** **`PRODUCAO_INFRA_READY`** (Checkpoint `FINANCE-PADRONIZACAO-MAIUSCULAS-APRESENTACAO-LEGADOS-02`, `FINANCE-PADRONIZACAO-MAIUSCULAS-TEXTOS-FINANCEIROS-01`, `FINANCE-AGENDA-FINANCEIRA-ESCALAVEL-03-FILTROS-REFINADOS`, `FINANCE-PRODUCAO-INFRAESTRUTURA-READINESS-01`).
+- **Ciclo de Padronização de Apresentação de Dados Legados em MAIÚSCULAS (100% Concluído e Validado):**
+  1. **Auditoria Universal e Aplicação de `toFinancialUpper(...)` exclusivamente na Camada de Apresentação:**
+     - **Contas Bancárias / Carteiras:**
+       - Cards de conta (`AccountCard`): Título, modalidade, banco e nós semânticos de acessibilidade (`Semantics`) devidamente normalizados em maiúsculas (`Conta NUBANK PRINCIPAL, saldo oculto`).
+       - Listagem e aba de contas (`AccountsTab`): Lista "Todas as contas", modalidade, banco catálogo e contadores.
+       - Tela de detalhes da conta (`AccountScreen`): Cabeçalho, card de conta e histórico.
+       - Ajuste de saldo de abertura (`OpeningFixReview` e `AccountScreen`): Revisões com antes/depois, histórico de ajustes e linhas de saldo.
+       - Diálogos de arquivar e desarquivar: Diálogo de confirmação e reversão exibindo identificação em maiúsculas.
+       - Seletores de conta em transferências e empréstimos (`TransferFormScreen`, `LoanFormScreen`): Normalizados em `${toFinancialUpper(a.name)} (${a.balance.brl})`.
+     - **Empréstimos (`LoanCard`, `LoanDetailScreen`, `LoanFormScreen`):**
+       - Listagem de empréstimos (título e contraparte/instituição credora em maiúsculas).
+       - Tela de detalhe do empréstimo (título, credor/devedor e dados de parcelas).
+       - Seletores de conta de desembolso normalizados.
+     - **Contas a Pagar (`PayablesTab`, `PayableScreen`, `PaymentFormScreen`, `PaymentFixReview`, `PayableCreations`, `PayableEditScreen`, `PayableModal`):**
+       - Cards e tabela desktop (descrição e favorecido em maiúsculas).
+       - Tela de detalhe da conta a pagar (descrição e favorecido em maiúsculas).
+       - Telas de pagamento (`PaymentFormScreen`) e correção/revisão (`PaymentFixReview`).
+       - Dropdown de conta de origem em pagamentos e pagamentos em lote.
+       - Diálogos de confirmação de alterações (`ConfirmChangesDialog`) com `oldValue` e comparações livres de falso diff.
+       - Mensagens de pendência, confirmação, replay e alertas de saldo negativo (`BANCO PF`, `RESERVA PF`).
+     - **Contas a Receber (`AgreementsTab`, `AgreementModal`, `InstallmentScreen`, `ReceiptFormScreen`, `ReceiptFixReview`, `ReceiptAttempt`):**
+       - Acordos, contratos e clientes apresentados em maiúsculas na listagem e detalhes.
+       - Seletores de conta de destino na baixa de parcela e correções.
+       - Mensagens e banners de confirmação de recebimento (`Recebimento confirmado: ... em BANCO PF`).
+       - Linhas de auditoria da parcela com `BANCO PF · 10/03/2026`.
+     - **Extrato, Conciliação, Planejamento e Gráficos (`StatementTab`, `OfxScreen`, `PlanningScreen`, `DashboardCharts`, `CategoriesScreen`, `FinancialDesktopTable`, `FinancialMobileCard`):**
+       - Extrato de movimentações: Descrição de transação e nome de conta em maiúsculas.
+       - Conciliação OFX: Seletores de conta bancária de destino e correspondências sugeridas em maiúsculas.
+       - Planejamento financeiro: Filtros de conta e categoria em maiúsculas.
+       - Gráficos executivos: Legendas de contas bancárias e categorias no gráfico donut em maiúsculas (`MORADIA`, `ALIMENTAÇÃO`, `NUBANK PRINCIPAL`).
+       - Tabela Desktop e Mobile Card universais: `item.title` e `item.counterparty` normalizados.
+  2. **Garantia de Não-Mutação e Preservação Estrita:**
+     - Nenhum dado legado do banco foi regravado, atualizado em massa ou mutado em memória.
+     - Campos sensíveis/técnicos e observações livres preservam sua caixa original sem alteração (`notes`, `reason`, `cancel_reason`, emails, senhas, chaves de idempotência, tokens, enums técnicos, valores monetários e datas).
+  3. **Comprovação com Testes Automatizados (292 Testes Flutter 100% Verdes):**
+     - Testes específicos criados e atualizados comprovando que registros legados em minúsculas chegam da API e são apresentados em MAIÚSCULAS na UI sem mutar o modelo Dart em memória (`accounts_test.dart`, `payables_test.dart`, `loans_test.dart`, `receipt_form_test.dart`, `receipt_fix_test.dart`, `categories_test.dart`, `dashboard_charts_test.dart`, `financial_desktop_table_test.dart`).
+  4. **Quality Gate e Backpressure 100% Verde (`./scripts/check.sh --full`):**
+     - 181 testes Laravel (1.728 asserções) com zero falhas no PostgreSQL.
+     - 292 testes Flutter (unitários, widgets e fluxos) aprovados com zero falhas.
+     - 13 testes de domínio financeiro puro PHP aprovados.
+     - `flutter analyze` com "No issues found!".
+     - Laravel Pint (156 arquivos) e Dart format (155 arquivos) 100% limpos.
+     - `git diff --check` com zero erros.
+- **Ciclo de Padronização Segura de Textos Financeiros em MAIÚSCULAS (100% Concluído e Validado):**
+  1. **Defesa em Profundidade no Backend (Laravel 13):**
+     - Trait `NormalizesFinancialText` em `apps/api/app/Models/Concerns/NormalizesFinancialText.php` com o método utilitário `financialUpper(?string $value)` e o mutator `uppercaseTextAttribute()`.
+     - Mutators integrados em todos os 8 models com textos financeiros livres:
+       - `Payable.php`: `description` e `payee`.
+       - `PayablePlan.php`: `description` e `payee`.
+       - `Recurrence.php`: `description` e `payee`.
+       - `Agreement.php`: `description`.
+       - `Category.php`: `name`.
+       - `Account.php`: `name`.
+       - `Card.php`: `name`.
+       - `Loan.php`: `title` e `counterparty`.
+     - `CategoryController.php`: Normalização antecipada do campo `name` antes do `$request->validate()` para que a constraint `Rule::unique` valide o valor em MAIÚSCULAS no banco de dados.
+     - Suíte TDD dedicada em `apps/api/tests/Feature/FinancialTextNormalizationTest.php` cobrindo 9 cenários de cadastro, edição, acentuação e preservação estrita de campos sensíveis.
+     - Zero migrations destrutivas ou alterações em massa no banco de produção.
+  2. **Camada de Apresentação e Digitação no Frontend (Flutter / Dart):**
+     - Utilitário `apps/mobile/lib/core/text_formatters.dart`:
+       - `toFinancialUpper(String? text)`: Converte textos livres de identificação financeira para MAIÚSCULAS com limpeza de espaços e suporte a Unicode/português.
+       - `UpperCaseTextFormatter`: `TextInputFormatter` que converte a digitação em tempo real preservando o cursor do usuário, seleções ativas e sem deslocamentos indesejados.
+     - Apresentação de dados legados sem alteração estrutural no banco:
+       - `PayableItemAdapter` e `AgreementItemAdapter`: Títulos e credores formatados via `toFinancialUpper`.
+       - `CategoryBadge` e `CategoryFilterChip`: Nomes de categorias formatados via `toFinancialUpper`.
+       - Modais e telas principais (`PayablesTab`, `AgreementsTab`, `PayableModal`, `AgreementModal`, `CardsScreen`): Cabeçalhos e listagens legadas exibidos em MAIÚSCULAS.
+     - Formulários equipados com `UpperCaseTextFormatter`:
+       - `payable_form_screen.dart`, `payable_edit_screen.dart`, `payable_modal.dart`.
+       - `agreement_form_screen.dart`, `agreement_modal.dart`.
+       - `account_form_screen.dart`, `account_edit_screen.dart`.
+       - `cards_screen.dart`.
+       - `loan_form_screen.dart`.
+       - `categories_screen.dart`, `category_picker_field.dart`.
+     - Preservação estrita de campos excluídos: E-mails, senhas, tokens/UUIDs, chaves de idempotência, enums técnicos, notas/observações (`notes`) e justificativas de auditoria/cancelamento (`reason`, `cancel_reason`) mantêm seu formato original.
+  3. **Quality Gate e Backpressure 100% Verde (`./scripts/check.sh --full`):**
+     - 181 testes de API Laravel aprovados (1.728 asserções) com zero falhas no PostgreSQL isolado descartável.
+     - 290 testes Flutter aprovados (unitários, widgets e fluxos) sem erros.
+     - 13 testes de domínio financeiro puro PHP aprovados.
+     - `flutter analyze` com "No issues found!".
+     - Laravel Pint (156 arquivos) e Dart format (155 arquivos) 100% limpos.
+- **Ciclo de Evolução da Agenda Financeira Escalável (100% Concluído e Validado):**
+  1. **Virtualização Real com Lista Plana Sob Demanda:**
+     - `financial_agenda_view.dart`: Achatamento das entradas temporais em `_AgendaEntry` (`_GroupHeaderEntry`, `_DesktopTableHeaderEntry`, `_ItemEntry`) alimentando um único `ListView.builder`.
+     - Eliminação completa de loops `for` rígidos que instanciavam centenas de widgets simultaneamente.
+     - Suporta 110, 500 ou mais lançamentos no mesmo grupo sem sobrecarga de memória, instanciando apenas os widgets visíveis na viewport (+ cache).
+     - Comprovado por teste de widget que valida menos de 25 linhas instanciadas inicialmente para uma lista de 120 itens no mesmo grupo temporal, e scroll sob demanda até o item #119.
+  2. **Integração Real de Cards Compactos Mobile (< 840px):**
+     - `financial_mobile_card.dart`: Layout compacto com badges de situação, data de vencimento com cálculo de atraso, categoria com truncamento seguro (`Flexible`), tipo/parcela, valor e botão de ação rápida ("Pagar" / "Receber").
+     - Reflow responsivo via `Wrap` evitando overflow mesmo em telas ultra-compactas (320pt) e escalas de texto de até 200%.
+     - `PayablesTab` e `AgreementsTab`: `customMobileCardBuilder` legado removido; ambos usam nativamente `FinancialMobileCard`.
+  3. **Filtros Unificados Concluídos e Corrigidos:**
+     - `financial_search_bar.dart`: Normalização textual determinística e segura (`normalizeSearchText`), sem dependências externas, com remoção de acentos (`_diacriticsMap`), minúsculas e colapso de espaços excedentes. Comprovado: `agua` encontra `Água`, `JOAO` encontra `João`, `  mercado  ` encontra `Mercado`, tanto em título quanto favorecido/cliente.
+     - Correção funcional de categoria: `PayablesTab` e `AgreementsTab` repassam efetivamente `categoryId: _selectedCategoryId` para `filterAndSortFinancialItems`, isolando de verdade os lançamentos da categoria selecionada e restaurando todos os itens ao remover o chip ou limpar filtros.
+     - Enum de períodos `FinancialPeriodFilter` (`all`, `overdue`, `today`, `next7Days`, `thisMonth`, `next30Days`, `future`).
+     - Ordenação tripla (Vencimento, Maior Valor, Menor Valor, Descrição A-Z).
+     - Filtros em chips ativos removíveis com botão "Limpar filtros" (`onClearAllFilters`).
+     - Experiência desktop com controles horizontais organizados e experiência mobile abrindo `BottomSheet` modal com contagem de filtros ativos em badge.
+  4. **Ação Rápida em "A Receber" com Parcela Específica (`initialInstallmentId`):**
+     - `agreement_modal.dart`: `showAgreementModal` expandido para receber parâmetro opcional `initialInstallmentId`. Ao carregar, localiza a parcela informada e direciona a modal diretamente para `_buildBaixaView` ("Baixar Parcela N").
+     - `agreements_tab.dart`: Ação rápida "Receber" na tabela desktop e card mobile passa `initialInstallmentId: adapter.installment.id`, eliminando qualquer ambiguidade de direcionamento.
+     - Comprovado por teste de widget que simula toque em "Receber" na Parcela 2 e valida abertura direta com "Baixar Parcela 2".
+  5. **Quality Gate e Backpressure 100% Verde (`./scripts/check.sh --full`):**
+     - 283 testes Flutter aprovados (sem advertências ou falhas).
+     - 172 testes de feature da API Laravel (1.708 asserções) com zero falhas no PostgreSQL 18.
+     - 13 testes de domínio financeiro aprovados.
+     - Flutter analyze com zero avisos ou erros ("No issues found!").
+     - Laravel Pint (154 arquivos) e Dart format (153 arquivos) 100% limpos.
 - **Ciclo de Preparação da Infraestrutura de Produção (100% Concluído):**
   1. **Decisão Arquitetural de Ambiente Único (Produção):**
      - O projeto operará com ambiente único de produção na branch `main`. A branch atual de funcionalidades (`feature/edicao-cancelamento-lancamentos`) será integrada via Pull Request após revisão humana.
@@ -114,7 +221,7 @@
   - API Laravel 13 Docker ativa em `http://127.0.0.1:8000/api`.
   - PostgreSQL 18 Docker ativo em `127.0.0.1:5440`.
   - Frontend Flutter Web Server em `http://127.0.0.1:8085`.
-- **Branch Ativa:** `feature/edicao-cancelamento-lancamentos`.
+- **Branch Ativa:** `feature/agenda-financeira-escalavel`.
 - **Branch de Produção:** `main`.
 
 ---

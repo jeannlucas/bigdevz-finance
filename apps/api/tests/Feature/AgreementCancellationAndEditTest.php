@@ -107,7 +107,7 @@ class AgreementCancellationAndEditTest extends TestCase
             'category_id' => $category,
         ])->assertOk();
 
-        $this->assertSame('Descricao Corrigida', $response->json('data.description'));
+        $this->assertSame('DESCRICAO CORRIGIDA', $response->json('data.description'));
         $this->assertSame($category, $response->json('data.category.id'));
         $this->assertNotNull($response->json('data.edited_at'));
     }

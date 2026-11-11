@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\NormalizesFinancialText;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -12,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Payable extends Model
 {
+    use NormalizesFinancialText;
+
     public const SINGLE = 'single';
 
     public const INSTALLMENT = 'installment';
@@ -37,6 +41,16 @@ class Payable extends Model
             'cancelled_at' => 'datetime',
             'category_id' => 'integer',
         ];
+    }
+
+    protected function description(): Attribute
+    {
+        return self::uppercaseTextAttribute();
+    }
+
+    protected function payee(): Attribute
+    {
+        return self::uppercaseTextAttribute();
     }
 
     /** @return BelongsTo<Category, $this> */

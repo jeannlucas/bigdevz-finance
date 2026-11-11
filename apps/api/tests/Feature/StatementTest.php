@@ -103,11 +103,11 @@ class StatementTest extends TestCase
             ->assertJsonPath('data.0.amount', '500.00')
             ->assertJsonPath('data.0.direction', 'debit')
             ->assertJsonPath('data.0.type', 'payment')
-            ->assertJsonPath('data.0.description', 'Pagamento: Assinatura AWS')
+            ->assertJsonPath('data.0.description', 'Pagamento: ASSINATURA AWS')
             ->assertJsonPath('data.1.effective_date', '2026-02-10')
             ->assertJsonPath('data.1.amount', '1500.00')
             ->assertJsonPath('data.1.direction', 'credit')
-            ->assertJsonPath('data.1.description', 'Recebimento: Venda de Consultoria');
+            ->assertJsonPath('data.1.description', 'Recebimento: VENDA DE CONSULTORIA');
     }
 
     public function test_statement_filters_by_account_id(): void
@@ -345,11 +345,11 @@ class StatementTest extends TestCase
         $this->getJson("/api/spaces/{$this->pf->id}/statement?account_id={$origin->id}")
             ->assertOk()
             ->assertJsonPath('data.0.direction', 'debit')
-            ->assertJsonPath('data.0.description', 'Transferência para Destino Nubank');
+            ->assertJsonPath('data.0.description', 'Transferência para DESTINO NUBANK');
 
         $this->getJson("/api/spaces/{$this->pf->id}/statement?account_id={$dest->id}")
             ->assertOk()
             ->assertJsonPath('data.0.direction', 'credit')
-            ->assertJsonPath('data.0.description', 'Transferência de Origem Itaú');
+            ->assertJsonPath('data.0.description', 'Transferência de ORIGEM ITAÚ');
     }
 }

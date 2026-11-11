@@ -45,8 +45,9 @@ void main() {
     for (final r in fake.writes.where((r) => r.url.path.endsWith('/payables')))
       r.body,
   };
-  int count(String description) =>
-      fake.payables.values.where((p) => p.description == description).length;
+  int count(String description) => fake.payables.values
+      .where((p) => p.description.toUpperCase() == description.toUpperCase())
+      .length;
 
   setUp(() {
     fake = FakePayablesApi();
@@ -309,7 +310,7 @@ void main() {
       expect(find.widgetWithText(TextFormField, 'Descrição'), findsNothing);
 
       await pump(tester, const PayablesTab(space: pf));
-      expect(find.textContaining('Conserto IT · Avulsa'), findsOneWidget);
+      expect(find.textContaining('CONSERTO IT · Avulsa'), findsOneWidget);
       final gate = fake.hold = Completer<void>();
       await tester.tap(find.text('Verificar cadastro'));
       await tester.pump();
@@ -324,7 +325,7 @@ void main() {
       gate.complete();
       await tester.pumpAndSettle();
       expect(
-        find.text('Cadastro já estava registrado: Conserto IT, 1 obrigação.'),
+        find.text('Cadastro já estava registrado: CONSERTO IT, 1 obrigação.'),
         findsOneWidget,
       );
       expect(count('Conserto IT'), 1);
@@ -379,7 +380,7 @@ void main() {
       await pump(tester, const PayablesTab(space: pf));
       await tapText(tester, 'Verificar cadastro');
       expect(
-        find.text('Cadastro já estava registrado: Aluguel IT, 15 obrigações.'),
+        find.text('Cadastro já estava registrado: ALUGUEL IT, 15 obrigações.'),
         findsOneWidget,
       );
       expect(count('Aluguel IT'), 15);

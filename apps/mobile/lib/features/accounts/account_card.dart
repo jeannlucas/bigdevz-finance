@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/text_formatters.dart';
 import '../../ui/app_brand.dart';
 import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
@@ -39,9 +40,10 @@ class AccountCard extends StatelessWidget {
       isArchived: isArchived,
     );
 
+    final upperName = toFinancialUpper(account.name);
     final semanticLabel = obscureBalance
-        ? 'Conta ${account.name}, saldo oculto'
-        : 'Conta ${account.name}, saldo ${account.balance.brl}';
+        ? 'Conta $upperName, saldo oculto'
+        : 'Conta $upperName, saldo ${account.balance.brl}';
 
     return Semantics(
       label: semanticLabel,
@@ -172,7 +174,7 @@ class AccountCard extends StatelessWidget {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        account.name,
+                                        toFinancialUpper(account.name),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(

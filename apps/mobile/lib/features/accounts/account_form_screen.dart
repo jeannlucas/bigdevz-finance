@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/dates.dart';
 import '../../core/money.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
 import '../../ui/date_field.dart';
@@ -688,6 +689,7 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
           TextFormField(
             key: const ValueKey('account_name_field'),
             controller: _name,
+            inputFormatters: const [UpperCaseTextFormatter()],
             decoration: InputDecoration(
               labelText: 'Nome de exibição da conta',
               hintText: 'Ex.: Banco do Brasil - Corrente',

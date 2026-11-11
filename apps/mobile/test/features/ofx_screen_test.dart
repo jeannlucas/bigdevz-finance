@@ -129,7 +129,7 @@ void main() {
 
       expect(find.text('Conciliação Bancária OFX'), findsOneWidget);
       expect(find.text('Importação Manual de Extrato OFX'), findsOneWidget);
-      expect(find.text('Itaú Principal'), findsOneWidget);
+      expect(find.text('ITAÚ PRINCIPAL'), findsOneWidget);
 
       // Preenche campo de texto OFX
       await tester.enterText(
@@ -150,7 +150,7 @@ void main() {
 
       // Sugestão de correspondência
       expect(
-        find.textContaining('Correspondência sugerida: Conta de Energia'),
+        find.textContaining('Correspondência sugerida: CONTA DE ENERGIA'),
         findsOneWidget,
       );
 

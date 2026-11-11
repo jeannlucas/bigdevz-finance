@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/money.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
 import '../accounts/account.dart';
@@ -263,7 +264,7 @@ class _StatementTabState extends State<StatementTab> {
                   for (final acc in _accounts)
                     DropdownMenuItem<int?>(
                       value: acc.id,
-                      child: Text(acc.name),
+                      child: Text(toFinancialUpper(acc.name)),
                     ),
                 ],
                 onChanged: (accId) {
@@ -438,7 +439,7 @@ class _StatementTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  entry.description,
+                  toFinancialUpper(entry.description),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -447,7 +448,7 @@ class _StatementTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${entry.accountName} • ${entry.effectiveDate}',
+                  '${toFinancialUpper(entry.accountName)} • ${entry.effectiveDate}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),

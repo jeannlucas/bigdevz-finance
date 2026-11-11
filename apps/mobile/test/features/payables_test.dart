@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:bigdevz_finance/core/api_client.dart';
 import 'package:bigdevz_finance/core/money.dart';
+import 'package:bigdevz_finance/core/text_formatters.dart';
 import 'package:bigdevz_finance/features/accounts/accounts_repository.dart';
 import 'package:bigdevz_finance/features/agreements/agreements_repository.dart';
 import 'package:bigdevz_finance/features/agreements/receipt_attempts.dart';
@@ -83,7 +84,7 @@ void main() {
         expect(resolved.state, ReceiptAttemptState.confirmed);
         expect(
           resolved.message,
-          'Pagamento já estava registrado: R\$ 100,00 de Banco PF.',
+          'Pagamento já estava registrado: R\$ 100,00 de BANCO PF.',
         );
         expect(fake.allPayments, hasLength(1));
         expect(fake.balances[7], 90000, reason: 'saída uma vez');
@@ -188,7 +189,7 @@ void main() {
     Future<void> chooseAccount(WidgetTester tester, String name) async {
       await tester.tap(find.byType(DropdownButtonFormField<int>));
       await tester.pumpAndSettle();
-      await tester.tap(find.text(name).last);
+      await tester.tap(find.text(toFinancialUpper(name)).last);
       await tester.pumpAndSettle();
     }
 
@@ -219,7 +220,7 @@ void main() {
         await tapText(tester, 'Revisar pagamento');
         expect(line('Saldo', r'R$ 1.000,00 → R$ 900,00'), findsOneWidget);
         expect(line('Restante', r'R$ 200,00'), findsOneWidget);
-        expect(line('Beneficiario', 'Oficina'), findsOneWidget);
+        expect(line('Beneficiario', 'OFICINA'), findsOneWidget);
         await tapText(tester, 'Voltar e corrigir');
         expect(fake.writes, isEmpty, reason: 'cancelar a revisão não grava');
 
@@ -227,7 +228,7 @@ void main() {
         await tapText(tester, 'Confirmar pagamento');
         expect(
           find.text(
-            r'Pagamento confirmado: R$ 100,00 de Banco PF. Saldo da conta: R$ 900,00.',
+            r'Pagamento confirmado: R$ 100,00 de BANCO PF. Saldo da conta: R$ 900,00.',
           ),
           findsOneWidget,
         );
@@ -260,7 +261,7 @@ void main() {
       await tapText(tester, 'Revisar pagamento');
       expect(line('Saldo', r'R$ 0,00 → -R$ 300,00'), findsOneWidget);
       expect(
-        find.text(r'O saldo de Reserva PF ficará negativo (-R$ 300,00).'),
+        find.text(r'O saldo de RESERVA PF ficará negativo (-R$ 300,00).'),
         findsOneWidget,
       );
     });
@@ -430,7 +431,7 @@ void main() {
         );
         expect(jsonDecode(creates[1].body)['installment_count'], 3);
         expect(
-          fake.payables.values.where((p) => p.description == 'Notebook'),
+          fake.payables.values.where((p) => p.description == 'NOTEBOOK'),
           hasLength(3),
         );
       },
@@ -512,14 +513,14 @@ void main() {
         expect(find.byType(Card), findsNWidgets(2));
 
         // Cartão 1: Em aberto
-        expect(find.text('Serviço de Nuvem AWS'), findsOneWidget);
+        expect(find.text('SERVIÇO DE NUVEM AWS'), findsOneWidget);
         expect(
           find.text(r'R$ 350,00'),
           findsWidgets,
         ); // Destaque restante e valor total
 
         // Cartão 2: Parcial
-        expect(find.text('Internet Fibra'), findsOneWidget);
+        expect(find.text('INTERNET FIBRA'), findsOneWidget);
         expect(find.text('Pago líquido'), findsOneWidget);
         expect(find.text(r'R$ 50,00'), findsOneWidget);
         expect(find.text(r'R$ 150,00'), findsOneWidget); // Restante
@@ -999,24 +1000,24 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.widgetWithText(TextFormField, 'Descrição'), findsOneWidget);
-        expect(find.text('Assinatura de Software'), findsOneWidget);
-        expect(find.text('Empresa SaaS LTDA'), findsOneWidget);
+        expect(find.text('ASSINATURA DE SOFTWARE'), findsOneWidget);
+        expect(find.text('EMPRESA SAAS LTDA'), findsOneWidget);
         expect(find.text('150,00'), findsOneWidget);
 
         // Alterna para Recorrente
         await tester.tap(find.text('Recorrente'));
         await tester.pumpAndSettle();
 
-        expect(find.text('Assinatura de Software'), findsOneWidget);
-        expect(find.text('Empresa SaaS LTDA'), findsOneWidget);
+        expect(find.text('ASSINATURA DE SOFTWARE'), findsOneWidget);
+        expect(find.text('EMPRESA SAAS LTDA'), findsOneWidget);
         expect(find.text('150,00'), findsOneWidget);
 
         // Volta para Avulsa
         await tester.tap(find.text('Avulsa'));
         await tester.pumpAndSettle();
 
-        expect(find.text('Assinatura de Software'), findsOneWidget);
-        expect(find.text('Empresa SaaS LTDA'), findsOneWidget);
+        expect(find.text('ASSINATURA DE SOFTWARE'), findsOneWidget);
+        expect(find.text('EMPRESA SAAS LTDA'), findsOneWidget);
         expect(find.text('150,00'), findsOneWidget);
       },
     );
@@ -1035,8 +1036,8 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('Internet Fibra'), findsOneWidget);
-        expect(find.text('Energia Elétrica'), findsOneWidget);
+        expect(find.text('INTERNET FIBRA'), findsOneWidget);
+        expect(find.text('ENERGIA ELÉTRICA'), findsOneWidget);
 
         // Ativa modo de seleção
         final selectBtn = find.text('Selecionar várias');
@@ -1115,5 +1116,43 @@ void main() {
         );
       }
     }
+
+    testWidgets(
+      'conta a pagar legada em minúsculas é renderizada em MAIÚSCULAS na UI sem mutar o modelo e preservando observações/motivos livres',
+      (tester) async {
+        fake.payables.clear();
+        final legacyPayable = FakePayable(
+          99,
+          'serviço de hospedagem em nuvem',
+          18000,
+          payee: 'provedor de internet ltda',
+        )..cancelReason = 'motivo técnico de cancelamento em caixa mista';
+        fake.payables[99] = legacyPayable;
+
+        await pump(tester, const PayableScreen(space: pf, payableId: 99));
+        await tester.pumpAndSettle();
+
+        // UI apresenta identificação financeira em MAIÚSCULAS
+        expect(find.text('SERVIÇO DE HOSPEDAGEM EM NUVEM'), findsOneWidget);
+        expect(
+          find.textContaining('PROVEDOR DE INTERNET LTDA'),
+          findsOneWidget,
+        );
+
+        // Razão de cancelamento / observação livre permanece em caixa original
+        expect(
+          find.text('Cancelada: motivo técnico de cancelamento em caixa mista'),
+          findsOneWidget,
+        );
+
+        // Modelo em memória não foi mutado
+        expect(legacyPayable.description, 'serviço de hospedagem em nuvem');
+        expect(legacyPayable.payee, 'provedor de internet ltda');
+        expect(
+          legacyPayable.cancelReason,
+          'motivo técnico de cancelamento em caixa mista',
+        );
+      },
+    );
   });
 }

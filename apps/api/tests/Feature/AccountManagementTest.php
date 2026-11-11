@@ -57,7 +57,7 @@ class AccountManagementTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.id', $this->a)
             ->assertJsonPath('data.space_id', $this->pf->id)
-            ->assertJsonPath('data.name', 'Banco Renomeado')
+            ->assertJsonPath('data.name', 'BANCO RENOMEADO')
             ->assertJsonPath('data.balance', '1500.00')
             ->assertJsonPath('data.opening_balance', '1000.00');
 
@@ -68,9 +68,9 @@ class AccountManagementTest extends TestCase
         $this->api('PATCH', $this->url($this->a), ['name' => str_repeat('a', 81)])->assertStatus(422);
 
         $account = Account::query()->findOrFail($this->a);
-        $this->assertSame('Banco Renomeado', $account->name);
+        $this->assertSame('BANCO RENOMEADO', $account->name);
         $this->assertSame($this->pf->id, $account->space_id);
-        $this->assertSame(1, Account::query()->where('space_id', $this->pf->id)->where('name', 'Banco Renomeado')->count(), 'não cria cópia');
+        $this->assertSame(1, Account::query()->where('space_id', $this->pf->id)->where('name', 'BANCO RENOMEADO')->count(), 'não cria cópia');
         $this->assertSame($this->a, Receipt::query()->findOrFail($receipt)->account_id);
         $this->assertSame(1, AccountMovement::query()->where('account_id', $this->a)->count());
     }
@@ -93,7 +93,7 @@ class AccountManagementTest extends TestCase
         }
 
         $account = Account::query()->findOrFail($this->a);
-        $this->assertSame('Conta A', $account->name);
+        $this->assertSame('CONTA A', $account->name);
         $this->assertNull($account->archived_at);
         $this->assertSame(100000, $account->opening_balance_cents);
         $this->assertSame(0, IdempotencyKey::query()->where('key', 'like', 'alheio-%')->count());

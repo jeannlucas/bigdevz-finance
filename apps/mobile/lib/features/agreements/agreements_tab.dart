@@ -3,8 +3,12 @@ import 'package:provider/provider.dart';
 
 import '../../core/dates.dart';
 import '../../core/money.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
+import '../../ui/financial/financial_agenda_view.dart';
+import '../../ui/financial/financial_item_view.dart';
+import '../../ui/financial/financial_search_bar.dart';
 import '../../ui/widgets.dart';
 import '../auth/auth_models.dart';
 import '../categories/category_badge.dart';
@@ -12,6 +16,7 @@ import '../categories/category_filter_chip.dart';
 import '../settings/preferences_controller.dart';
 import 'agreement.dart';
 import 'agreement_form_screen.dart';
+import 'agreement_item_adapter.dart';
 import 'agreement_modal.dart';
 import 'agreements_repository.dart';
 
@@ -48,6 +53,16 @@ class _AgreementsTabState extends State<AgreementsTab> {
   int? _selectedCategoryId;
   bool _canScrollLeft = false;
   bool _canScrollRight = false;
+  String _searchQuery = '';
+  FinancialSortOption _sortOption = FinancialSortOption.dueDateAsc;
+  FinancialPeriodFilter _periodFilter = FinancialPeriodFilter.all;
+  final Set<FinancialDueDateGroup> _expandedGroups = {
+    FinancialDueDateGroup.overdue,
+    FinancialDueDateGroup.today,
+    FinancialDueDateGroup.next7Days,
+    FinancialDueDateGroup.thisMonth,
+    FinancialDueDateGroup.future,
+  };
 
   @override
   void initState() {
@@ -297,45 +312,174 @@ class _AgreementsTabState extends State<AgreementsTab> {
             },
             builder: (context, result, refresh) {
               final agreements = result.items;
+              final isDesktop = MediaQuery.sizeOf(context).width >= 840;
+
+              final List<AgreementInstallmentItemAdapter> installmentAdapters =
+                  [];
+              for (final agreement in agreements) {
+                if (agreement.installments.isNotEmpty) {
+                  for (final installment in agreement.installments) {
+                    installmentAdapters.add(
+                      AgreementInstallmentItemAdapter(
+                        agreement: agreement,
+                        installment: installment,
+                      ),
+                    );
+                  }
+                }
+              }
+
+              final filteredAdapters = filterAndSortFinancialItems(
+                installmentAdapters,
+                query: _searchQuery,
+                sort: _sortOption,
+                period: _periodFilter,
+                categoryId: _selectedCategoryId,
+              );
+
               return RefreshIndicator(
                 onRefresh: refresh,
                 child: Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 1040),
-                    child: ListView(
+                    child: Padding(
                       padding: const EdgeInsets.fromLTRB(
                         AppTokens.p16,
                         4,
                         AppTokens.p16,
-                        96,
+                        0,
                       ),
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Text(
-                            agreements.length == 1
-                                ? '1 conta a receber'
-                                : '${agreements.length} contas a receber',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w500,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              agreements.length == 1
+                                  ? '1 conta a receber'
+                                  : '${agreements.length} contas a receber',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
-                        ),
-                        for (final item in agreements) ...[
-                          AgreementCard(
-                            agreement: item,
-                            activeFilter: _filter,
-                            onTap: () => showAgreementModal(
-                              context,
-                              space: space,
-                              agreementId: item.id,
-                              onUpdated: refresh,
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: FinancialSearchBar(
+                              query: _searchQuery,
+                              onQueryChanged: (q) =>
+                                  setState(() => _searchQuery = q),
+                              sort: _sortOption,
+                              onSortChanged: (s) =>
+                                  setState(() => _sortOption = s),
+                              hintText: 'Buscar por descrição ou cliente...',
+                              activeFiltersCount:
+                                  (_searchQuery.isNotEmpty ? 1 : 0) +
+                                  (_filter != 'open' ? 1 : 0) +
+                                  (_periodFilter != FinancialPeriodFilter.all
+                                      ? 1
+                                      : 0) +
+                                  (_selectedCategoryId != null ? 1 : 0),
+                              onOpenFilters: () => showFinancialFiltersSheet(
+                                context: context,
+                                currentStatus: _filter,
+                                statusOptions: _filters,
+                                onStatusSelected: _selectFilter,
+                                currentPeriod: _periodFilter,
+                                onPeriodSelected: (p) =>
+                                    setState(() => _periodFilter = p),
+                                currentCategoryId: _selectedCategoryId,
+                                onCategorySelected: (c) =>
+                                    setState(() => _selectedCategoryId = c),
+                                spaceId: space.id,
+                                categoryType: 'income',
+                                onClearAll: () => setState(() {
+                                  _filter = 'open';
+                                  _periodFilter = FinancialPeriodFilter.all;
+                                  _selectedCategoryId = null;
+                                }),
+                              ),
+                              activeFilterChips: [
+                                if (_filter != 'open')
+                                  InputChip(
+                                    label: Text(
+                                      'Situação: ${_filters[_filter] ?? _filter}',
+                                    ),
+                                    onDeleted: () => _selectFilter('open'),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                if (_periodFilter != FinancialPeriodFilter.all)
+                                  InputChip(
+                                    label: Text(
+                                      'Período: ${_periodFilter.label}',
+                                    ),
+                                    onDeleted: () => setState(
+                                      () => _periodFilter =
+                                          FinancialPeriodFilter.all,
+                                    ),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                if (_selectedCategoryId != null)
+                                  InputChip(
+                                    label: const Text('Categoria filtrada'),
+                                    onDeleted: () => setState(
+                                      () => _selectedCategoryId = null,
+                                    ),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                              ],
+                              onClearAllFilters: () => setState(() {
+                                _searchQuery = '';
+                                _filter = 'open';
+                                _periodFilter = FinancialPeriodFilter.all;
+                                _selectedCategoryId = null;
+                                _sortOption = FinancialSortOption.dueDateAsc;
+                              }),
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          Expanded(
+                            child:
+                                FinancialAgendaView<
+                                  AgreementInstallmentItemAdapter
+                                >(
+                                  items: filteredAdapters,
+                                  isDesktop: isDesktop,
+                                  expandedGroups: _expandedGroups,
+                                  onToggleGroup: (group) => setState(() {
+                                    if (_expandedGroups.contains(group)) {
+                                      _expandedGroups.remove(group);
+                                    } else {
+                                      _expandedGroups.add(group);
+                                    }
+                                  }),
+                                  onTapItem: (adapter) => showAgreementModal(
+                                    context,
+                                    space: space,
+                                    agreementId: adapter.agreement.id,
+                                    onUpdated: refresh,
+                                  ),
+                                  quickActionLabel: 'Receber',
+                                  isQuickActionEnabled: (adapter) =>
+                                      !adapter.isSettled &&
+                                      adapter.installment.status !=
+                                          InstallmentStatus.paid &&
+                                      adapter.installment.remaining.cents > 0,
+                                  onQuickAction: (adapter) =>
+                                      showAgreementModal(
+                                        context,
+                                        space: space,
+                                        agreementId: adapter.agreement.id,
+                                        initialInstallmentId:
+                                            adapter.installment.id,
+                                        onUpdated: refresh,
+                                      ),
+                                  singularLabel: 'parcela a receber',
+                                  pluralLabel: 'parcelas a receber',
+                                ),
+                          ),
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -401,7 +545,7 @@ class AgreementCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      agreement.description,
+                      toFinancialUpper(agreement.description),
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w700,
                         fontSize: 15,

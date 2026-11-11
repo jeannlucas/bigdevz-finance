@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/dates.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
 import '../../ui/theme.dart';
@@ -130,7 +131,9 @@ class InstallmentScreen extends StatelessWidget {
                             if (installment.agreementDescription != null) ...[
                               const SizedBox(height: 4),
                               Text(
-                                installment.agreementDescription!,
+                                toFinancialUpper(
+                                  installment.agreementDescription!,
+                                ),
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),
@@ -236,8 +239,9 @@ class InstallmentScreen extends StatelessWidget {
                       for (final receipt in installment.receipts)
                         ReceiptTile(
                           receipt: receipt,
-                          accountName:
-                              accountNames[receipt.accountId] ?? 'Conta',
+                          accountName: toFinancialUpper(
+                            accountNames[receipt.accountId] ?? 'Conta',
+                          ),
                           // Operação pendente na parcela bloqueia estorno e
                           // correção até ser verificada.
                           onCorrect: pending != null || receipt.isReversed

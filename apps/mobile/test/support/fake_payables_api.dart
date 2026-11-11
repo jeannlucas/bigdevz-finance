@@ -26,12 +26,14 @@ class FakePayable {
     this.description,
     this.amountCents, {
     this.kind = 'single',
+    this.payee,
   });
 
   final int id;
   final String kind;
   String description;
   int? amountCents;
+  String? payee;
   String dueDate = '2026-03-20';
   String? cancelReason;
   final List<FakePayment> payments = [];
@@ -422,7 +424,7 @@ class FakePayablesApi {
       'space_id': 1,
       'kind': p.kind,
       'description': p.description,
-      'payee': 'Oficina',
+      'payee': p.payee ?? 'Oficina',
       'amount': p.amountCents == null ? null : _money(p.amountCents!),
       'paid': _money(p.paidCents),
       'remaining': remaining == null ? null : _money(remaining),

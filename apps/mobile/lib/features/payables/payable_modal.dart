@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/dates.dart';
 import '../../core/money.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/app_tokens.dart';
 import '../../ui/confirm_changes_dialog.dart';
 import '../../ui/date_field.dart';
@@ -290,8 +291,12 @@ class _PayableModalContentState extends State<_PayableModalContent> {
   }
 
   Future<void> _editPayable(Payable payable) async {
-    final descController = TextEditingController(text: payable.description);
-    final payeeController = TextEditingController(text: payable.payee ?? '');
+    final descController = TextEditingController(
+      text: toFinancialUpper(payable.description),
+    );
+    final payeeController = TextEditingController(
+      text: payable.payee != null ? toFinancialUpper(payable.payee!) : '',
+    );
     final amountController = TextEditingController(
       text: payable.amount?.plain ?? '',
     );
@@ -320,6 +325,7 @@ class _PayableModalContentState extends State<_PayableModalContent> {
                   children: [
                     TextFormField(
                       controller: descController,
+                      inputFormatters: const [UpperCaseTextFormatter()],
                       decoration: const InputDecoration(
                         labelText: 'Descrição *',
                       ),
@@ -331,6 +337,7 @@ class _PayableModalContentState extends State<_PayableModalContent> {
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: payeeController,
+                      inputFormatters: const [UpperCaseTextFormatter()],
                       decoration: const InputDecoration(
                         labelText: 'Credor / Beneficiário (opcional)',
                       ),
@@ -380,21 +387,24 @@ class _PayableModalContentState extends State<_PayableModalContent> {
                 final newDueDate = toApiDate(due);
 
                 final changes = <ChangeDifference>[];
-                if (newDesc != payable.description) {
+                final currentUpperDesc = toFinancialUpper(payable.description);
+                if (newDesc != currentUpperDesc) {
                   changes.add(
                     ChangeDifference(
                       label: 'Descrição',
-                      oldValue: payable.description,
+                      oldValue: currentUpperDesc,
                       newValue: newDesc,
                     ),
                   );
                 }
-                final oldPayee = payable.payee ?? '';
-                if (newPayee != oldPayee) {
+                final currentUpperPayee = toFinancialUpper(payable.payee);
+                if (newPayee != currentUpperPayee) {
                   changes.add(
                     ChangeDifference(
                       label: 'Beneficiário',
-                      oldValue: oldPayee.isEmpty ? '(nenhum)' : oldPayee,
+                      oldValue: currentUpperPayee.isEmpty
+                          ? '(nenhum)'
+                          : currentUpperPayee,
                       newValue: newPayee.isEmpty ? '(nenhum)' : newPayee,
                     ),
                   );
@@ -744,7 +754,7 @@ class _PayableModalContentState extends State<_PayableModalContent> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      payable.description,
+                      toFinancialUpper(payable.description),
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -761,7 +771,7 @@ class _PayableModalContentState extends State<_PayableModalContent> {
                               ? 'Fatura de Cartão de Crédito'
                               : payable.payee != null &&
                                     payable.payee!.isNotEmpty
-                              ? 'Credor: ${payable.payee}'
+                              ? 'Credor: ${toFinancialUpper(payable.payee)}'
                               : 'Conta a pagar',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
@@ -1631,7 +1641,9 @@ class _PayableModalContentState extends State<_PayableModalContent> {
                     for (final acc in _accounts)
                       DropdownMenuItem(
                         value: acc.id,
-                        child: Text('${acc.name} (${acc.balance.brl})'),
+                        child: Text(
+                          '${toFinancialUpper(acc.name)} (${acc.balance.brl})',
+                        ),
                       ),
                   ],
                   onChanged: (id) => setState(() => _selectedAccountId = id),

@@ -76,7 +76,7 @@ class CategoriesTest extends TestCase
         ]);
 
         $response->assertCreated()
-            ->assertJsonPath('data.name', 'Pet Shop & Veterinário')
+            ->assertJsonPath('data.name', 'PET SHOP & VETERINÁRIO')
             ->assertJsonPath('data.type', 'expense')
             ->assertJsonPath('data.icon', 'pets')
             ->assertJsonPath('data.color', '#FFB74D')
@@ -157,13 +157,13 @@ class CategoriesTest extends TestCase
         ]);
 
         $response->assertOk()
-            ->assertJsonPath('data.name', 'Transporte & Combustível')
+            ->assertJsonPath('data.name', 'TRANSPORTE & COMBUSTÍVEL')
             ->assertJsonPath('data.icon', 'local_gas_station')
             ->assertJsonPath('data.color', '#4CAF50');
 
         $this->assertDatabaseHas('categories', [
             'id' => $category->id,
-            'name' => 'Transporte & Combustível',
+            'name' => 'TRANSPORTE & COMBUSTÍVEL',
         ]);
     }
 
@@ -204,7 +204,7 @@ class CategoriesTest extends TestCase
         $resPay = $this->getJson("/api/spaces/{$this->pf->id}/payables?category_id={$cat1->id}");
         $resPay->assertOk();
         $this->assertCount(1, $resPay->json('data'));
-        $this->assertEquals('Condomínio Mensal', $resPay->json('data.0.description'));
+        $this->assertEquals('CONDOMÍNIO MENSAL', $resPay->json('data.0.description'));
 
         // Agreement with cat2
         $this->postJson("/api/spaces/{$this->pf->id}/agreements", [
@@ -219,7 +219,7 @@ class CategoriesTest extends TestCase
         $resAgr = $this->getJson("/api/spaces/{$this->pf->id}/agreements?status=all&category_id={$cat2->id}");
         $resAgr->assertOk();
         $this->assertCount(1, $resAgr->json('data'));
-        $this->assertEquals('Projeto Freelance', $resAgr->json('data.0.description'));
+        $this->assertEquals('PROJETO FREELANCE', $resAgr->json('data.0.description'));
     }
 
     public function test_idor_isolation_cannot_access_or_modify_other_space_categories(): void

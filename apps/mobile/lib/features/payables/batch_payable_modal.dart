@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/dates.dart';
 import '../../core/money.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/app_tokens.dart';
 import '../../ui/date_field.dart';
 import '../accounts/account.dart';
@@ -181,7 +182,7 @@ class _BatchPayableModalContentState extends State<_BatchPayableModalContent> {
             setState(() {
               _submitting = false;
               _submitError =
-                  'Erro ao pagar "${payable.description}": ${outcome.message}';
+                  'Erro ao pagar "${toFinancialUpper(payable.description)}": ${outcome.message}';
             });
           }
           return;
@@ -191,7 +192,7 @@ class _BatchPayableModalContentState extends State<_BatchPayableModalContent> {
           setState(() {
             _submitting = false;
             _submitError =
-                'Erro ao pagar "${payable.description}": ${e is ApiException ? e.message : e.toString()}';
+                'Erro ao pagar "${toFinancialUpper(payable.description)}": ${e is ApiException ? e.message : e.toString()}';
           });
         }
         return;
@@ -404,7 +405,7 @@ class _BatchPayableModalContentState extends State<_BatchPayableModalContent> {
                           children: [
                             Expanded(
                               child: Text(
-                                '${p.description} · Venc: ${formatDateBr(p.dueDate)}',
+                                '${toFinancialUpper(p.description)} · Venc: ${formatDateBr(p.dueDate)}',
                                 style: theme.textTheme.bodySmall,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -437,7 +438,9 @@ class _BatchPayableModalContentState extends State<_BatchPayableModalContent> {
                     .map(
                       (a) => DropdownMenuItem(
                         value: a.id,
-                        child: Text('${a.name} (${a.balance.brl})'),
+                        child: Text(
+                          '${toFinancialUpper(a.name)} (${a.balance.brl})',
+                        ),
                       ),
                     )
                     .toList(),

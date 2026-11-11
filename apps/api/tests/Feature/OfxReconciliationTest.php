@@ -105,7 +105,7 @@ OFX;
         $this->assertFalse($tx1['already_reconciled']);
         $this->assertNotNull($tx1['suggested_match']);
         $this->assertSame('payable', $tx1['suggested_match']['type']);
-        $this->assertSame('Conta de Energia', $tx1['suggested_match']['title']);
+        $this->assertSame('CONTA DE ENERGIA', $tx1['suggested_match']['title']);
 
         // Transação 2: Crédito sugerindo match com a Parcela a Receber
         $tx2 = $txs[1];
@@ -115,7 +115,7 @@ OFX;
         $this->assertFalse($tx2['already_reconciled']);
         $this->assertNotNull($tx2['suggested_match']);
         $this->assertSame('installment', $tx2['suggested_match']['type']);
-        $this->assertStringContainsString('Honorários Mensais', $tx2['suggested_match']['title']);
+        $this->assertStringContainsString('HONORÁRIOS MENSAIS', $tx2['suggested_match']['title']);
 
         // 4. Conclui conciliação com confirmação humana
         $reconcileRes = $this->postJson("/api/spaces/{$this->space->id}/ofx/reconcile", [
@@ -143,7 +143,7 @@ OFX;
         $this->assertEquals(2, $reconcileRes->json('data.reconciled_count'));
 
         // Valida que o Payable agora está PAGO
-        $payable = Payable::where('description', 'Conta de Energia')->firstOrFail();
+        $payable = Payable::where('description', 'CONTA DE ENERGIA')->firstOrFail();
         $this->assertSame('paid', $payable->status());
         $this->assertEquals(25000, $payable->paid_cents);
 

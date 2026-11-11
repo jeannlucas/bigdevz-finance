@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
 import '../../core/dates.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/app_tokens.dart';
 import '../../ui/widgets.dart';
 import '../accounts/account.dart';
@@ -277,7 +278,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
                             DropdownMenuItem(
                               value: acc.id,
                               child: Text(
-                                acc.name,
+                                toFinancialUpper(acc.name),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -314,7 +315,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
                             DropdownMenuItem(
                               value: cat.id,
                               child: Text(
-                                cat.name,
+                                toFinancialUpper(cat.name),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
 import '../../core/dates.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
 import '../../ui/widgets.dart';
@@ -41,6 +42,7 @@ class CardsScreen extends StatelessWidget {
           children: [
             TextField(
               controller: name,
+              inputFormatters: const [UpperCaseTextFormatter()],
               decoration: const InputDecoration(labelText: 'Nome do cartão'),
             ),
             const SizedBox(height: 12),
@@ -180,7 +182,7 @@ class CardsScreen extends StatelessWidget {
                       ),
                     ),
                     title: Text(
-                      card.name,
+                      toFinancialUpper(card.name),
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                     subtitle: Text(
@@ -232,7 +234,7 @@ class CardsScreen extends StatelessWidget {
                       child: const AppIcon(AppIcons.recurrence, size: 18),
                     ),
                     title: Text(
-                      recurrence.description,
+                      toFinancialUpper(recurrence.description),
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                     subtitle: Text(

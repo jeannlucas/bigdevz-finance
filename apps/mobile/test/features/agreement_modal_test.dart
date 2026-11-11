@@ -180,7 +180,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verifica exibição do título e parcelas
-      expect(find.text('Venda de Notebook'), findsOneWidget);
+      expect(find.text('VENDA DE NOTEBOOK'), findsOneWidget);
       expect(find.text('Parcela 1 de 2'), findsOneWidget);
       expect(find.text('Parcela 2 de 2'), findsOneWidget);
 

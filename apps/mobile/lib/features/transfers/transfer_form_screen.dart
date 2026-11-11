@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/dates.dart';
 import '../../core/money.dart';
+import '../../core/text_formatters.dart';
 import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
 import '../../ui/date_field.dart';
@@ -290,7 +291,7 @@ class _TransferFormScreenState extends State<TransferFormScreen> {
                   (a) => DropdownMenuItem(
                     value: a.id,
                     child: Text(
-                      '${a.name} (${a.balance.brl})',
+                      '${toFinancialUpper(a.name)} (${a.balance.brl})',
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -315,7 +316,7 @@ class _TransferFormScreenState extends State<TransferFormScreen> {
                   (a) => DropdownMenuItem(
                     value: a.id,
                     child: Text(
-                      '${a.name} (${a.balance.brl})',
+                      '${toFinancialUpper(a.name)} (${a.balance.brl})',
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),

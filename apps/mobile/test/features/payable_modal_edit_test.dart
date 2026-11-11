@@ -270,14 +270,14 @@ void main() {
       expect(
         find.descendant(
           of: find.byType(ConfirmChangesDialog),
-          matching: find.text('Internet Fibra'),
+          matching: find.text('INTERNET FIBRA'),
         ),
         findsOneWidget,
       );
       expect(
         find.descendant(
           of: find.byType(ConfirmChangesDialog),
-          matching: find.text('Internet Empresa 1Gbps'),
+          matching: find.text('INTERNET EMPRESA 1GBPS'),
         ),
         findsOneWidget,
       );
@@ -306,7 +306,7 @@ void main() {
         (r) => r.url.path == '/spaces/1/payables/42' && r.method == 'PATCH',
       );
       final body = jsonDecode(patchReq.body) as Map<String, dynamic>;
-      expect(body['description'], 'Internet Empresa 1Gbps');
+      expect(body['description'], 'INTERNET EMPRESA 1GBPS');
       expect(body['amount'], '250.00');
     },
   );
