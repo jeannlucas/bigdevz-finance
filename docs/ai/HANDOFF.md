@@ -875,6 +875,27 @@ Mantido no diretório local de ensaios `prints/finance-mob-01/` fora do controle
 
 ---
 
+## 19. Checkpoint FINANCE-PROD-04 (12/11/2026) — Padronização de Deploy Automático por Tag SemVer e Endurecimento de VPS
+
+- **Objetivo**: Padronização canônica do fluxo de deploy disparado por tag SemVer (`vMAJOR.MINOR.PATCH`) apontando para merge commit na branch `main`, com fail-closed locking, isolamento de volumes da API e do scheduler (`./apps/api:/app`), conectividade SSH restrita e runner via Tailscale.
+- **Alterações Implementadas e Validadas:**
+  - **PR:** [#6](https://github.com/jeannlucas/bigdevz-finance/pull/6) mergeado na `main` (`864abfb590f2aac523408bc61ddc01da15b14935`).
+  - **Troca Operacional na VPS:** `/srv/finance` substituído com sucesso pelo checkout Git no SHA ativo `3ece4833fb13778731010da7df69e0391e9b166b`, com zero downtime e containers intactos.
+
+---
+
+## 20. Checkpoint FINANCE-PROD-05 (12/11/2026) — Ajuste de Governança de Aprovação Humana e Validação Estrita de PR
+
+- **Objetivo**: Ajustar a validação de proveniência em `.github/workflows/deploy.yml` e `scripts/validate-deploy-governance.sh` para:
+  1. Aceitar merge executado diretamente por `jeannlucas` como evidência própria de aprovação para PRs de sua autoria (dado que a API do GitHub impede que o autor faça review formal `APPROVED` no próprio PR).
+  2. Exigir review formal `APPROVED` de `jeannlucas` sobre o `head_sha` para PRs de terceiros.
+  3. Validar fluxo estrito de `dev` para `main` e correspondência exata do SHA da tag com o `merge_commit_sha`.
+- **Testes Implementados:** `tests/infra/test-deploy-governance.sh` com 7 cenários 100% aprovados.
+- **Quality Gate:** `scripts/check.sh --full` 100% verde (181 testes da API, flutter analyze e linters).
+- **Estado Operacional:** `PRONTO_PARA_INTEGRACAO_DEV`.
+
+---
+
 <!-- bigdevz-cli:start -->
 ## Checkpoint automático do CLI
 
