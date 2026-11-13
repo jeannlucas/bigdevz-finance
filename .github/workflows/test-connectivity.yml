@@ -46,7 +46,6 @@ jobs:
           echo "  Diagnóstico Tailscale no Runner"
           echo "=================================================="
           
-          # Verificar se a interface tailscale0 subiu
           ip addr show tailscale0 || { echo "::error::Interface tailscale0 não foi criada no runner!"; exit 1; }
           
           RUNNER_TS_IP=$(tailscale ip -4)
@@ -98,7 +97,7 @@ jobs:
               sys.exit(1)
           EOF
 
-      - name: Validar Autenticação SSH e Interceptação do Wrapper
+      - name: Validar Autenticação SSH e Comando Restrito de Teste
         env:
           VPS_HOST: "100.90.8.15"
           VPS_SSH_USER: "jeann"
@@ -112,14 +111,14 @@ jobs:
           echo "$VPS_SSH_KEY" > ~/.ssh/test_key
           chmod 600 ~/.ssh/test_key
 
-          # Verificação estrita do host key da VPS bigdevz contra MITM
+          # Verificação estrita da identidade do servidor SSH contra MITM
           echo "100.90.8.15 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOttXCeXd5LtLDJ6XRhW948AIus1NvbuUJyeYAD7KMW4" >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
           echo "=================================================="
           echo "  Probe de Autenticação SSH ('check-access')"
           echo "=================================================="
-          echo "Disparando comando inofensivo para validar autenticação e wrapper..."
+          echo "Disparando comando 'check-access' com chave dedicada de teste..."
 
           set +e
           OUTPUT=$(ssh -i ~/.ssh/test_key -o StrictHostKeyChecking=yes -p "$VPS_SSH_PORT" "$VPS_SSH_USER@$VPS_HOST" "check-access" 2>&1)
@@ -130,13 +129,14 @@ jobs:
           echo "Resposta recebida da VPS:"
           echo "$OUTPUT"
 
-          if echo "$OUTPUT" | grep -q "Apenas uma única tag no formato vMAJOR.MINOR.PATCH"; then
+          # Critério estrito: código 0 E presença da mensagem fixa esperada
+          if [ $EXIT_CODE -eq 0 ] && echo "$OUTPUT" | grep -q "CONEXAO_SSH_VERIFICADA: check-access recebido com sucesso na VPS"; then
             echo ""
             echo "=================================================="
-            echo "✅ SUCESSO: Autenticação SSH de $VPS_SSH_USER confirmada!"
-            echo "   O wrapper de segurança interceptou 'check-access' com sucesso (zero deploy)."
+            echo "✅ SUCESSO: Autenticação SSH de $VPS_SSH_USER comprovada!"
+            echo "   Comando forçado de teste respondeu com a mensagem esperada."
             echo "=================================================="
           else
-            echo "::error::Autenticação SSH falhou ou a resposta não correspondeu à rejeição esperada do wrapper!"
+            echo "::error::Autenticação SSH falhou ou a resposta não correspondeu à mensagem esperada!"
             exit 1
           fi
