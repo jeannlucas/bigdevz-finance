@@ -11,17 +11,24 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  test-tcp-connectivity:
-    name: Testar Conexão Tailscale e TCP Porta 22
+  test-tcp-and-ssh:
+    name: Testar Conexão Tailscale, TCP Porta 22 e SSH
     runs-on: ubuntu-latest
     environment: test-connectivity
     steps:
       - name: Validar Presença de Segredos
         shell: bash
         run: |
+          missing=()
           if [ -z "${{ secrets.TAILSCALE_AUTHKEY }}" ]; then
-            echo "::error::Secret TAILSCALE_AUTHKEY ausente no ambiente test-connectivity."
-            echo "Por favor cadastre uma authkey efêmera de uso único com a tag tag:ci-deploy no ambiente test-connectivity."
+            missing+=("TAILSCALE_AUTHKEY")
+          fi
+          if [ -z "${{ secrets.VPS_SSH_KEY }}" ]; then
+            missing+=("VPS_SSH_KEY")
+          fi
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Segredos ausentes no ambiente test-connectivity: ${missing[*]}"
+            echo "Por favor cadastre os segredos no ambiente test-connectivity antes de disparar o teste."
             exit 1
           fi
 
@@ -62,7 +69,7 @@ jobs:
           echo "=================================================="
           echo "  Teste TCP Exclusivo na Porta 22 ($TARGET_HOST:$TARGET_PORT)"
           echo "=================================================="
-          echo "Disparando probe TCP com timeout de ${TIMEOUT_SEC}s (sem autenticação SSH)..."
+          echo "Disparando probe TCP com timeout de ${TIMEOUT_SEC}s..."
 
           python3 - <<EOF
           import socket, sys, time
@@ -75,7 +82,6 @@ jobs:
           try:
               sock = socket.create_connection((host, port), timeout=timeout)
               elapsed = (time.time() - start) * 1000
-              # Ler o banner SSH retornado pelo daemon sem autenticar
               banner = sock.recv(1024).decode('utf-8', errors='ignore').strip()
               sock.close()
               print(f"✅ ROTA E PORTA CONFIRMADAS! Conexão TCP estabelecida em {elapsed:.1f}ms")
@@ -91,3 +97,46 @@ jobs:
               print(f"❌ ERRO TCP: {e}", file=sys.stderr)
               sys.exit(1)
           EOF
+
+      - name: Validar Autenticação SSH e Interceptação do Wrapper
+        env:
+          VPS_HOST: "100.90.8.15"
+          VPS_SSH_USER: "jeann"
+          VPS_SSH_PORT: "22"
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p ~/.ssh
+          echo "$VPS_SSH_KEY" > ~/.ssh/test_key
+          chmod 600 ~/.ssh/test_key
+
+          # Verificação estrita do host key da VPS bigdevz contra MITM
+          echo "100.90.8.15 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOttXCeXd5LtLDJ6XRhW948AIus1NvbuUJyeYAD7KMW4" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+          echo "=================================================="
+          echo "  Probe de Autenticação SSH ('check-access')"
+          echo "=================================================="
+          echo "Disparando comando inofensivo para validar autenticação e wrapper..."
+
+          set +e
+          OUTPUT=$(ssh -i ~/.ssh/test_key -o StrictHostKeyChecking=yes -p "$VPS_SSH_PORT" "$VPS_SSH_USER@$VPS_HOST" "check-access" 2>&1)
+          EXIT_CODE=$?
+          set -e
+
+          echo "Código de saída retornado pelo host: $EXIT_CODE"
+          echo "Resposta recebida da VPS:"
+          echo "$OUTPUT"
+
+          if echo "$OUTPUT" | grep -q "Apenas uma única tag no formato vMAJOR.MINOR.PATCH"; then
+            echo ""
+            echo "=================================================="
+            echo "✅ SUCESSO: Autenticação SSH de $VPS_SSH_USER confirmada!"
+            echo "   O wrapper de segurança interceptou 'check-access' com sucesso (zero deploy)."
+            echo "=================================================="
+          else
+            echo "::error::Autenticação SSH falhou ou a resposta não correspondeu à rejeição esperada do wrapper!"
+            exit 1
+          fi
