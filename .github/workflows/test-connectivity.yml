@@ -1,0 +1,93 @@
+name: Test Private Tailscale Connectivity
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - task/diagnose-tailscale-connectivity
+
+concurrency:
+  group: test-tailscale-connectivity
+  cancel-in-progress: false
+
+jobs:
+  test-tcp-connectivity:
+    name: Testar Conexão Tailscale e TCP Porta 22
+    runs-on: ubuntu-latest
+    environment: test-connectivity
+    steps:
+      - name: Validar Presença de Segredos
+        shell: bash
+        run: |
+          if [ -z "${{ secrets.TAILSCALE_AUTHKEY }}" ]; then
+            echo "::error::Secret TAILSCALE_AUTHKEY ausente no ambiente test-connectivity."
+            echo "Por favor cadastre uma authkey efêmera de uso único com a tag tag:ci-deploy no ambiente test-connectivity."
+            exit 1
+          fi
+
+      - name: Conectar à Tailscale (Rede Privada)
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          tags: tag:ci-deploy
+
+      - name: Validar Conexão e Estado do Tailscale
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "=================================================="
+          echo "  Diagnóstico Tailscale no Runner"
+          echo "=================================================="
+          
+          # Verificar se a interface tailscale0 subiu
+          ip addr show tailscale0 || { echo "::error::Interface tailscale0 não foi criada no runner!"; exit 1; }
+          
+          RUNNER_TS_IP=$(tailscale ip -4)
+          echo "IP Tailscale IPv4 do Runner: $RUNNER_TS_IP"
+          
+          echo "--- tailscale status ---"
+          tailscale status
+          
+          echo "--- tailscale ping para 100.90.8.15 ---"
+          tailscale ping -c 3 100.90.8.15
+
+      - name: Testar Exclusivamente Conexão TCP Porta 22 (SSH)
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET_HOST="100.90.8.15"
+          TARGET_PORT="22"
+          TIMEOUT_SEC=5
+
+          echo "=================================================="
+          echo "  Teste TCP Exclusivo na Porta 22 ($TARGET_HOST:$TARGET_PORT)"
+          echo "=================================================="
+          echo "Disparando probe TCP com timeout de ${TIMEOUT_SEC}s (sem autenticação SSH)..."
+
+          python3 - <<EOF
+          import socket, sys, time
+
+          host = "$TARGET_HOST"
+          port = int("$TARGET_PORT")
+          timeout = float("$TIMEOUT_SEC")
+
+          start = time.time()
+          try:
+              sock = socket.create_connection((host, port), timeout=timeout)
+              elapsed = (time.time() - start) * 1000
+              # Ler o banner SSH retornado pelo daemon sem autenticar
+              banner = sock.recv(1024).decode('utf-8', errors='ignore').strip()
+              sock.close()
+              print(f"✅ ROTA E PORTA CONFIRMADAS! Conexão TCP estabelecida em {elapsed:.1f}ms")
+              print(f"Banner SSH recebido do host: {banner}")
+          except socket.timeout:
+              elapsed = (time.time() - start) * 1000
+              print(f"❌ TIMEOUT TCP ({timeout}s): Nenhuma resposta recebida de {host}:{port} após {elapsed:.1f}ms", file=sys.stderr)
+              sys.exit(1)
+          except ConnectionRefusedError:
+              print(f"❌ CONEXÃO RECUSADA: {host}:{port} recusou a conexão TCP", file=sys.stderr)
+              sys.exit(1)
+          except Exception as e:
+              print(f"❌ ERRO TCP: {e}", file=sys.stderr)
+              sys.exit(1)
+          EOF
