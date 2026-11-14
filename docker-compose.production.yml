@@ -27,7 +27,7 @@ services:
         max-file: "5"
 
   api:
-    image: bigdevz/finance-api:prod
+    image: bigdevz/finance-api:${FINANCE_IMAGE_TAG:-prod}
     build:
       context: ${API_BUILD_CONTEXT:-./apps/api}
       dockerfile: Dockerfile
@@ -73,7 +73,7 @@ services:
         max-file: "5"
 
   scheduler:
-    image: bigdevz/finance-api:prod
+    image: bigdevz/finance-api:${FINANCE_IMAGE_TAG:-prod}
     restart: unless-stopped
     depends_on:
       api:

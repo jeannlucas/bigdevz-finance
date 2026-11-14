@@ -42,11 +42,11 @@ echo "  Repositório: BigDev.Z Finance"
 echo "  Modo Selecionado: --${MODE}"
 echo "================================================="
 
-# Detecção de runtime PHP: nativo no host (com extensão pdo_pgsql) ou via container Docker
+# Detecção de runtime PHP: nativo no host (com extensão pdo_pgsql e bcmath) ou via container Docker
 USE_DOCKER_PHP=0
-if ! command -v php >/dev/null 2>&1; then
+if ! command -v php >/dev/null 2>&1 || ! php -m 2>/dev/null | grep -q bcmath; then
   USE_DOCKER_PHP=1
-  echo "ℹ️  PHP não detectado no PATH do Mac. Utilizando container homologado bigdevz/finance-api:dev."
+  echo "ℹ️  PHP nativo ausente ou sem extensões obrigatórias (bcmath). Utilizando container homologado bigdevz/finance-api:dev."
 fi
 
 # --- ETAPA FAST: Tipagem, Estilo e Testes Unitários ---

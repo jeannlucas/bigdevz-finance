@@ -14,8 +14,8 @@ LOCK_FILE="${LOCK_FILE:-/var/lock/vps-deploy-finance.lock}"
 VAR_LIB_DIR="${VAR_LIB_DIR:-/var/lib/vps-deploy/bigdevz-finance}"
 API_PORT="${API_PORT:-8510}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-30}"
-CONTAINER_PG="${CONTAINER_PG:-bigdevz-finance-postgres-1}"
-CONTAINER_API="${CONTAINER_API:-bigdevz-finance-api-1}"
+CONTAINER_PG="${CONTAINER_PG:-finance-postgres-prod}"
+CONTAINER_API="${CONTAINER_API:-finance-api-prod}"
 DB_USER="${DB_USER:-bigdevz}"
 DB_NAME="${DB_NAME:-bigdevz_finance}"
 DEPLOY_TAG="${DEPLOY_TAG:-}"
@@ -213,7 +213,9 @@ if [ ! -f "$COMPOSE_FILE" ]; then
   echo "Manifesto de produção ausente no commit de destino." >&2
   exit 1
 fi
+export FINANCE_IMAGE_TAG="${DEPLOY_TAG}"
 docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" build api
+docker tag "bigdevz/finance-api:${DEPLOY_TAG}" "bigdevz/finance-api:prod" 2>/dev/null || true
 MIGRATIONS_RAN=1
 docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" run --rm -T --no-deps api php artisan migrate --force
 docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" up -d --build api scheduler
