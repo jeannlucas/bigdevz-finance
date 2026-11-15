@@ -176,18 +176,50 @@ fi
 echo "✅ PASSOU"
 
 # ------------------------------------------------------------------------------
-# Cenário 2: Tag SemVer válida implanta o SHA esperado e atualiza marcadores
+# Cenário 2: Exigência de Digest Imutável e Implantação com --no-build
 # ------------------------------------------------------------------------------
-echo -n "🧪 Cenário 2: Tag válida implanta SHA esperado e atualiza marcadores .. "
+echo -n "🧪 Cenário 2: Exigência de digest e implantação com --no-build .. "
 (
   cd "$INIT_REPO"
   git tag -a v1.0.1 -m "Release formal v1.0.1"
   git push origin main --tags >/dev/null 2>&1
 )
 EXPECTED_SHA=$(cd "$INIT_REPO" && git rev-parse HEAD)
+TEST_DIGEST="bigdevz/finance-api@sha256:88a6a8244a3beb94335d850c806cf1e636d8c646c578812f509551282b6a1fe2"
 
+# 2.1 Testar que deploy sem digest é rejeitado antes de parar escritores
 > "$EVENTS_LOG"
+set +e
 bash "$SANDBOX_SCRIPT" --tag v1.0.1 >/dev/null 2>&1
+MISSING_DIGEST_EXIT=$?
+set -e
+if [ "$MISSING_DIGEST_EXIT" -eq 0 ]; then
+  echo "❌ FALHOU (Deploy sem digest deveria ter falhado com exit code 1)"
+  exit 1
+fi
+if grep -q "stop api scheduler" "$EVENTS_LOG"; then
+  echo "❌ FALHOU (Deploy sem digest alterou serviços/parou escritores)"
+  exit 1
+fi
+
+# 2.2 Testar que deploy com digest inválido é rejeitado antes de parar escritores
+> "$EVENTS_LOG"
+set +e
+bash "$SANDBOX_SCRIPT" --tag v1.0.1 --digest "invalid-tag-format" >/dev/null 2>&1
+INVALID_DIGEST_EXIT=$?
+set -e
+if [ "$INVALID_DIGEST_EXIT" -eq 0 ]; then
+  echo "❌ FALHOU (Deploy com digest inválido deveria ter falhado)"
+  exit 1
+fi
+if grep -q "stop api scheduler" "$EVENTS_LOG"; then
+  echo "❌ FALHOU (Deploy com digest inválido alterou serviços/parou escritores)"
+  exit 1
+fi
+
+# 2.3 Deploy com tag válida e digest válido
+> "$EVENTS_LOG"
+bash "$SANDBOX_SCRIPT" --tag v1.0.1 --digest "$TEST_DIGEST" >/dev/null 2>&1
 
 if [ "$(cat "$VAR_LIB/implantado_tag")" != "v1.0.1" ]; then
   echo "❌ FALHOU (implantado_tag não foi atualizado para v1.0.1)"
@@ -197,12 +229,16 @@ if [ "$(cat "$VAR_LIB/implantado")" != "$EXPECTED_SHA" ]; then
   echo "❌ FALHOU (implantado não foi atualizado para $EXPECTED_SHA)"
   exit 1
 fi
+if [ "$(cat "$VAR_LIB/implantado_digest")" != "$TEST_DIGEST" ]; then
+  echo "❌ FALHOU (implantado_digest não foi atualizado para $TEST_DIGEST)"
+  exit 1
+fi
 if [ "$(cd "$REPO_DIR" && git rev-parse HEAD)" != "$EXPECTED_SHA" ]; then
   echo "❌ FALHOU (HEAD local diverge do commit esperado $EXPECTED_SHA)"
   exit 1
 fi
-if ! grep -q "DOCKER: compose --env-file .env.production -f docker-compose.production.yml up -d --build api scheduler" "$EVENTS_LOG"; then
-  echo "❌ FALHOU (Comando docker compose up não foi emitido)"
+if ! grep -q "DOCKER: compose --env-file .env.production -f docker-compose.production.yml up -d --no-build api scheduler" "$EVENTS_LOG"; then
+  echo "❌ FALHOU (Comando docker compose up --no-build não foi emitido)"
   exit 1
 fi
 echo "✅ PASSOU"
@@ -223,7 +259,7 @@ echo -n "🧪 Cenário 3: Falha pós-migração bloqueia novos deploys e preserv
 
 > "$EVENTS_LOG"
 export MOCK_WRITER_RUNNING=1
-if bash "$SANDBOX_SCRIPT" --tag v1.0.2 >/dev/null 2>&1; then
+if bash "$SANDBOX_SCRIPT" --tag v1.0.2 --digest "$TEST_DIGEST" >/dev/null 2>&1; then
   echo "Deploy prosseguiu com escritor ativo." >&2
   exit 1
 fi
@@ -234,19 +270,19 @@ if grep -q 'pg_dump' "$EVENTS_LOG"; then
 fi
 > "$EVENTS_LOG"
 export MOCK_DUMP_FAIL=1
-if bash "$SANDBOX_SCRIPT" --tag v1.0.2 >/dev/null 2>&1; then
+if bash "$SANDBOX_SCRIPT" --tag v1.0.2 --digest "$TEST_DIGEST" >/dev/null 2>&1; then
   echo "Backup com erro e saída parcial foi aceito." >&2
   exit 1
 fi
 unset MOCK_DUMP_FAIL
-if grep -Eq ' (build|run) |up -d --build' "$EVENTS_LOG"; then
-  echo "Deploy prosseguiu apesar da falha no backup." >&2
+if grep -Eq ' run --rm |migrate' "$EVENTS_LOG"; then
+  echo "Deploy prosseguiu para migrações apesar da falha no backup." >&2
   exit 1
 fi
 > "$EVENTS_LOG"
 export MOCK_CURL_FAIL=1
 set +e
-bash "$SANDBOX_SCRIPT" --tag v1.0.2 >/dev/null 2>&1
+bash "$SANDBOX_SCRIPT" --tag v1.0.2 --digest "$TEST_DIGEST" >/dev/null 2>&1
 DEPLOY_EXIT=$?
 set -e
 export MOCK_CURL_FAIL=0
@@ -276,7 +312,7 @@ if grep -q "RESTORE: pg_restore called with" "$EVENTS_LOG"; then
   exit 1
 fi
 > "$EVENTS_LOG"
-if bash "$SANDBOX_SCRIPT" --tag v1.0.2 >/dev/null 2>&1 || [ -s "$EVENTS_LOG" ]; then
+if bash "$SANDBOX_SCRIPT" --tag v1.0.2 --digest "$TEST_DIGEST" >/dev/null 2>&1 || [ -s "$EVENTS_LOG" ]; then
   echo "❌ FALHOU (nova tentativa prosseguiu com recuperação pendente)"
   exit 1
 fi

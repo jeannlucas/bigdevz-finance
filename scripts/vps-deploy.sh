@@ -148,9 +148,36 @@ if [ -z "$PREVIOUS_COMMIT" ] || ! git cat-file -e "${PREVIOUS_COMMIT}^{commit}";
   exit 1
 fi
 
+MARCADOR_DIGEST="$VAR_LIB_DIR/implantado_digest"
+PREVIOUS_DIGEST=$(cat "$MARCADOR_DIGEST" 2>/dev/null || true)
+if [ -z "$PREVIOUS_DIGEST" ] && command -v docker >/dev/null 2>&1; then
+  PREVIOUS_DIGEST=$(docker inspect "$CONTAINER_API" --format '{{.Image}}' 2>/dev/null || true)
+fi
+
+# 6. Validação Estrita de Digest Imutável para Produção (Fail-Closed antes de qualquer alteração)
+if [ -z "$FINANCE_IMAGE_DIGEST" ]; then
+  echo "❌ ERRO DE GOVERNANÇA: O deploy de produção em $TARGET_DIR exige um digest imutável do registro (--digest <imagem>@sha256:...). Fallback para tags desativado." >&2
+  exit 1
+fi
+
+DIGEST_REGEX='^([a-zA-Z0-9._/-]+@)?sha256:[a-fA-F0-9]{64}$'
+if ! [[ "$FINANCE_IMAGE_DIGEST" =~ $DIGEST_REGEX ]]; then
+  echo "❌ ERRO DE GOVERNANÇA: Digest inválido '$FINANCE_IMAGE_DIGEST'. Formato esperado: <repo>@sha256:<64 hex chars> ou sha256:<64 hex chars>." >&2
+  exit 1
+fi
+
 if [ ! -f "$COMPOSE_FILE" ] || ! command -v docker >/dev/null 2>&1; then
   echo "Docker ou manifesto Compose de produção indisponível." >&2
   exit 1
+fi
+
+echo "🔍 Validando disponibilidade da imagem digest no Docker: $FINANCE_IMAGE_DIGEST..."
+if ! docker inspect "$FINANCE_IMAGE_DIGEST" >/dev/null 2>&1; then
+  echo "📥 Baixando imagem por digest do registro..."
+  if ! docker pull "$FINANCE_IMAGE_DIGEST"; then
+    echo "❌ Falha ao baixar a imagem por digest '$FINANCE_IMAGE_DIGEST' do registro. Deploy abortado antes de migrações ou alterações em serviços." >&2
+    exit 1
+  fi
 fi
 
 umask 077
@@ -174,8 +201,11 @@ perform_rollback() {
     return
   fi
   if [ "$WRITERS_STOPPED" -eq 1 ]; then
+    if [ -n "$PREVIOUS_DIGEST" ]; then
+      export FINANCE_API_IMAGE="$PREVIOUS_DIGEST"
+    fi
     if ! git reset --hard "$PREVIOUS_COMMIT" -q ||
-       ! docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" up -d api scheduler; then
+       ! docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" up -d --no-build api scheduler; then
       echo "Falha ao retomar a versão anterior. Intervenção necessária." >&2
     else
       rm -f "$RECOVERY_PENDING"
@@ -219,17 +249,11 @@ if [ ! -f "$COMPOSE_FILE" ]; then
   exit 1
 fi
 
-if [ -n "$FINANCE_IMAGE_DIGEST" ]; then
-  export FINANCE_API_IMAGE="$FINANCE_IMAGE_DIGEST"
-elif [ -n "$FINANCE_API_IMAGE" ]; then
-  export FINANCE_API_IMAGE="$FINANCE_API_IMAGE"
-else
-  export FINANCE_IMAGE_TAG="${DEPLOY_TAG:-prod}"
-  export FINANCE_API_IMAGE="bigdevz/finance-api:${FINANCE_IMAGE_TAG}"
-fi
-echo "📦 Imagem alvo para implantação: $FINANCE_API_IMAGE"
+export FINANCE_API_IMAGE="$FINANCE_IMAGE_DIGEST"
+echo "📦 Imagem digest imutável homologada para implantação: $FINANCE_API_IMAGE"
 
 MIGRATIONS_RAN=1
+echo "🚀 Executando migrações de banco (seeds de usuários estritamente desativadas)..."
 docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" run --rm -T --no-deps api php artisan migrate --force
 docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" up -d --no-build api scheduler
 
@@ -253,6 +277,7 @@ fi
 # 11. Atualização dos Marcadores de Sucesso
 printf '%s\n' "$DEPLOY_TAG" > "$MARCADOR_TAG"
 printf '%s\n' "$TARGET_SHA" > "$MARCADOR_COMMIT"
+printf '%s\n' "$FINANCE_IMAGE_DIGEST" > "$MARCADOR_DIGEST"
 rm -f "$RECOVERY_PENDING"
 
 if command -v notify-deploy >/dev/null 2>&1; then

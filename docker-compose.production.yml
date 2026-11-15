@@ -73,7 +73,7 @@ services:
         max-file: "5"
 
   scheduler:
-    image: bigdevz/finance-api:${FINANCE_IMAGE_TAG:-prod}
+    image: ${FINANCE_API_IMAGE:-bigdevz/finance-api:${FINANCE_IMAGE_TAG:-prod}}
     restart: unless-stopped
     depends_on:
       api:
