@@ -14,6 +14,10 @@ jobs:
     name: Validar SemVer e Promover Produção (VPS)
     runs-on: ubuntu-latest
     environment: production
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     steps:
       - name: Checkout com Histórico Completo
         uses: actions/checkout@v4
@@ -26,6 +30,63 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ./scripts/validate-deploy-governance.sh
+
+      - name: Configurar Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Autenticar no GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Construir e Publicar Imagem para Arquitetura VPS (linux/amd64)
+        id: build_image
+        uses: docker/build-push-action@v5
+        with:
+          context: apps/api
+          file: apps/api/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/bigdevz-finance-api:${{ github.ref_name }}
+          provenance: false
+
+      - name: Determinar Referência Imutável por Digest do Registro
+        id: image_digest
+        shell: bash
+        run: |
+          RAW_DIGEST="${{ steps.build_image.outputs.digest }}"
+          if [ -z "$RAW_DIGEST" ]; then
+            echo "::error::Falha ao obter digest imutável da imagem construída."
+            exit 1
+          fi
+          REGISTRY_REF="ghcr.io/${{ github.repository_owner }}/bigdevz-finance-api@${RAW_DIGEST}"
+          echo "registry_ref=${REGISTRY_REF}" >> "$GITHUB_OUTPUT"
+          echo "raw_digest=${RAW_DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "✅ Imagem publicada no registro com digest imutável: ${REGISTRY_REF}"
+
+      - name: Instalar Trivy no Runner
+        shell: bash
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin
+
+      - name: Analisar Artefato Final pelo Digest do Registro com Trivy
+        shell: bash
+        env:
+          TARGET_IMAGE: ${{ steps.image_digest.outputs.registry_ref }}
+        run: |
+          echo "Executando varredura no artefato imutável exato: $TARGET_IMAGE..."
+          trivy image --format json -o trivy-finance-release.json "$TARGET_IMAGE"
+
+      - name: Avaliar Politica de Seguranca do Artefato Homologado
+        shell: bash
+        run: |
+          python3 scripts/eval-promotion-policy.py \
+            --scan trivy-finance-release.json \
+            --baseline security/baseline.json \
+            --mode audit \
+            --output-summary $GITHUB_STEP_SUMMARY
 
       - name: Verificar Configuração de Conectividade
         id: check_config
@@ -43,18 +104,21 @@ jobs:
       - name: Registrar Status de Deploy Pendente
         if: steps.check_config.outputs.has_secrets != 'true'
         shell: bash
+        env:
+          IMAGE_DIGEST: ${{ steps.image_digest.outputs.registry_ref }}
         run: |
           echo "::warning::Deploy em produção pendente de configuração de secrets SSH/Tailscale."
           {
-            echo "## ⏸️ Status: Tag Validada — Deploy Remoto Pendente"
+            echo "## ⏸️ Status: Tag Validada e Imagem Homologada — Deploy Remoto Pendente"
             echo "> **Aviso:** A tag \`${GITHUB_REF_NAME}\` passou com 100% de sucesso por todas as validações de governança e proveniência."
+            echo "> A imagem \`linux/amd64\` foi publicada e escaneada com sucesso no registro: \`${IMAGE_DIGEST}\`."
             echo "> O disparo automático via SSH para a VPS **NÃO foi executado** nesta rodada porque os secrets de conectividade privada (\`TAILSCALE_AUTHKEY\` ou \`TS_OAUTH_SECRET\`) e SSH (\`VPS_SSH_KEY\`) ainda não foram configurados no repositório."
             echo ""
             echo "### Próximos Passos para Execução"
             echo "1. **Para Deploy Automatizado:** Configurar os secrets \`TAILSCALE_AUTHKEY\` e \`VPS_SSH_KEY\` no GitHub Actions."
             echo "2. **Para Execução Manual Autorizada na VPS:**"
             echo "   \`\`\`bash"
-            echo "   ssh bigdevz \"cd /srv/finance && ./scripts/vps-deploy.sh --tag ${GITHUB_REF_NAME}\""
+            echo "   ssh bigdevz \"cd /srv/finance && ./scripts/vps-deploy.sh --tag ${GITHUB_REF_NAME} --digest ${IMAGE_DIGEST}\""
             echo "   \`\`\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -75,6 +139,7 @@ jobs:
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
           VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
           TAG_NAME: ${{ github.ref_name }}
+          IMAGE_DIGEST: ${{ steps.image_digest.outputs.registry_ref }}
         shell: bash
         run: |
           set -euo pipefail
@@ -89,4 +154,4 @@ jobs:
           chmod 644 ~/.ssh/known_hosts
 
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -p "$VPS_SSH_PORT" "$VPS_SSH_USER@$VPS_HOST" \
-            "$TAG_NAME"
+            "--tag $TAG_NAME --digest $IMAGE_DIGEST"

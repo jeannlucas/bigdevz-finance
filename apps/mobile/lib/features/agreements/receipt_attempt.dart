@@ -113,6 +113,9 @@ class ReceiptAttempt {
     this.originalAccountName,
     this.originalReceivedOn,
     this.payableId,
+    this.interest,
+    this.fine,
+    this.discount,
   });
 
   factory ReceiptAttempt.fromJson(Map<String, dynamic> json) => ReceiptAttempt(
@@ -139,6 +142,13 @@ class ReceiptAttempt {
     originalAccountName: json['original_account_name'] as String?,
     originalReceivedOn: json['original_received_on'] as String?,
     payableId: json['payable_id'] as int?,
+    interest: json['interest'] == null
+        ? null
+        : Money.parse(json['interest'] as String),
+    fine: json['fine'] == null ? null : Money.parse(json['fine'] as String),
+    discount: json['discount'] == null
+        ? null
+        : Money.parse(json['discount'] as String),
   );
 
   final int userId;
@@ -161,6 +171,9 @@ class ReceiptAttempt {
 
   /// Obrigação a pagar (operações de pagamento); 0 em [installmentId].
   final int? payableId;
+  final Money? interest;
+  final Money? fine;
+  final Money? discount;
 
   Map<String, Object?> toJson() => {
     'user_id': userId,
@@ -179,6 +192,9 @@ class ReceiptAttempt {
     'original_account_name': originalAccountName,
     'original_received_on': originalReceivedOn,
     'payable_id': payableId,
+    'interest': interest?.toApi(),
+    'fine': fine?.toApi(),
+    'discount': discount?.toApi(),
   };
 
   /// Onde a tentativa fica guardada: uma por parcela ou por obrigação.
@@ -279,10 +295,10 @@ class ReceiptAttemptOutcome {
           'parcela.',
     ReceiptOperation.payment =>
       'Verifique a tentativa anterior antes de registrar outro pagamento '
-          'nesta obrigação.',
+          'nesta conta a pagar.',
     ReceiptOperation.paymentReversal || ReceiptOperation.paymentCorrection =>
       'Verifique a tentativa anterior antes de fazer outra operação nesta '
-          'obrigação.',
+          'conta a pagar.',
     _ =>
       'Verifique a tentativa anterior antes de fazer outra operação nesta '
           'parcela.',

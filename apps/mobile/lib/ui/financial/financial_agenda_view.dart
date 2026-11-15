@@ -106,8 +106,7 @@ class FinancialAgendaView<T extends FinancialItemView> extends StatelessWidget {
     this.isQuickActionEnabled,
     this.singularLabel = 'item',
     this.pluralLabel = 'itens',
-    this.emptyMessage =
-        'Nenhum lançamento encontrado para a busca ou filtro aplicado.',
+    this.emptyMessage = 'Nenhum registro financeiro encontrado para a busca ou filtro aplicado.',
   });
 
   final List<T> items;

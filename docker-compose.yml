@@ -1,16 +1,18 @@
-name: bigdevz-finance
+name: finance-dev
 
 services:
   postgres:
-    image: postgres:18-alpine
+    image: postgres:17-alpine
+    container_name: finance-postgres-dev
+    restart: "no"
     environment:
       POSTGRES_USER: bigdevz
-      POSTGRES_PASSWORD: ${BIGDEVZ_DB_PASSWORD:?Defina a variavel BIGDEVZ_DB_PASSWORD no arquivo .env}
+      POSTGRES_PASSWORD: ${BIGDEVZ_DB_PASSWORD:-bigdevz_local_password}
       POSTGRES_DB: bigdevz_finance
     ports:
       - "127.0.0.1:${BIGDEVZ_DB_PORT:-5440}:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql
+      - postgres-data:/var/lib/postgresql/data
       - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U bigdevz -d bigdevz_finance && psql -U bigdevz -d bigdevz_finance_test -c 'select 1' >/dev/null"]
@@ -20,7 +22,9 @@ services:
 
   api:
     image: bigdevz/finance-api:dev
+    container_name: finance-api-dev
     build: ./apps/api
+    restart: "no"
     depends_on:
       postgres:
         condition: service_healthy
@@ -33,7 +37,7 @@ services:
       DB_PORT: 5432
       DB_DATABASE: bigdevz_finance
       DB_USERNAME: bigdevz
-      DB_PASSWORD: ${BIGDEVZ_DB_PASSWORD:?Defina a variavel BIGDEVZ_DB_PASSWORD no arquivo .env}
+      DB_PASSWORD: ${BIGDEVZ_DB_PASSWORD:-bigdevz_local_password}
       LOG_CHANNEL: stderr
     ports:
       - "${BIGDEVZ_API_BIND:-127.0.0.1}:${BIGDEVZ_API_PORT:-8000}:8000"
@@ -45,12 +49,10 @@ services:
       timeout: 5s
       retries: 30
 
-  # A pagar: gera ocorrências recorrentes e faturas até o horizonte (mês atual
-  # + 12) a cada hora, com `payables:generate`. Execuções:
-  #   docker compose logs scheduler
-  # Contagens por execução: apps/api/storage/logs/payables-generate.log
   scheduler:
     image: bigdevz/finance-api:dev
+    container_name: finance-scheduler-dev
+    restart: "no"
     depends_on:
       api:
         condition: service_healthy
@@ -62,8 +64,6 @@ services:
 volumes:
   postgres-data:
 
-# Sub-rede explícita: os pools padrão do Docker desta máquina estão ocupados
-# por outros projetos. Ajuste BIGDEVZ_SUBNET se colidir com a sua rede.
 networks:
   default:
     ipam:

@@ -510,7 +510,7 @@ class _PlanningScreenState extends State<PlanningScreen> {
                                 ),
                             ] else
                               const Text(
-                                'Sem lançamentos',
+                                'Sem movimentações',
                                 style: TextStyle(
                                   color: AppTokens.neutral,
                                   fontSize: 12,

@@ -74,7 +74,7 @@ class AuditItem {
       case 'recurrence':
         return 'Recorrência';
       default:
-        return 'Lançamento financeiro';
+        return 'Registro financeiro';
     }
   }
 
@@ -82,7 +82,7 @@ class AuditItem {
     switch (act) {
       case 'create':
       case 'created':
-        return 'Criação de lançamento';
+        return 'Criação de registro';
       case 'receive':
       case 'received':
         return 'Recebimento de parcela';
@@ -94,7 +94,7 @@ class AuditItem {
         return 'Alteração de dados';
       case 'cancel':
       case 'cancelled':
-        return 'Cancelamento de lançamento';
+        return 'Cancelamento de registro';
       case 'reverse':
       case 'reversed':
         return 'Estorno financeiro';

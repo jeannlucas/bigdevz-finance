@@ -298,7 +298,10 @@ class FakePayablesApi {
       return _rejection('payable', 'Informe o total da fatura antes de pagar.');
     }
     if (cents > payable.amountCents! - payable.paidCents) {
-      return _rejection('amount', 'O valor excede o restante da obrigação.');
+      return _rejection(
+        'amount',
+        'O valor excede o saldo restante da conta a pagar.',
+      );
     }
     final payment = FakePayment(
       _nextPayment++,

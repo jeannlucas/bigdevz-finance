@@ -276,7 +276,7 @@ class _AccountingPeriodDialogState extends State<AccountingPeriodDialog> {
                     if (!_isClosed) ...[
                       // FLUXO DE FECHAMENTO
                       const Text(
-                        'Ao fechar o período, nenhuma movimentação financeira (criação, baixa, estorno ou cancelamento) poderá ser lançada com data igual ou anterior à data escolhida.',
+                        'Ao fechar o período, nenhuma movimentação financeira (criação, pagamento, recebimento, estorno ou cancelamento) poderá ser lançada com data igual ou anterior à data escolhida.',
                         style: TextStyle(
                           fontSize: 13,
                           color: AppTokens.neutral,

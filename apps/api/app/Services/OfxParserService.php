@@ -48,7 +48,7 @@ class OfxParserService
             $fitid = $this->extractTag($block, 'FITID');
             $rawAmount = $this->extractTag($block, 'TRNAMT');
             $dtposted = $this->extractTag($block, 'DTPOSTED');
-            $memo = $this->extractTag($block, 'MEMO') ?? $this->extractTag($block, 'NAME') ?? 'Lançamento bancário';
+            $memo = $this->extractTag($block, 'MEMO') ?? $this->extractTag($block, 'NAME') ?? 'Movimentação bancária';
 
             if ($fitid === null || $rawAmount === null || $dtposted === null) {
                 continue;
@@ -119,7 +119,7 @@ class OfxParserService
                 'amount_cents' => $amountCents,
                 'raw_amount' => $rawAmount,
                 'posted_at' => $formattedDate,
-                'memo' => $cleanedMemo !== '' ? $cleanedMemo : 'Lançamento bancário',
+                'memo' => $cleanedMemo !== '' ? $cleanedMemo : 'Movimentação bancária',
             ];
         }
 

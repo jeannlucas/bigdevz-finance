@@ -25,20 +25,39 @@ Artisan::command('payables:generate', function (GenerateObligations $generate) {
 Schedule::command('payables:generate')->hourly()->withoutOverlapping()
     ->appendOutputTo(storage_path('logs/payables-generate.log'));
 
-Artisan::command('user:create {email} {--name=Usuário} {--password=}', function () {
-    $email = $this->argument('email');
-    $name = $this->option('name');
-    $password = $this->option('password') ?: Str::random(16);
-
-    $user = User::query()->firstOrCreate(
-        ['email' => $email],
-        ['name' => $name, 'password' => $password, 'email_verified_at' => now()]
-    );
-
-    $this->info("Usuário {$user->email} pronto (ID: {$user->id}).");
-    if ($this->option('password')) {
-        $this->info('Senha definida.');
-    } else {
-        $this->warn("Senha gerada: {$password}");
+Artisan::command('user:create {email} {--name=} {--password=}', function () {
+    $email = mb_strtolower(trim($this->argument('email')));
+    $name = trim($this->option('name') ?: 'Usuário');
+    $password = $this->option('password');
+    $generated = false;
+    if (! $password) {
+        $password = Str::random(16);
+        $generated = true;
     }
-})->purpose('Cria um usuário com seus espaços PF/PJ');
+
+    $user = User::query()->where('email', $email)->first();
+    if ($user) {
+        if ($this->option('name')) {
+            $user->name = $name;
+        }
+        if ($this->option('password')) {
+            $user->password = $password;
+        }
+        $user->save();
+        $this->info("Usuário {$user->email} pronto (ID: {$user->id}).");
+    } else {
+        $user = User::query()->create([
+            'email' => $email,
+            'name' => $name,
+            'password' => $password,
+            'email_verified_at' => now(),
+        ]);
+        $this->info("Usuário {$user->email} criado (ID: {$user->id}).");
+    }
+
+    if ($generated) {
+        $this->warn("Senha gerada: {$password}");
+    } else {
+        $this->info('Senha definida.');
+    }
+})->purpose('Cria ou atualiza um usuário com seus espaços PF/PJ');

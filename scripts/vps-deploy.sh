@@ -14,11 +14,12 @@ LOCK_FILE="${LOCK_FILE:-/var/lock/vps-deploy-finance.lock}"
 VAR_LIB_DIR="${VAR_LIB_DIR:-/var/lib/vps-deploy/bigdevz-finance}"
 API_PORT="${API_PORT:-8510}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-30}"
-CONTAINER_PG="${CONTAINER_PG:-bigdevz-finance-postgres-1}"
-CONTAINER_API="${CONTAINER_API:-bigdevz-finance-api-1}"
+CONTAINER_PG="${CONTAINER_PG:-finance-postgres-prod}"
+CONTAINER_API="${CONTAINER_API:-finance-api-prod}"
 DB_USER="${DB_USER:-bigdevz}"
 DB_NAME="${DB_NAME:-bigdevz_finance}"
 DEPLOY_TAG="${DEPLOY_TAG:-}"
+FINANCE_IMAGE_DIGEST="${FINANCE_IMAGE_DIGEST:-}"
 SKIP_GIT_CHECKOUT="${SKIP_GIT_CHECKOUT:-0}"
 
 while [ $# -gt 0 ]; do
@@ -27,12 +28,16 @@ while [ $# -gt 0 ]; do
       DEPLOY_TAG="$2"
       shift 2
       ;;
+    --digest|--image-digest)
+      FINANCE_IMAGE_DIGEST="$2"
+      shift 2
+      ;;
     --skip-checkout)
       SKIP_GIT_CHECKOUT=1
       shift
       ;;
     --help|-h)
-      echo "Uso: $0 [--tag vX.Y.Z] [--skip-checkout]"
+      echo "Uso: $0 [--tag vX.Y.Z] [--digest imagem@sha256:...] [--skip-checkout]"
       exit 0
       ;;
     *)
@@ -143,9 +148,64 @@ if [ -z "$PREVIOUS_COMMIT" ] || ! git cat-file -e "${PREVIOUS_COMMIT}^{commit}";
   exit 1
 fi
 
+MARCADOR_DIGEST="$VAR_LIB_DIR/implantado_digest"
+PREVIOUS_DIGEST=$(cat "$MARCADOR_DIGEST" 2>/dev/null || true)
+if [ -z "$PREVIOUS_DIGEST" ] && command -v docker >/dev/null 2>&1; then
+  PREVIOUS_DIGEST=$(docker inspect "$CONTAINER_API" --format '{{.Image}}' 2>/dev/null || true)
+fi
+
+# Validar se a referência anterior está disponível para reversão
+if [ -n "$PREVIOUS_DIGEST" ] && command -v docker >/dev/null 2>&1; then
+  if docker inspect "$PREVIOUS_DIGEST" >/dev/null 2>&1; then
+    if [[ "$PREVIOUS_DIGEST" =~ ^sha256:[a-fA-F0-9]{64}$ ]]; then
+      echo "ℹ️ [vps-deploy] Referência anterior para reversão comprovada: ID local de imagem ($PREVIOUS_DIGEST)."
+    else
+      echo "ℹ️ [vps-deploy] Referência anterior para reversão comprovada: $PREVIOUS_DIGEST."
+    fi
+  else
+    echo "⚠️ [vps-deploy] Referência anterior ($PREVIOUS_DIGEST) não encontrada no Docker local." >&2
+  fi
+fi
+
+# 6. Validação Estrita de Referência do Registro por Digest (Fail-Closed antes de qualquer alteração)
+# Exige formato: <repositório>@sha256:<64 hex chars>
+# Rejeita: referência vazia, tag isolada, sha256 puro sem repositório e repositório não autorizado.
+AUTHORIZED_REPO_REGEX='^(bigdevz/finance-api|ghcr\.io/[a-zA-Z0-9._-]+/(bigdevz-)?finance-api)'
+STRICT_DIGEST_REGEX="^(${AUTHORIZED_REPO_REGEX})@sha256:[a-fA-F0-9]{64}$"
+
+if [ -z "$FINANCE_IMAGE_DIGEST" ]; then
+  echo "❌ ERRO DE GOVERNANÇA: O deploy de produção em $TARGET_DIR exige uma referência imutável do registro (--digest <repositório>@sha256:<64 hex chars>). Referência vazia rejeitada antes de alterar serviços ou rodar migrações." >&2
+  exit 1
+fi
+
+if [[ "$FINANCE_IMAGE_DIGEST" =~ ^sha256:[a-fA-F0-9]{64}$ ]]; then
+  echo "❌ ERRO DE GOVERNANÇA: Referência '$FINANCE_IMAGE_DIGEST' rejeitada. O digest não pode ser um sha256 isolado sem o repositório autorizado (formato esperado: <repositório>@sha256:<hash>)." >&2
+  exit 1
+fi
+
+if [[ "$FINANCE_IMAGE_DIGEST" =~ :[a-zA-Z0-9._-]+$ ]] && ! [[ "$FINANCE_IMAGE_DIGEST" =~ @sha256: ]]; then
+  echo "❌ ERRO DE GOVERNANÇA: Referência '$FINANCE_IMAGE_DIGEST' rejeitada. Tags isoladas são proibidas em produção. Exija <repositório>@sha256:<64 hex chars>." >&2
+  exit 1
+fi
+
+if ! [[ "$FINANCE_IMAGE_DIGEST" =~ $STRICT_DIGEST_REGEX ]]; then
+  echo "❌ ERRO DE GOVERNANÇA: Referência '$FINANCE_IMAGE_DIGEST' inválida ou repositório não autorizado para o Finance." >&2
+  echo "   Formato obrigatório: <repositório>@sha256:<64 hex chars> (repositórios autorizados: bigdevz/finance-api, ghcr.io/*/bigdevz-finance-api)." >&2
+  exit 1
+fi
+
 if [ ! -f "$COMPOSE_FILE" ] || ! command -v docker >/dev/null 2>&1; then
   echo "Docker ou manifesto Compose de produção indisponível." >&2
   exit 1
+fi
+
+echo "🔍 Validando disponibilidade da imagem digest no Docker: $FINANCE_IMAGE_DIGEST..."
+if ! docker inspect "$FINANCE_IMAGE_DIGEST" >/dev/null 2>&1; then
+  echo "📥 Baixando imagem por digest do registro..."
+  if ! docker pull "$FINANCE_IMAGE_DIGEST"; then
+    echo "❌ Falha ao baixar a imagem por digest '$FINANCE_IMAGE_DIGEST' do registro. Deploy abortado antes de migrações ou alterações em serviços." >&2
+    exit 1
+  fi
 fi
 
 umask 077
@@ -169,8 +229,11 @@ perform_rollback() {
     return
   fi
   if [ "$WRITERS_STOPPED" -eq 1 ]; then
+    if [ -n "$PREVIOUS_DIGEST" ]; then
+      export FINANCE_API_IMAGE="$PREVIOUS_DIGEST"
+    fi
     if ! git reset --hard "$PREVIOUS_COMMIT" -q ||
-       ! docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" up -d api scheduler; then
+       ! docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" up -d --no-build api scheduler; then
       echo "Falha ao retomar a versão anterior. Intervenção necessária." >&2
     else
       rm -f "$RECOVERY_PENDING"
@@ -208,15 +271,19 @@ if [ -d "$TARGET_DIR/.git" ] && [ "$SKIP_GIT_CHECKOUT" -eq 0 ]; then
   git reset --hard "$TARGET_SHA" -q
 fi
 
-# 8. Recompilação e inicialização
+# 8. Inicialização com imagem homologada e imutável (--no-build)
 if [ ! -f "$COMPOSE_FILE" ]; then
   echo "Manifesto de produção ausente no commit de destino." >&2
   exit 1
 fi
-docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" build api
+
+export FINANCE_API_IMAGE="$FINANCE_IMAGE_DIGEST"
+echo "📦 Imagem digest imutável homologada para implantação: $FINANCE_API_IMAGE"
+
 MIGRATIONS_RAN=1
+echo "🚀 Executando migrações de banco (seeds de usuários estritamente desativadas)..."
 docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" run --rm -T --no-deps api php artisan migrate --force
-docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" up -d --build api scheduler
+docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" up -d --no-build api scheduler
 
 # 10. Validação de Saúde (Healthcheck)
 echo "🩺 Executando healthcheck pós-deploy..."
@@ -238,6 +305,7 @@ fi
 # 11. Atualização dos Marcadores de Sucesso
 printf '%s\n' "$DEPLOY_TAG" > "$MARCADOR_TAG"
 printf '%s\n' "$TARGET_SHA" > "$MARCADOR_COMMIT"
+printf '%s\n' "$FINANCE_IMAGE_DIGEST" > "$MARCADOR_DIGEST"
 rm -f "$RECOVERY_PENDING"
 
 if command -v notify-deploy >/dev/null 2>&1; then

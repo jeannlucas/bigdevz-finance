@@ -1,0 +1,8 @@
+{
+  "product": "Finance",
+  "environment": "dev",
+  "scope": "apps/api",
+  "scanner": "Trivy Scan",
+  "description": "Linha de base de seguranca aprovada para ambiente de desenvolvimento (Finance - apps/api).",
+  "approved_criticals": []
+}

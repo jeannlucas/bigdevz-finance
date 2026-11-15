@@ -160,7 +160,7 @@ class _SpaceMembersScreenState extends State<SpaceMembersScreen> {
                           ),
                           DropdownMenuItem(
                             value: 'operador',
-                            child: Text('Operador (Lançamentos e Baixas)'),
+                            child: Text('Operador (Pagamentos e Recebimentos)'),
                           ),
                           DropdownMenuItem(
                             value: 'contador',
@@ -344,7 +344,7 @@ class _SpaceMembersScreenState extends State<SpaceMembersScreen> {
       case 'financeiro':
         return 'Financeiro: Opera pagamentos, recebimentos, transferências e conciliação. Não altera saldos de abertura nem gerencia membros.';
       case 'operador':
-        return 'Operador: Registra lançamentos e baixas rotineiras. Bloqueado para cancelamentos, estornos, exportação e saldo inicial.';
+        return 'Operador: Registra pagamentos e recebimentos rotineiros. Bloqueado para cancelamentos, estornos, exportação e saldo inicial.';
       case 'contador':
         return 'Contador: Acesso exclusivamente de consulta e exportação. Não pode movimentar dinheiro nem alterar cadastros.';
       default:
@@ -494,7 +494,7 @@ class _SpaceMembersScreenState extends State<SpaceMembersScreen> {
             ),
             SizedBox(height: 4),
             Text(
-              '• Operador: Cria lançamentos e baixas; não cancela, estorna nem exporta dados.',
+              '• Operador: Registra pagamentos e recebimentos; não cancela, estorna nem exporta dados.',
             ),
             SizedBox(height: 4),
             Text(

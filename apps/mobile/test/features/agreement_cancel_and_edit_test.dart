@@ -332,7 +332,7 @@ void main() {
       expect(find.text('Motivo: Cliente desistiu do projeto'), findsOneWidget);
       expect(find.byTooltip('Cancelar conta a receber'), findsNothing);
       expect(find.byTooltip('Editar conta a receber'), findsNothing);
-      expect(find.text('Dar baixa'), findsNothing);
+      expect(find.text('Registrar recebimento'), findsNothing);
       expect(find.text('Cancelada'), findsOneWidget);
     },
   );

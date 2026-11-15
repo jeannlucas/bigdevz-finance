@@ -184,16 +184,16 @@ void main() {
       expect(find.text('Parcela 1 de 2'), findsOneWidget);
       expect(find.text('Parcela 2 de 2'), findsOneWidget);
 
-      // Encontra botões de dar baixa
-      final baixaButtons = find.text('Dar baixa');
+      // Encontra botões de registrar recebimento
+      final baixaButtons = find.text('Registrar recebimento');
       expect(baixaButtons, findsNWidgets(2));
 
-      // Toca no primeiro botão de "Dar baixa"
+      // Toca no primeiro botão de "Registrar recebimento"
       await tester.tap(baixaButtons.first);
       await tester.pumpAndSettle();
 
-      // Agora deve estar na tela de formulário de baixa dentro do modal
-      expect(find.text('Baixar Parcela 1'), findsOneWidget);
+      // Agora deve estar na tela de formulário de recebimento dentro do modal
+      expect(find.text('Receber Parcela 1'), findsOneWidget);
       expect(find.text('Confirmar recebimento'), findsOneWidget);
     },
   );
@@ -278,15 +278,15 @@ void main() {
       await tester.tap(selectAllButton);
       await tester.pumpAndSettle();
 
-      // Botão de baixa múltipla deve aparecer com o total das 2 parcelas (R$ 2.000,00)
-      final batchBaixaButton = find.textContaining('Baixar selecionadas (2)');
+      // Botão de recebimento múltiplo deve aparecer com o total das 2 parcelas (R$ 2.000,00)
+      final batchBaixaButton = find.textContaining('Receber selecionadas (2)');
       expect(batchBaixaButton, findsOneWidget);
 
       await tester.tap(batchBaixaButton);
       await tester.pumpAndSettle();
 
-      // Deve exibir a tela unificada de baixa em lote
-      expect(find.text('Baixar 2 parcelas'), findsOneWidget);
+      // Deve exibir a tela unificada de recebimento em lote
+      expect(find.text('Receber 2 parcelas'), findsOneWidget);
       expect(find.text('Confirmar recebimento das 2 parcelas'), findsOneWidget);
 
       // Confirma o recebimento em lote

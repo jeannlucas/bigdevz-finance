@@ -14,6 +14,7 @@ import '../agreements/receipt_attempts.dart';
 import '../auth/auth_models.dart';
 import '../auth/session_controller.dart';
 import '../categories/category_badge.dart';
+import '../categories/category_picker_field.dart';
 import 'payable.dart';
 import 'payables_repository.dart';
 
@@ -112,6 +113,10 @@ class _PayableModalContentState extends State<_PayableModalContent> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
   final _billAmountController = TextEditingController();
+  final _interestController = TextEditingController();
+  final _fineController = TextEditingController();
+  final _discountController = TextEditingController();
+  bool _showCharges = false;
   late DateTime _selectedDate;
   int? _selectedAccountId;
 
@@ -119,13 +124,30 @@ class _PayableModalContentState extends State<_PayableModalContent> {
   void initState() {
     super.initState();
     _selectedDate = DateUtils.dateOnly(DateTime.now());
+    _amountController.addListener(_onChargeChanged);
+    _interestController.addListener(_onChargeChanged);
+    _fineController.addListener(_onChargeChanged);
+    _discountController.addListener(_onChargeChanged);
     _loadData();
+  }
+
+  void _onChargeChanged() {
+    if (_isPaying && mounted) {
+      setState(() {});
+    }
   }
 
   @override
   void dispose() {
+    _amountController.removeListener(_onChargeChanged);
+    _interestController.removeListener(_onChargeChanged);
+    _fineController.removeListener(_onChargeChanged);
+    _discountController.removeListener(_onChargeChanged);
     _amountController.dispose();
     _billAmountController.dispose();
+    _interestController.dispose();
+    _fineController.dispose();
+    _discountController.dispose();
     super.dispose();
   }
 
@@ -167,6 +189,10 @@ class _PayableModalContentState extends State<_PayableModalContent> {
       _isPaying = true;
       _isEditingBill = false;
       _amountController.text = remaining.plain;
+      _interestController.clear();
+      _fineController.clear();
+      _discountController.clear();
+      _showCharges = false;
       _selectedDate = DateUtils.dateOnly(DateTime.now());
       _selectedAccountId = _accounts.isNotEmpty ? _accounts.first.id : null;
       _submitError = null;
@@ -177,6 +203,10 @@ class _PayableModalContentState extends State<_PayableModalContent> {
   void _cancelPayment() {
     setState(() {
       _isPaying = false;
+      _interestController.clear();
+      _fineController.clear();
+      _discountController.clear();
+      _showCharges = false;
       _submitError = null;
       _success = false;
     });
@@ -301,6 +331,7 @@ class _PayableModalContentState extends State<_PayableModalContent> {
       text: payable.amount?.plain ?? '',
     );
     DateTime due = parseApiDate(payable.dueDate);
+    int? selectedCategoryId = payable.categoryId;
     final formKey = GlobalKey<FormState>();
 
     final updated = await showDialog<bool>(
@@ -342,6 +373,14 @@ class _PayableModalContentState extends State<_PayableModalContent> {
                         labelText: 'Credor / Beneficiário (opcional)',
                       ),
                       maxLength: 120,
+                    ),
+                    const SizedBox(height: 12),
+                    CategoryPickerField(
+                      spaceId: widget.space.id,
+                      type: 'expense',
+                      selectedCategoryId: selectedCategoryId,
+                      onChanged: (newId) =>
+                          setDialogState(() => selectedCategoryId = newId),
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -409,6 +448,17 @@ class _PayableModalContentState extends State<_PayableModalContent> {
                     ),
                   );
                 }
+                if (selectedCategoryId != payable.categoryId) {
+                  changes.add(
+                    ChangeDifference(
+                      label: 'Categoria',
+                      oldValue: payable.category?.name ?? '(sem categoria)',
+                      newValue: selectedCategoryId == null
+                          ? '(sem categoria)'
+                          : 'Alterada',
+                    ),
+                  );
+                }
                 if (payable.amount != null &&
                     newAmount.cents != payable.amount!.cents) {
                   changes.add(
@@ -467,6 +517,7 @@ class _PayableModalContentState extends State<_PayableModalContent> {
           'payee': payeeController.text.trim().isEmpty
               ? null
               : payeeController.text.trim(),
+          'category_id': selectedCategoryId,
           'amount': Money.fromInput(amountController.text)!.toApi(),
           'due_date': toApiDate(due),
         },
@@ -490,6 +541,447 @@ class _PayableModalContentState extends State<_PayableModalContent> {
           backgroundColor: Colors.red,
         ),
       );
+    }
+  }
+
+  Future<void> _changeCategory(Payable payable) async {
+    int? selectedId = payable.categoryId;
+    final formKey = GlobalKey<FormState>();
+
+    final updated = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.label_outline_rounded),
+              SizedBox(width: 8),
+              Expanded(child: Text('Alterar categoria')),
+            ],
+          ),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Selecione uma categoria de despesa para esta conta.',
+                    style: Theme.of(ctx).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 16),
+                  CategoryPickerField(
+                    spaceId: widget.space.id,
+                    type: 'expense',
+                    selectedCategoryId: selectedId,
+                    onChanged: (newId) =>
+                        setDialogState(() => selectedId = newId),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(true),
+              child: const Text('Salvar categoria'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (updated != true) return;
+    if (!mounted) return;
+
+    try {
+      await context.read<PayablesRepository>().update(
+        widget.space.id,
+        payable.id,
+        {'category_id': selectedId, 'reason': 'Reclassificação de categoria'},
+      );
+      if (!mounted) return;
+      context.read<SessionController>().dataChanged();
+      widget.onUpdated?.call();
+      await _loadData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Categoria atualizada com sucesso.')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao atualizar categoria: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _revertPayment(Payable payable, Payment payment) async {
+    final reasonController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final totalToRestore = payment.effectiveTotal;
+    final principalToReopen = payment.effectivePrincipal;
+    final expectedPaidCents = payable.paid.cents - principalToReopen.cents;
+    final expectedStatus = expectedPaidCents <= 0 ? 'Em aberto' : 'Parcial';
+
+    final account = _accounts
+        .where((a) => a.id == payment.accountId)
+        .firstOrNull;
+    final accountName = account?.name ?? 'Conta #${payment.accountId}';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.replay_rounded, color: Colors.amber),
+            SizedBox(width: 8),
+            Expanded(child: Text('Estornar pagamento')),
+          ],
+        ),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(AppTokens.p14),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(AppTokens.r12),
+                      border: Border.all(color: Colors.amber.shade300),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Impacto financeiro do estorno:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: Colors.amber.shade900,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '• Saldo a devolver na conta (${toFinancialUpper(accountName)}): +${totalToRestore.brl}',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '• Valor a reabrir na conta a pagar: +${principalToReopen.brl}',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '• Novo status da conta a pagar: $expectedStatus',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: reasonController,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Justificativa do estorno *',
+                      hintText: 'Ex.: Pagamento indevido, pagamento duplicado',
+                      helperText: 'Obrigatório (mínimo de 3 caracteres)',
+                    ),
+                    maxLength: 255,
+                    validator: (v) {
+                      if (v == null || v.trim().length < 3) {
+                        return 'Informe a justificativa do estorno (mínimo 3 caracteres).';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(false),
+            child: const Text('Voltar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.amber.shade800,
+            ),
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.of(dialogCtx).pop(true);
+              }
+            },
+            child: const Text('Confirmar estorno'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    if (!mounted) return;
+
+    final userId = context.read<SessionController>().user?.id;
+    if (userId == null) return;
+
+    setState(() {
+      _submitting = true;
+      _submitError = null;
+    });
+
+    try {
+      final attempts = context.read<ReceiptAttempts>();
+      final outcome = await attempts.submitPaymentFix(
+        userId: userId,
+        spaceId: widget.space.id,
+        payableId: payable.id,
+        original: payment,
+        originalAccountName: accountName,
+        reason: reasonController.text.trim(),
+      );
+
+      if (mounted) {
+        if (outcome.state != ReceiptAttemptState.confirmed) {
+          setState(() {
+            _submitting = false;
+            _submitError = outcome.message;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(outcome.message),
+              backgroundColor: Colors.red,
+            ),
+          );
+        } else {
+          setState(() => _submitting = false);
+          context.read<SessionController>().dataChanged();
+          widget.onUpdated?.call();
+          await _loadData();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Estorno realizado com sucesso! O saldo foi restaurado.',
+                ),
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _submitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao estornar: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _correctPayment(Payable payable, Payment payment) async {
+    final reasonController = TextEditingController();
+    final amountController = TextEditingController(
+      text: payment.effectivePrincipal.plain,
+    );
+    DateTime date = parseApiDate(payment.paidOn);
+    int? selectedAccountId = payment.accountId;
+    final formKey = GlobalKey<FormState>();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.edit_note_rounded, color: Colors.blueAccent),
+              SizedBox(width: 8),
+              Expanded(child: Text('Corrigir pagamento')),
+            ],
+          ),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'O pagamento original será estornado e um novo pagamento auditado substituirá a operação.',
+                      style: Theme.of(ctx).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: amountController,
+                      decoration: const InputDecoration(
+                        labelText: 'Valor correto *',
+                        prefixText: 'R\$ ',
+                      ),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [MoneyInputFormatter()],
+                      validator: (v) {
+                        final m = Money.fromInput(v ?? '');
+                        if (m == null || m.cents <= 0) {
+                          return 'Informe um valor válido.';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<int>(
+                      initialValue: selectedAccountId,
+                      decoration: const InputDecoration(
+                        labelText: 'Conta de saída *',
+                      ),
+                      items: [
+                        for (final acc in _accounts)
+                          DropdownMenuItem(
+                            value: acc.id,
+                            child: Text(
+                              '${toFinancialUpper(acc.name)} (${acc.balance.brl})',
+                            ),
+                          ),
+                      ],
+                      onChanged: (id) =>
+                          setDialogState(() => selectedAccountId = id),
+                      validator: (id) =>
+                          id == null ? 'Selecione a conta' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    DateField(
+                      label: 'Data de pagamento *',
+                      value: date,
+                      onChanged: (newDate) =>
+                          setDialogState(() => date = newDate),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: reasonController,
+                      decoration: const InputDecoration(
+                        labelText: 'Justificativa da correção *',
+                        hintText: 'Ex.: Conta bancária errada, valor digitado incorreto',
+                      ),
+                      maxLength: 255,
+                      validator: (v) => (v == null || v.trim().length < 3)
+                          ? 'Informe o motivo (mínimo 3 caracteres).'
+                          : null,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  Navigator.of(dialogCtx).pop(true);
+                }
+              },
+              child: const Text('Confirmar correção'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true) return;
+    if (!mounted) return;
+
+    final userId = context.read<SessionController>().user?.id;
+    if (userId == null) return;
+
+    final newAmount = Money.fromInput(amountController.text.trim())!;
+    final targetAccount = _accounts.firstWhere(
+      (a) => a.id == selectedAccountId,
+    );
+    final origAccount = _accounts
+        .where((a) => a.id == payment.accountId)
+        .firstOrNull;
+
+    setState(() {
+      _submitting = true;
+      _submitError = null;
+    });
+
+    try {
+      final attempts = context.read<ReceiptAttempts>();
+      final outcome = await attempts.submitPaymentFix(
+        userId: userId,
+        spaceId: widget.space.id,
+        payableId: payable.id,
+        original: payment,
+        originalAccountName: origAccount?.name ?? 'Conta #${payment.accountId}',
+        reason: reasonController.text.trim(),
+        replacement: (
+          accountId: targetAccount.id,
+          accountName: targetAccount.name,
+          amount: newAmount,
+          receivedOn: toApiDate(date),
+        ),
+      );
+
+      if (mounted) {
+        if (outcome.state != ReceiptAttemptState.confirmed) {
+          setState(() {
+            _submitting = false;
+            _submitError = outcome.message;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(outcome.message),
+              backgroundColor: Colors.red,
+            ),
+          );
+        } else {
+          setState(() => _submitting = false);
+          context.read<SessionController>().dataChanged();
+          widget.onUpdated?.call();
+          await _loadData();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Pagamento corrigido com sucesso!')),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _submitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao corrigir pagamento: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -552,6 +1044,23 @@ class _PayableModalContentState extends State<_PayableModalContent> {
     }
   }
 
+  Money get _currentPrincipal =>
+      Money.fromInput(_amountController.text.trim()) ?? const Money(0);
+  Money get _currentInterest =>
+      Money.fromInput(_interestController.text.trim()) ?? const Money(0);
+  Money get _currentFine =>
+      Money.fromInput(_fineController.text.trim()) ?? const Money(0);
+  Money get _currentDiscount =>
+      Money.fromInput(_discountController.text.trim()) ?? const Money(0);
+
+  int get _computedTotalCents {
+    final p = _currentPrincipal.cents;
+    final i = _currentInterest.cents;
+    final f = _currentFine.cents;
+    final d = _currentDiscount.cents;
+    return p + i + f - d;
+  }
+
   Future<void> _submitPayment() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedAccountId == null) {
@@ -572,20 +1081,39 @@ class _PayableModalContentState extends State<_PayableModalContent> {
 
     final account = _accounts.firstWhere((a) => a.id == _selectedAccountId);
 
-    final amount = Money.fromInput(_amountController.text.trim());
-    if (amount == null || amount.cents <= 0) {
-      setState(() => _submitError = 'Informe um valor válido maior que zero.');
+    final principal = Money.fromInput(_amountController.text.trim());
+    if (principal == null || principal.cents <= 0) {
+      setState(
+        () =>
+            _submitError = 'Informe um valor principal válido maior que zero.',
+      );
       return;
     }
 
     final remaining = payable.remaining ?? payable.amount ?? const Money(0);
-    if (amount.cents > remaining.cents) {
+    if (principal.cents > remaining.cents) {
       setState(
         () => _submitError =
-            'O valor não pode ser maior que o saldo restante da conta.',
+            'O valor principal não pode ser maior que o saldo restante da conta (${remaining.brl}).',
       );
       return;
     }
+
+    final interest = Money.fromInput(_interestController.text.trim());
+    final fine = Money.fromInput(_fineController.text.trim());
+    final discount = Money.fromInput(_discountController.text.trim());
+
+    final subtotalCents =
+        principal.cents + (interest?.cents ?? 0) + (fine?.cents ?? 0);
+    if ((discount?.cents ?? 0) >= subtotalCents) {
+      setState(
+        () => _submitError =
+            'O desconto deve ser menor que o subtotal com juros e multa.',
+      );
+      return;
+    }
+
+    final totalDebited = Money(subtotalCents - (discount?.cents ?? 0));
 
     setState(() {
       _submitting = true;
@@ -600,8 +1128,11 @@ class _PayableModalContentState extends State<_PayableModalContent> {
         payableId: payable.id,
         accountId: account.id,
         accountName: account.name,
-        amount: amount,
+        amount: principal,
         paidOn: toApiDate(_selectedDate),
+        interest: interest,
+        fine: fine,
+        discount: discount,
       );
 
       if (mounted) {
@@ -614,7 +1145,8 @@ class _PayableModalContentState extends State<_PayableModalContent> {
           setState(() {
             _submitting = false;
             _success = true;
-            _successMessage = 'Pagamento registrado com sucesso!';
+            _successMessage =
+                'Pagamento de ${totalDebited.brl} registrado com sucesso!';
           });
           widget.onUpdated?.call();
           await _loadData();
@@ -777,31 +1309,77 @@ class _PayableModalContentState extends State<_PayableModalContent> {
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
-                        if (payable.category != null)
-                          CategoryBadge(
-                            category: payable.category!,
-                            compact: true,
-                          ),
+                        InkWell(
+                          onTap: payable.isCancelled
+                              ? null
+                              : () => _changeCategory(payable),
+                          borderRadius: BorderRadius.circular(4),
+                          child: payable.category != null
+                              ? CategoryBadge(
+                                  category: payable.category!,
+                                  compact: true,
+                                )
+                              : Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: theme
+                                        .colorScheme
+                                        .surfaceContainerHighest,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.label_outline_rounded,
+                                        size: 12,
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Sem categoria',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: theme
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                        ),
                       ],
                     ),
                   ],
                 ),
               ),
-              if (!payable.isCancelled && payable.paid.isZero) ...[
+              if (!payable.isCancelled) ...[
                 IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 20),
-                  tooltip: 'Editar conta a pagar',
-                  onPressed: () => _editPayable(payable),
+                  icon: const Icon(Icons.label_outline_rounded, size: 20),
+                  tooltip: 'Alterar categoria',
+                  onPressed: () => _changeCategory(payable),
                 ),
-                IconButton(
-                  icon: Icon(
-                    Icons.block,
-                    size: 20,
-                    color: theme.colorScheme.error,
+                if (payable.paid.isZero) ...[
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 20),
+                    tooltip: 'Editar conta a pagar',
+                    onPressed: () => _editPayable(payable),
                   ),
-                  tooltip: 'Cancelar conta a pagar',
-                  onPressed: () => _cancelPayable(payable),
-                ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.block,
+                      size: 20,
+                      color: theme.colorScheme.error,
+                    ),
+                    tooltip: 'Cancelar conta a pagar',
+                    onPressed: () => _cancelPayable(payable),
+                  ),
+                ],
               ],
               IconButton(
                 icon: const Icon(Icons.close_rounded),
@@ -1148,7 +1726,7 @@ class _PayableModalContentState extends State<_PayableModalContent> {
                         Icon(Icons.check_circle_outline_rounded, size: 20),
                         SizedBox(width: 8),
                         Text(
-                          'Dar baixa no pagamento',
+                          'Registrar pagamento',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
@@ -1201,6 +1779,8 @@ class _PayableModalContentState extends State<_PayableModalContent> {
                     ],
                   ),
                 ),
+              // Histórico de Pagamentos e Estornos (AC-PAY-REV-001..006)
+              _buildPaymentHistory(context, payable),
             ],
           ),
         ),
@@ -1580,7 +2160,7 @@ class _PayableModalContentState extends State<_PayableModalContent> {
 
                 // Campo Valor
                 Text(
-                  'Valor a pagar (R\$)',
+                  'Valor principal a amortizar (R\$)',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -1602,7 +2182,7 @@ class _PayableModalContentState extends State<_PayableModalContent> {
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Informe o valor';
+                      return 'Informe o valor principal';
                     }
                     final m = Money.fromInput(value.trim());
                     if (m == null || m.cents <= 0) {
@@ -1614,6 +2194,260 @@ class _PayableModalContentState extends State<_PayableModalContent> {
                     }
                     return null;
                   },
+                ),
+
+                const SizedBox(height: 12),
+
+                // Seção de Juros, Multa e Descontos (AC-PAY-INT-001..007)
+                InkWell(
+                  onTap: () => setState(() => _showCharges = !_showCharges),
+                  borderRadius: BorderRadius.circular(AppTokens.r8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 6,
+                      horizontal: 4,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _showCharges
+                              ? Icons.keyboard_arrow_up_rounded
+                              : Icons.keyboard_arrow_down_rounded,
+                          size: 20,
+                          color: theme.colorScheme.primary,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Juros, multa e desconto (opcional)',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: theme.colorScheme.primary,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                if (_showCharges) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Juros (R\$)',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            TextFormField(
+                              key: const ValueKey('interest-input'),
+                              controller: _interestController,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [MoneyInputFormatter()],
+                              decoration: InputDecoration(
+                                prefixText: 'R\$ ',
+                                hintText: '0,00',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppTokens.r8,
+                                  ),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Multa (R\$)',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            TextFormField(
+                              key: const ValueKey('fine-input'),
+                              controller: _fineController,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [MoneyInputFormatter()],
+                              decoration: InputDecoration(
+                                prefixText: 'R\$ ',
+                                hintText: '0,00',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppTokens.r8,
+                                  ),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Desconto (R\$)',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      TextFormField(
+                        key: const ValueKey('discount-input'),
+                        controller: _discountController,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [MoneyInputFormatter()],
+                        decoration: InputDecoration(
+                          prefixText: 'R\$ ',
+                          hintText: '0,00',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppTokens.r8),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+
+                // Card de Cálculo em tempo real do total a debitar
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(AppTokens.p14),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer.withValues(
+                      alpha: 0.25,
+                    ),
+                    borderRadius: BorderRadius.circular(AppTokens.r12),
+                    border: Border.all(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Valor principal amortizado:',
+                            style: theme.textTheme.bodySmall,
+                          ),
+                          Text(
+                            _currentPrincipal.brl,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                      if (_currentInterest.cents > 0) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '(+) Juros:',
+                              style: theme.textTheme.bodySmall,
+                            ),
+                            Text(
+                              '+${_currentInterest.brl}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: Colors.red.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (_currentFine.cents > 0) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '(+) Multa:',
+                              style: theme.textTheme.bodySmall,
+                            ),
+                            Text(
+                              '+${_currentFine.brl}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: Colors.red.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (_currentDiscount.cents > 0) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '(-) Desconto:',
+                              style: theme.textTheme.bodySmall,
+                            ),
+                            Text(
+                              '-${_currentDiscount.brl}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: Colors.green.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const Divider(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Total a debitar na conta:',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            Money(_computedTotalCents).brl,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
 
                 const SizedBox(height: 16),
@@ -1702,6 +2536,299 @@ class _PayableModalContentState extends State<_PayableModalContent> {
             ),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildPaymentHistory(BuildContext context, Payable payable) {
+    final theme = Theme.of(context);
+    final payments = payable.payments;
+    if (payments.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Icon(
+              Icons.history_rounded,
+              size: 20,
+              color: theme.colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Histórico de pagamentos (${payments.length})',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        for (final payment in payments) ...[
+          Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(AppTokens.p14),
+            decoration: BoxDecoration(
+              color: payment.isReversed
+                  ? theme.colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.25,
+                    )
+                  : theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(AppTokens.r12),
+              border: Border.all(
+                color: payment.isReversed
+                    ? theme.colorScheme.outlineVariant.withValues(alpha: 0.3)
+                    : theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Text(
+                            payment.effectiveTotal.brl,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              decoration: payment.isReversed
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                              color: payment.isReversed
+                                  ? theme.colorScheme.onSurfaceVariant
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          if (payment.isReversed)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.errorContainer,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'Estornado',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: theme.colorScheme.onErrorContainer,
+                                ),
+                              ),
+                            )
+                          else if (payment.isCorrected)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade100,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'Corrigido',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.orange.shade900,
+                                ),
+                              ),
+                            )
+                          else
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0F8A5F)
+                                    .withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'Liquidado',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF0F8A5F),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      formatDateBr(payment.paidOn),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                if (payment.hasCharges) ...[
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'Valor original: ${payment.effectivePrincipal.brl}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      if (payment.interest != null &&
+                          payment.interest!.cents > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '+Juros: ${payment.interest!.brl}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.red.shade800,
+                            ),
+                          ),
+                        ),
+                      if (payment.fine != null && payment.fine!.cents > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '+Multa: ${payment.fine!.brl}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.red.shade800,
+                            ),
+                          ),
+                        ),
+                      if (payment.discount != null &&
+                          payment.discount!.cents > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '-Desc: ${payment.discount!.brl}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green.shade800,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.account_balance_rounded,
+                      size: 14,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      toFinancialUpper(
+                        _accounts
+                                .where((a) => a.id == payment.accountId)
+                                .firstOrNull
+                                ?.name ??
+                            'Conta #${payment.accountId}',
+                      ),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                if (payment.isReversed && payment.reversalReason != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Motivo do estorno: ${payment.reversalReason}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.error,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+                if (!payment.isReversed) ...[
+                  const SizedBox(height: 8),
+                  const Divider(height: 1),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          foregroundColor: theme.colorScheme.primary,
+                        ),
+                        onPressed: _submitting
+                            ? null
+                            : () => _correctPayment(payable, payment),
+                        icon: const Icon(Icons.edit_outlined, size: 16),
+                        label: const Text('Corrigir'),
+                      ),
+                      const SizedBox(width: 8),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          foregroundColor: Colors.amber.shade900,
+                        ),
+                        onPressed: _submitting
+                            ? null
+                            : () => _revertPayment(payable, payment),
+                        icon: const Icon(Icons.replay_rounded, size: 16),
+                        label: const Text('Estornar'),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }

@@ -852,7 +852,7 @@ class _ModernPayablesCard extends StatelessWidget {
                         const SizedBox(width: 8),
                         Flexible(
                           child: Text(
-                            'Obrigações e Faturas',
+                            'Contas a Pagar e Faturas',
                             style: theme.textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
@@ -891,7 +891,7 @@ class _ModernPayablesCard extends StatelessWidget {
                 ),
               const SizedBox(height: 6),
               Text(
-                'Obrigações não alteram saldo bancário; somente pagamentos efetivados.',
+                'Contas a pagar não alteram o saldo disponível; somente pagamentos efetivados.',
                 style: theme.textTheme.bodySmall?.copyWith(
                   fontSize: 11,
                   color: theme.colorScheme.onSurfaceVariant.withValues(
