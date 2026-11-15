@@ -59,7 +59,7 @@ class PayableController extends Controller
     public function show(Request $request, string $space, string $payable): JsonResponse
     {
         $space = $this->space($request, $space);
-        $model = $space->payables()->with(['card', 'plan', 'payments.reversal', 'payments.correctionOf'])->findOrFail($payable);
+        $model = $space->payables()->with(['card', 'plan', 'category', 'payments.reversal', 'payments.correctionOf'])->findOrFail($payable);
 
         return (new PayableResource($model))->additional(['changes' => $this->changes('payable', $model->id)])->response();
     }
@@ -204,11 +204,16 @@ class PayableController extends Controller
         $data = $request->validate([
             'description' => ['sometimes', 'required', 'string', 'max:120'],
             'payee' => ['sometimes', 'nullable', 'string', 'max:120'],
+            'category_id' => ['sometimes', 'nullable', 'integer'],
             'amount' => ['sometimes', 'nullable', new MoneyAmount],
             'due_date' => ['sometimes', 'required', 'date_format:Y-m-d'],
             'reason' => ['nullable', 'string', 'max:500'],
             'space_id' => ['prohibited'],
-        ], ['space_id.prohibited' => 'A obrigação não pode mudar de espaço.']);
+        ], ['space_id.prohibited' => 'A conta a pagar não pode mudar de espaço.']);
+
+        if (array_key_exists('category_id', $data) && $data['category_id'] !== null) {
+            $space->categories()->where('type', 'expense')->findOrFail($data['category_id']);
+        }
 
         if (isset($data['due_date'])) {
             $space->ensureDateNotClosed($data['due_date'], 'edição de conta a pagar');

@@ -26,17 +26,17 @@ class ChangeObligations
      * Esta ocorrência/obrigação. Marca edited_at: edições da recorrência não
      * a sobrescrevem depois. Em fatura, informar ou corrigir o total.
      *
-     * @param  array{description?: string, payee?: ?string, amount?: ?string, due_date?: string}  $data
+     * @param  array{description?: string, payee?: ?string, category_id?: ?int, amount?: ?string, due_date?: string}  $data
      */
     public function edit(User $user, Space $space, int $payableId, array $data, ?string $reason): Payable
     {
         return DB::transaction(function () use ($user, $space, $payableId, $data, $reason) {
             $payable = Payable::query()->where('space_id', $space->id)->lockForUpdate()->findOrFail($payableId);
             if ($payable->isCancelled()) {
-                throw ValidationException::withMessages(['payable' => 'Obrigação cancelada não pode ser editada.']);
+                throw ValidationException::withMessages(['payable' => 'Conta a pagar cancelada não pode ser editada.']);
             }
             $changes = [];
-            foreach (['description', 'payee', 'due_date'] as $field) {
+            foreach (['description', 'payee', 'due_date', 'category_id'] as $field) {
                 if (array_key_exists($field, $data) && $data[$field] !== $this->value($payable, $field)) {
                     $changes[$field] = $data[$field];
                 }
@@ -81,7 +81,7 @@ class ChangeObligations
             }
             if ($payable->paid_cents > 0) {
                 throw ValidationException::withMessages([
-                    'payable' => 'A obrigação tem pagamento ativo. Estorne os pagamentos antes de cancelar.',
+                    'payable' => 'A conta a pagar tem pagamento ativo. Estorne os pagamentos antes de cancelar.',
                 ]);
             }
             $payable->cancelled_at = now();
