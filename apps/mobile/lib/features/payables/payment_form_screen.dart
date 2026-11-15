@@ -40,6 +40,9 @@ class PaymentFormScreen extends StatefulWidget {
 class _PaymentFormScreenState extends State<PaymentFormScreen> {
   final _form = GlobalKey<FormState>();
   final _amount = TextEditingController();
+  final _interest = TextEditingController();
+  final _fine = TextEditingController();
+  final _discount = TextEditingController();
   late final DateTime _today = DateUtils.dateOnly(
     widget.today ?? DateTime.now(),
   );
@@ -69,6 +72,9 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
   @override
   void dispose() {
     _amount.dispose();
+    _interest.dispose();
+    _fine.dispose();
+    _discount.dispose();
     super.dispose();
   }
 
@@ -90,6 +96,9 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
       return;
     }
     setState(() => _state = ReceiptAttemptState.sending);
+    final interest = Money.fromInput(_interest.text.trim());
+    final fine = Money.fromInput(_fine.text.trim());
+    final discount = Money.fromInput(_discount.text.trim());
     final ReceiptAttemptOutcome outcome;
     try {
       outcome = await context.read<ReceiptAttempts>().submitPayment(
@@ -100,6 +109,9 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
         accountName: account.name,
         amount: _value,
         paidOn: toApiDate(_date),
+        interest: interest,
+        fine: fine,
+        discount: discount,
       );
     } catch (_) {
       if (mounted) {
@@ -282,6 +294,36 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                 errorText: fieldErrors['paid_on'],
                 onChanged: (date) => setState(() => _date = date),
               ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _interest,
+                decoration: const InputDecoration(
+                  labelText: 'Juros (opcional)',
+                  prefixText: r'R$ ',
+                ),
+                keyboardType: TextInputType.number,
+                inputFormatters: [MoneyInputFormatter()],
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _fine,
+                decoration: const InputDecoration(
+                  labelText: 'Multa (opcional)',
+                  prefixText: r'R$ ',
+                ),
+                keyboardType: TextInputType.number,
+                inputFormatters: [MoneyInputFormatter()],
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _discount,
+                decoration: const InputDecoration(
+                  labelText: 'Desconto (opcional)',
+                  prefixText: r'R$ ',
+                ),
+                keyboardType: TextInputType.number,
+                inputFormatters: [MoneyInputFormatter()],
+              ),
               const SizedBox(height: 24),
               FilledButton(
                 onPressed: _review,
@@ -343,8 +385,8 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                       child: Column(
                         children: [
                           line(
-                            'Obrigacao',
-                            'Obrigação',
+                            'Conta a pagar',
+                            'Conta a pagar',
                             '${toFinancialUpper(payable.description)} · ${payable.kindLabel}',
                           ),
                           line(

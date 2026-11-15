@@ -123,11 +123,11 @@ void main() {
       expect(find.text('INTERNET FIBRA'), findsOneWidget);
       expect(find.text('R\$ 150,00'), findsWidgets);
 
-      // Verifica botão de dar baixa
-      expect(find.text('Dar baixa no pagamento'), findsOneWidget);
+      // Verifica botão de registrar pagamento
+      expect(find.text('Registrar pagamento'), findsOneWidget);
 
-      // Toca em dar baixa
-      await tester.tap(find.text('Dar baixa no pagamento'));
+      // Toca em registrar pagamento
+      await tester.tap(find.text('Registrar pagamento'));
       await tester.pumpAndSettle();
 
       // Verifica formulário de confirmação de pagamento

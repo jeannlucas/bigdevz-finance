@@ -201,7 +201,7 @@ void main() {
       expect(find.text('Motivo: Mudança de plano'), findsOneWidget);
       expect(find.byTooltip('Cancelar conta a pagar'), findsNothing);
       expect(find.byTooltip('Editar conta a pagar'), findsNothing);
-      expect(find.text('Dar baixa no pagamento'), findsNothing);
+      expect(find.text('Registrar pagamento'), findsNothing);
       expect(find.text('Esta conta foi cancelada'), findsOneWidget);
     },
   );
