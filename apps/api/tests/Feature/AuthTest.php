@@ -70,4 +70,34 @@ class AuthTest extends TestCase
         $this->getJson('/api/me')->assertUnauthorized();
         $this->patchJson('/api/me', ['name' => 'Novo Nome'])->assertUnauthorized();
     }
+
+    public function test_login_authenticates_with_case_insensitive_email(): void
+    {
+        [$user] = $this->userWithSpaces();
+
+        // Login com email original
+        $this->postJson('/api/auth/login', [
+            'email' => $user->email,
+            'password' => 'password',
+            'device_name' => 'test-device',
+        ])->assertOk()->assertJsonStructure(['token', 'user']);
+
+        // Login com email em maiúsculas (resiliência contra teclados móveis e autofill)
+        $this->postJson('/api/auth/login', [
+            'email' => strtoupper($user->email),
+            'password' => 'password',
+            'device_name' => 'test-device',
+        ])->assertOk()->assertJsonStructure(['token', 'user']);
+    }
+
+    public function test_login_rejects_invalid_credentials(): void
+    {
+        [$user] = $this->userWithSpaces();
+
+        $this->postJson('/api/auth/login', [
+            'email' => $user->email,
+            'password' => 'senha-incorreta',
+            'device_name' => 'test-device',
+        ])->assertUnprocessable()->assertJsonValidationErrors(['email']);
+    }
 }
