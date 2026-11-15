@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Domain\Receivables\InstallmentSchedule;
 use App\Domain\Receivables\Money;
 use App\Domain\Receivables\MonthlyDate;
+use App\Domain\Receivables\PaymentSettlement;
 
 foreach (glob(__DIR__.'/../app/Domain/Receivables/*.php') ?: [] as $file) {
     require_once $file;
@@ -142,6 +143,28 @@ $tests = [
         } finally {
             bcscale($prev);
         }
+    },
+    'composição de pagamento com encargos e desconto em centavos inteiros' => static function (): void {
+        $result = PaymentSettlement::calculate(10000, 1500, 0, 0);
+        same(10000, $result['principal_cents']);
+        same(1500, $result['interest_cents']);
+        same(0, $result['fine_cents']);
+        same(0, $result['discount_cents']);
+        same(11500, $result['total_cents']);
+
+        $complex = PaymentSettlement::calculate(10000, 500, 200, 300);
+        same(10400, $complex['total_cents']);
+
+        // Desconto não pode igualar ou superar o total
+        invalid(static fn () => PaymentSettlement::calculate(10000, 0, 0, 10000));
+        invalid(static fn () => PaymentSettlement::calculate(10000, 0, 0, 10500));
+        // Principal zero ou negativo é recusado
+        invalid(static fn () => PaymentSettlement::calculate(0, 0, 0, 0));
+        invalid(static fn () => PaymentSettlement::calculate(-100, 0, 0, 0));
+        // Encargos negativos são recusados
+        invalid(static fn () => PaymentSettlement::calculate(10000, -100, 0, 0));
+        invalid(static fn () => PaymentSettlement::calculate(10000, 0, -50, 0));
+        invalid(static fn () => PaymentSettlement::calculate(10000, 0, 0, -10));
     },
 ];
 
