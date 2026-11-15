@@ -48,11 +48,8 @@ if [ "$MODE" = "execute" ]; then
 fi
 
 echo "=== [2/7] Compilação do Frontend Flutter Web (Release) ==="
-cd apps/mobile
-echo "Executando build do Flutter Web para produção (https://finance.bigdevz.com/api)..."
-flutter pub get --enforce-lockfile
-flutter build web --release --dart-define=API_BASE_URL=https://finance.bigdevz.com/api
-cd ../..
+echo "Executando build do Flutter Web para produção via scripts/build-web.sh..."
+./scripts/build-web.sh --env=production
 
 if [ ! -f "apps/mobile/build/web/index.html" ] || [ ! -f "apps/mobile/build/web/main.dart.js" ]; then
     echo "ERRO FATAL: Falha na compilação do Flutter Web! Bundle incompleto." >&2
@@ -62,7 +59,11 @@ echo "OK: Bundle Flutter Web compilado com sucesso em apps/mobile/build/web/."
 
 echo "=== [3/7] Quality Gate Local Pré-Deploy ==="
 echo "Executando testes de domínio financeiro..."
-php apps/api/tests/domain.php
+if php -r 'exit(function_exists("bcadd") ? 0 : 1);' 2>/dev/null; then
+    php apps/api/tests/domain.php
+else
+    docker run --rm -v "$(pwd)/apps/api:/app" -w /app bigdevz/finance-api:dev php tests/domain.php
+fi
 echo "Executando linter Laravel Pint..."
 (cd apps/api && vendor/bin/pint --test)
 echo "Executando análise estática Dart..."
