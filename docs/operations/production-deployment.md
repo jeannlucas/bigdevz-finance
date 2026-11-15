@@ -35,6 +35,13 @@ flowchart TD
 2. **Caddy Nativo no Host:** O Caddy já gerencia certificados HTTPS e atua como terminador TLS e servidor de arquivos estáticos para `/srv/finance/web`, com fallback para `index.html`. Não há contêiner Nginx em produção.
 3. **Isolamento de Portas:** O PostgreSQL (5432) não possui qualquer porta exposta no host ou na internet. A API Laravel escuta estritamente no bind local `127.0.0.1:8510`.
 4. **Execução sem Root:** O container da API executa sob usuário não-root dedicado `appuser` (UID/GID 1000).
+5. **Configuração de Cache e Cabeçalhos no Caddy:**
+   - Documentos de ciclo de vida (`index.html`, `flutter_service_worker.js`, `version.json`, `manifest.json`): `Cache-Control: "no-cache, no-store, must-revalidate"` para garantir invalidação imediata em novas publicações.
+   - Assets estáticos (`/assets/*`, `/canvaskit/*`, `/icons/*`): `Cache-Control: "public, max-age=31536000, immutable"` para alta eficiência e zero revalidação desnecessária.
+   - Bundles JS (`*.js`): `Cache-Control: "public, max-age=86400, stale-while-revalidate=3600"`.
+6. **Segregação Estrita de Ambientes no Build:**
+   - O build do frontend web utiliza obrigatoriamente `./scripts/build-web.sh --env=production`.
+   - O runtime valida se o host atual é compatível com o endpoint da API via `resolveApiBaseUrl()`, impedindo que builds locais acessem produção ou que produções apontem para endereços locais.
 
 ---
 

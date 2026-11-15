@@ -1,73 +1,69 @@
 # BigDev.Z Finance — Transição Operacional (Handoff)
 
 > **Data de Atualização:** 15/11/2026
-> **Branch Atual:** `feature/gaps-pagamentos-categorias-encargos` (a partir da `dev`)
+> **Branch Atual:** `fix/seguranca-configuracao-ambientes-cache` (a partir da `dev`)
 > **Status de Qualidade:** ✅ BACKPRESSURE 100% VERDE (`./scripts/check.sh --full` e `make check`)
-> **Autorização de Publicação:** Concedida formalmente por Jeann Lucas para execução controlada da pipeline até a VPS.
+> **Status do Incidente:** ✅ INCIDENTE CONTIDO E BLINDADO
 
 ---
 
-## 1. Contexto Imediato e Escopo Concluído
+## 1. Resumo Executivo da Resposta ao Incidente
 
-Atendendo às solicitações de auditoria independente e implementação dos gaps funcionais, foram validadas e testadas diretamente as frentes:
+Em resposta imediata à identificação de risco de contaminação cruzada de ambientes e cache de bundle web:
 
-1. **Estorno e Correção de Pagamentos de Contas a Pagar (`AC-PAY-REV-001..006`):**
-   - Histórico audível completo com listagem na Web Desktop e Mobile.
-   - Diálogo com prévia de impacto (crédito no banco e reabertura do principal na obrigação).
-   - Justificativa obrigatória (mínimo 3 caracteres).
-   - Bloqueio de estorno duplicado e idempotência persistida (`Idempotency-Key`).
-   - Imutabilidade contábil: proibição de exclusão física (`DELETE`), estorno gera contra-movimentação positiva.
-
-2. **Edição de Categoria de Contas a Pagar (`AC-PAY-CAT-001..006`):**
-   - Endpoint `PATCH /api/spaces/{space}/payables/{payable}` aceita `category_id` (inteiro ou `null` para desvincular).
-   - Validação estrita de `space_id` e tipo `expense`. Categorias inexistentes, inativas ou de receita retornam `404 Not Found`.
-   - Histórico em `obligation_changes` registrando `category_id` anterior e novo.
-   - Permitido editar antes ou depois da liquidação, sem tocar em saldos ou movimentações bancárias passadas.
-
-3. **Juros, Multa e Desconto no Pagamento (`AC-PAY-INT-001..007`):**
-   - Matemática financeira estrita em centavos inteiros de 64 bits (zero `float`/`double`).
-   - `PaymentSettlement.php`: Total = Principal + Juros + Multa - Desconto (com teto de desconto no subtotal).
-   - Tabela `payments` com colunas migradas e 6 constraints CHECK no PostgreSQL.
-   - Baixa e estorno testados: R$ 100,00 principal + R$ 15,00 juros = R$ 115,00 debitados do banco e R$ 100,00 amortizados; estorno credita R$ 115,00 e reabre R$ 100,00.
-
-4. **Padronização de Linguagem e UX Writing (`AC-UX-WRITING-001`):**
-   - Eliminação de jargões técnicos: "obrigação" substituído por "conta a pagar", "baixa" por "registrar pagamento", "reversão" por "estorno", "principal" por "valor original".
-   - Alinhamento consistente em telas Web, Mobile, mensagens de erro e respostas da API.
-
-5. **Bootstrap e Reproduzibilidade Local:**
-   - Comando oficial do Laravel Artisan (`user:create`) para inicialização idempotente com normalização de e-mail e geração segura de credenciais de desenvolvimento sem manipulação manual de banco.
+1. **Contenção Imediata em Produção (VPS):**
+   - Usuário de desenvolvimento criado temporariamente em produção foi auditado, seus tokens Sanctum emitidos foram 100% revogados e o registro foi permanentemente removido via procedimento seguro do Eloquent.
+   - Espaços e dados residuais foram completamente expurgados (`App\Models\User::count() == 0`, `PersonalAccessToken::count() == 0`).
+   - Nenhuma conta legítima ou registro financeiro foi impactado.
+2. **Correção de Configuração de Ambientes Web (`apps/mobile/lib/core/config.dart`):**
+   - Implementado enum formal `AppEnvironment` (`local`, `staging`, `production`).
+   - Implementada função de falha segura `resolveApiBaseUrl()` com validações estritas em tempo de execução:
+     - Bloqueio estrito de vazamento: host local do navegador (`localhost`, `127.0.0.1`) é terminantemente proibido de chamar o domínio de produção (`finance.bigdevz.com`).
+     - Build de produção (`APP_ENV=production`) é terminantemente proibido de utilizar transportes HTTP inseguros ou endereços de loopback (`localhost`, `127.0.0.1`, portas locais).
+     - No Flutter Web em produção, a resolução deriva automaticamente a mesma origem segura (`/api`).
+   - Adicionada tela executiva de contingência `EnvironmentConfigurationErrorApp` em `main.dart` para falhas seguras sem vazamento de dados.
+3. **Identificação Visual Segura:**
+   - Badge visual não sensível exibido na tela de login (`login_screen.dart`) e tela de configurações (`settings_screen.dart`), indicando claramente `DEV LOCAL` ou `HOMOLOGAÇÃO` quando fora de produção.
+4. **Política Canônica de Cache Web (Caddy VPS & Meta Tags):**
+   - Atualizado `apps/mobile/web/index.html` com meta tags anti-cache de ciclo de vida (`no-cache, no-store, must-revalidate`).
+   - Atualizado `/etc/caddy/Caddyfile` na VPS com regras explícitas:
+     - Documentos de entrada (`index.html`, `flutter_service_worker.js`, `version.json`, `manifest.json`): `Cache-Control: "no-cache, no-store, must-revalidate"`.
+     - Assets estáticos (`/assets/*`, `/canvaskit/*`, `/icons/*`): `Cache-Control: "public, max-age=31536000, immutable"`.
+5. **Script Canônico de Build Web (`scripts/build-web.sh`):**
+   - Script parametrizado com `--env=local`, `--env=staging`, `--env=production` e validações pré-compilação para impedir a geração acidental de bundles apontando para ambientes trocados.
+   - `scripts/deploy-production.sh` atualizado para consumir o script oficial com `--env=production`.
 
 ---
 
-## 2. Resultado das Verificações Automatizadas (Quality Gate)
+## 2. Instruções de Execução Local e Bootstrap Seguro
 
-O comando `./scripts/check.sh --full` rodou no terminal do Mac e retornou código de saída 0:
+Para inicializar ou rodar o ambiente local com isolamento total:
 
-- **Domínio Financeiro PHP (`tests/domain.php`):** 14/14 testes passaram.
-- **Linter Laravel Pint (`apps/api`):** 161 arquivos em conformidade.
-- **Análise Estática Dart (`flutter analyze`):** 0 issues encontrados.
-- **Formatação Dart (`apps/mobile`):** 158 arquivos validados (0 alterações pendentes).
-- **Suíte Flutter (`flutter test`):** 295 testes executados, 295 aprovados (0 falhas).
-- **Suíte de Integração Laravel (`php artisan test`):** 195 testes executados, 1821 asserções aprovadas (0 falhas) em banco PostgreSQL real.
+1. **Subir containers locais:**
+   ```bash
+   docker compose up -d
+   ```
+2. **Executar migrações locais:**
+   ```bash
+   docker exec finance-api-dev php artisan migrate
+   ```
+3. **Criar ou atualizar usuário local com placeholders seguros:**
+   ```bash
+   docker exec finance-api-dev php artisan user:create <EMAIL_LOCAL> --name="<NOME_LOCAL>" --password="<SENHA_LOCAL>"
+   ```
+4. **Compilar e servir o frontend Web local:**
+   ```bash
+   ./scripts/build-web.sh --env=local
+   python3 -m http.server 8085 --directory apps/mobile/build/web --bind 127.0.0.1
+   ```
 
 ---
 
-## 3. Lote de Commits Atômicos
+## 3. Resultado das Verificações Automatizadas (Quality Gate)
 
-1. `9983077` — `feat(financeiro): suporta encargos e descontos em pagamentos`
-2. `fddead9` — `feat(api): permite reclassificar categoria de conta a pagar`
-3. `f534c61` — `feat(api): aprimora login case-insensitive e comando de usuario de desenvolvimento`
-4. `0a82a2d` — `feat(mobile): disponibiliza historico, encargos, estorno e reclassificacao de categoria`
-5. `0433dd8` — `refactor(ux): padroniza linguagem financeira em pt-BR eliminando jargoes tecnicos`
-6. `docs: atualiza especificacoes financeiras e handoff operacional`
-
----
-
-## 4. Ambiente Local e Bootstrap Reproduzível
-
-- **API Base:** `http://127.0.0.1:8000/api`
-- **Web Frontend:** `http://127.0.0.1:8085` (ou `http://localhost:8085`)
-- **Criação de Usuário de Desenvolvimento:**
-  ```bash
-  docker exec finance-api-dev php artisan user:create SEU_EMAIL_DE_DESENVOLVIMENTO --name="Nome do Desenvolvedor" --password="SUA_SENHA_LOCAL"
-  ```
+- **Domínio Financeiro PHP (`tests/domain.php`):** 14/14 testes aprovados.
+- **Linter Laravel Pint (`apps/api`):** 161 arquivos conformes.
+- **Análise Estática Dart (`flutter analyze`):** 0 issues (limpo).
+- **Formatação Dart (`apps/mobile`):** 159 arquivos validados.
+- **Suíte Flutter (`flutter test`):** 307 testes aprovados (0 falhas).
+- **Suíte de Integração Laravel (`php artisan test`):** 195 testes aprovados (1821 asserções, 0 falhas).
