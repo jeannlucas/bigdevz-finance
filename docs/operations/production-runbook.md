@@ -144,6 +144,50 @@ Exemplo de resposta operacional saudável:
 
 ---
 
+### INC-06: Prevenção de Contaminação de Ambientes e Cache de Frontend
+
+1. **Auditar e Remover Contas de Teste/Dev Não Autorizadas em Produção:**
+   ```bash
+   docker exec -i bigdevz-finance-api-1 php artisan tinker --execute="
+       \$user = App\Models\User::where('email', '<EMAIL_SANITIZADO>')->first();
+       if (\$user) {
+           \$user->tokens()->delete();
+           \$user->delete();
+           echo 'Conta não autorizada e tokens revogados com sucesso.';
+       }
+   "
+   ```
+2. **Garantir Regras Canônicas de Cache no Caddyfile (`/etc/caddy/Caddyfile`):**
+   ```caddy
+   finance.bigdevz.com {
+       handle /api/* {
+           reverse_proxy 127.0.0.1:8510
+       }
+       handle {
+           root * /srv/finance/web
+           @no_cache {
+               path /index.html / /flutter_service_worker.js /version.json /manifest.json
+           }
+           header @no_cache Cache-Control "no-cache, no-store, must-revalidate"
+           header @no_cache Pragma "no-cache"
+           header @no_cache Expires "0"
+
+           @static_assets {
+               path /assets/* /canvaskit/* /icons/* /favicon.png
+           }
+           header @static_assets Cache-Control "public, max-age=31536000, immutable"
+
+           file_server
+           try_files {path} /index.html
+       }
+   }
+   ```
+3. **Compilação Segura do Frontend Web:**
+   - Todo build deve ser gerado pelo script canônico: `./scripts/build-web.sh --env=production`.
+   - O runtime valida o endpoint contra o host atual através de `resolveApiBaseUrl()`, bloqueando automaticamente tentativas de acesso cruzado.
+
+---
+
 ## 4. Janelas de Manutenção Programada
 
 Para intervenções estruturais ou manutenções planejadas:
