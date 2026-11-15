@@ -39,11 +39,15 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
 
 ---
 
-### 2.3. Juros, Multas e Conciliação Contábil
+### 2.3. Juros, Multas, Descontos e Liquidação Contábil
 
-- **AC-FIN-007 [Juros e Multas — ESPECIFICADO MAS NÃO IMPLEMENTADO (ROADMAP FUTURO)]:**
-  - O cálculo automático e a cobrança de juros de mora ou multas contratuais sobre parcelas e obrigações vencidas estão formalmente mapeados nos requisitos do produto, porém **não implementados no motor financeiro atual**.
-  - O sistema opera estritamente sob valor facial/líquido exato. Quando implementada em checkpoint futuro, qualquer adição de acréscimos deverá ser realizada em centavos inteiros determinísticos, sem frações de centavos e sem ponto flutuante.
+- **AC-FIN-007 [Composição de Pagamento com Encargos e Descontos]:**
+  - O sistema suporta liquidação de contas a pagar com discriminação de valor principal, juros de mora (`interest`), multas (`fine`) e descontos (`discount`).
+  - Fórmula Canônica: $\text{Total Debitado} = \text{Principal} + \text{Juros} + \text{Multa} - \text{Desconto}$.
+  - O saldo devido da obrigação (`paid_cents`) é amortizado unicamente pelo valor principal contratual.
+  - A movimentação bancária na conta de origem (`account_movements.amount_cents`) debita exatamente o total líquido efetivamente pago.
+  - Toda aritmética é conduzida estritamente em centavos inteiros de 64 bits, sem frações de centavos e com proibição absoluta de ponto flutuante (`float`/`double`).
+  - Todos os componentes são persistidos no pagamento (`principal_cents`, `interest_cents`, `fine_cents`, `discount_cents`, `total_cents`) e auditados indelevelmente.
 - **AC-FIN-008 [Marco Temporal de Abertura de Conta e Conciliação]:**
   - Toda conta bancária possui uma data e saldo inicial de abertura auditáveis (`opening_balance_date`, `opening_balance_cents`).
   - É proibido registrar qualquer lançamento, recebimento ou pagamento com data de liquidação anterior à data do saldo inicial da conta bancária (`paid_on < opening_balance_date` ou `received_on < opening_balance_date`), retornando erro de validação `422`.
@@ -161,6 +165,35 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
 
 ---
 
+### 2.7. Suíte Especializada de Contas a Pagar (Reversão, Categoria e Encargos)
+
+#### 2.7.1. Estorno e Correção de Pagamento de Contas a Pagar (AC-PAY-REV)
+- **AC-PAY-REV-001 [Histórico Visível de Pagamentos]:** Ao abrir uma conta a pagar no Web Desktop ou Mobile que possua liquidação parcial ou total (`paid_cents > 0`), a interface exibe a seção "Histórico de pagamentos" contendo para cada pagamento: valor formatado em BRL, data de liquidação, conta bancária debitada, situação (ativo, estornado ou substituto) e decomposição financeira.
+- **AC-PAY-REV-002 [Ações de Estorno e Correção Acessíveis]:** Cada pagamento ativo exibe as ações "Estornar" e "Corrigir" tanto na Web quanto no Mobile, respeitando as permissões do usuário no espaço (perfis `operador` e `contador` bloqueados).
+- **AC-PAY-REV-003 [Justificativa Obrigatória]:** A ação de estorno exige fornecimento de motivo obrigatório com no mínimo 3 caracteres e no máximo 500 caracteres, persistido permanentemente em `payment_reversals` e `obligation_changes`.
+- **AC-PAY-REV-004 [Recomposição Exata do Saldo e Status]:** O estorno credita na conta bancária original o exato valor debitado no pagamento e decrementa o saldo amortizado da obrigação pelo principal, reabrindo a conta a pagar para o status correspondente ("Aberto" ou "Parcial") sem recarregar a aplicação.
+- **AC-PAY-REV-005 [Proteção contra Duplicidade, Replay e Locks]:** É estritamente proibido estornar um pagamento já estornado (retornando HTTP 422). Replays idempotentes retornam o estado atualizado com HTTP 200 e `replayed: true`. Operações concorrentes são serializadas por lock na chave e lock pessimista ordenado.
+- **AC-PAY-REV-006 [Correção com Pagamento Substituto]:** A ação "Corrigir pagamento" permite alterar conta bancária, data ou valor com motivo obrigatório, realizando o estorno do original e a emissão do substituto de forma atômica na mesma transação.
+
+#### 2.7.2. Edição de Categoria de Contas a Pagar (AC-PAY-CAT)
+- **AC-PAY-CAT-001 [Contrato PATCH com Categoria]:** O endpoint `PATCH /api/spaces/{space}/payables/{payable}` aceita o campo opcional e anulável `category_id`.
+- **AC-PAY-CAT-002 [Validação Estrita de Tenant e Tipo]:** Se `category_id` for informado, valida obrigatoriamente que a categoria existe, pertence ao mesmo `space_id` e possui `type == 'expense'`.
+- **AC-PAY-CAT-003 [Prevenção IDOR / BOLA]:** Tentativas de vincular categorias inexistentes ou pertencentes a outro espaço respondem invariavelmente com HTTP 404 Not Found.
+- **AC-PAY-CAT-004 [Trilha de Auditoria Indelével]:** Toda alteração de categoria é registrada em `obligation_changes` com `subject == 'payable'`, `action == 'edit'` e antes/depois de `category_id`.
+- **AC-PAY-CAT-005 [Edição Pré e Pós-Liquidação sem Violação Contábil]:** A categoria pode ser alterada antes da liquidação e inclusive após a liquidação integral (`paid_cents == amount_cents`), atuando como reclassificação analítica e gerencial sem alterar retroativamente `account_movements` históricos.
+- **AC-PAY-CAT-006 [Interface Web e Mobile Atualizada]:** O formulário de edição de contas a pagar no Web Desktop (`PayableModal`) e no Mobile (`PayableEditScreen`) disponibiliza o seletor `CategoryPickerField` para seleção, troca e remoção de categoria, atualizando imediatamente a interface após salvar.
+
+#### 2.7.3. Composição de Pagamento com Juros, Multa e Desconto (AC-PAY-INT)
+- **AC-PAY-INT-001 [Contrato de Pagamento com Encargos e Desconto]:** O endpoint `POST /api/spaces/{space}/payables/{payable}/payments` aceita os campos opcionais em string decimal canônica não negativa: `interest_amount` (juros), `fine_amount` (multa) e `discount_amount` (desconto).
+- **AC-PAY-INT-002 [Fórmula Canônica e Aritmética de Centavos]:** O cálculo aplica estritamente em centavos inteiros de 64 bits: $\text{total\_cents} = \text{principal\_cents} + \text{interest\_cents} + \text{fine\_cents} - \text{discount\_cents}$. Proibido float/double. Rejeita `total_cents <= 0` ou `discount_cents > principal_cents + interest_cents + fine_cents`.
+- **AC-PAY-INT-003 [Segregação Contábil do Exemplo Obrigatório]:** Para uma obrigação de R$ 100,00 com juros de R$ 15,00: a obrigação é amortizada em R$ 100,00 (status "Pago"); a conta bancária sofre débito de R$ 115,00 (`account_movements.amount_cents = -11500`).
+- **AC-PAY-INT-004 [Persistência e Auditoria Completa]:** A tabela `payments` armazena de forma auditável `principal_cents`, `interest_cents`, `fine_cents`, `discount_cents` e `total_cents`.
+- **AC-PAY-INT-005 [Estorno com Recomposição Integral]:** Ao estornar um pagamento com encargos, a conta bancária é creditada pelo exato `total_cents` (+R$ 115,00) e a obrigação reabre pelo `principal_cents` amortizado (R$ 100,00).
+- **AC-PAY-INT-006 [Ergonomia Web e Mobile]:** O formulário de baixa disponibiliza seção expansível "Juros e encargos", calculando e exibindo em tempo real o principal, juros, multa, desconto e o total a debitar da conta.
+- **AC-PAY-INT-007 [Garantias de Integridade Transacional]:** Idempotência com fingerprint dos encargos, locks ordenados e limites monetários permanecem 100% garantidos.
+
+---
+
 ## 3. Matriz de Rastreabilidade (Spec ↔ Código ↔ Testes)
 
 | Critério | Implementação Backend / Mobile | Testes Automatizados |
@@ -171,7 +204,7 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
 | **AC-FIN-004** | `Money::MAX_CENTS`, `Money.isNegative`, checks SQL | `apps/api/tests/domain.php`, `PayableCreationRecoveryTest.php` |
 | **AC-FIN-005** | `InstallmentSchedule.php`, `CreatePayable::schedule` | `apps/api/tests/domain.php`, `PayablesTest.php` |
 | **AC-FIN-006** | `MonthlyDate.php`, `InstallmentSchedule::generate` | `apps/api/tests/domain.php` |
-| **AC-FIN-007** | Não implementado (Planejado para checkpoint futuro) | N/A (Regra ausente; opera por valor facial) |
+| **AC-FIN-007** | `PayPayable.php`, `Payment.php`, `PaymentResource.php`, `payable_modal.dart`, `payment_form_screen.dart` | `apps/api/tests/domain.php`, `PayableChargesAndDiscountsTest.php` |
 | **AC-FIN-008** | `PayPayable::validateTarget`, `ReceiveInstallment::handle` | `ReceivablesFlowTest.php`, `PayablesTest.php` |
 | **AC-FIN-009** | `ReverseReceipt.php`, `ReversePayment.php`, `AccountMovement` | `ReceiptReversalTest.php`, `PayablesTest.php` |
 | **AC-FIN-010** | `Controller::space`, `SpaceController.php`, `routes/api.php` | `IsolationAndAtomicityTest.php` |
@@ -188,3 +221,6 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
 | **AC-FIN-021** | `PayPayable.php`, `ReceiveInstallment.php`, `ReversePayment.php`, `ReverseReceipt.php`, `agreement_modal.dart`, `payable_modal.dart` | `PartialPaymentsAndReceiptsAuditTest.php`, `agreement_modal_test.dart`, `payable_modal_edit_test.dart` |
 | **AC-FIN-022** | `CashFlowController.php`, `planning_models.dart`, `planning_repository.dart`, `PlanningScreen.dart` | `CashFlowPlanningTest.php`, `planning_screen_test.dart`, `planning_repository_test.dart` |
 | **AC-FIN-023** | `OfxParserService.php`, `OfxReconciliationController.php`, `ReconciledTransaction.php`, `ofx_screen.dart`, `ofx_repository.dart` | `OfxReconciliationTest.php`, `ofx_screen_test.dart`, `ofx_repository_test.dart` |
+| **AC-PAY-REV-001..006** | `ReversePayment.php`, `PaymentController.php`, `payable_modal.dart`, `payment_fix_screen.dart` | `PayablesTest.php`, `payable_modal_reversal_test.dart` |
+| **AC-PAY-CAT-001..006** | `PayableController.php`, `ChangeObligations.php`, `payable_modal.dart`, `payable_edit_screen.dart` | `PayableCategoryEditTest.php`, `payable_category_edit_widget_test.dart` |
+| **AC-PAY-INT-001..007** | `PayPayable.php`, `Payment.php`, `PaymentController.php`, `payable_modal.dart`, `payment_form_screen.dart` | `domain.php`, `PayableChargesAndDiscountsTest.php`, `payment_charges_widget_test.dart` |
