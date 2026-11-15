@@ -154,15 +154,43 @@ if [ -z "$PREVIOUS_DIGEST" ] && command -v docker >/dev/null 2>&1; then
   PREVIOUS_DIGEST=$(docker inspect "$CONTAINER_API" --format '{{.Image}}' 2>/dev/null || true)
 fi
 
-# 6. Validação Estrita de Digest Imutável para Produção (Fail-Closed antes de qualquer alteração)
+# Validar se a referência anterior está disponível para reversão
+if [ -n "$PREVIOUS_DIGEST" ] && command -v docker >/dev/null 2>&1; then
+  if docker inspect "$PREVIOUS_DIGEST" >/dev/null 2>&1; then
+    if [[ "$PREVIOUS_DIGEST" =~ ^sha256:[a-fA-F0-9]{64}$ ]]; then
+      echo "ℹ️ [vps-deploy] Referência anterior para reversão comprovada: ID local de imagem ($PREVIOUS_DIGEST)."
+    else
+      echo "ℹ️ [vps-deploy] Referência anterior para reversão comprovada: $PREVIOUS_DIGEST."
+    fi
+  else
+    echo "⚠️ [vps-deploy] Referência anterior ($PREVIOUS_DIGEST) não encontrada no Docker local." >&2
+  fi
+fi
+
+# 6. Validação Estrita de Referência do Registro por Digest (Fail-Closed antes de qualquer alteração)
+# Exige formato: <repositório>@sha256:<64 hex chars>
+# Rejeita: referência vazia, tag isolada, sha256 puro sem repositório e repositório não autorizado.
+AUTHORIZED_REPO_REGEX='^(bigdevz/finance-api|ghcr\.io/[a-zA-Z0-9._-]+/(bigdevz-)?finance-api)'
+STRICT_DIGEST_REGEX="^(${AUTHORIZED_REPO_REGEX})@sha256:[a-fA-F0-9]{64}$"
+
 if [ -z "$FINANCE_IMAGE_DIGEST" ]; then
-  echo "❌ ERRO DE GOVERNANÇA: O deploy de produção em $TARGET_DIR exige um digest imutável do registro (--digest <imagem>@sha256:...). Fallback para tags desativado." >&2
+  echo "❌ ERRO DE GOVERNANÇA: O deploy de produção em $TARGET_DIR exige uma referência imutável do registro (--digest <repositório>@sha256:<64 hex chars>). Referência vazia rejeitada antes de alterar serviços ou rodar migrações." >&2
   exit 1
 fi
 
-DIGEST_REGEX='^([a-zA-Z0-9._/-]+@)?sha256:[a-fA-F0-9]{64}$'
-if ! [[ "$FINANCE_IMAGE_DIGEST" =~ $DIGEST_REGEX ]]; then
-  echo "❌ ERRO DE GOVERNANÇA: Digest inválido '$FINANCE_IMAGE_DIGEST'. Formato esperado: <repo>@sha256:<64 hex chars> ou sha256:<64 hex chars>." >&2
+if [[ "$FINANCE_IMAGE_DIGEST" =~ ^sha256:[a-fA-F0-9]{64}$ ]]; then
+  echo "❌ ERRO DE GOVERNANÇA: Referência '$FINANCE_IMAGE_DIGEST' rejeitada. O digest não pode ser um sha256 isolado sem o repositório autorizado (formato esperado: <repositório>@sha256:<hash>)." >&2
+  exit 1
+fi
+
+if [[ "$FINANCE_IMAGE_DIGEST" =~ :[a-zA-Z0-9._-]+$ ]] && ! [[ "$FINANCE_IMAGE_DIGEST" =~ @sha256: ]]; then
+  echo "❌ ERRO DE GOVERNANÇA: Referência '$FINANCE_IMAGE_DIGEST' rejeitada. Tags isoladas são proibidas em produção. Exija <repositório>@sha256:<64 hex chars>." >&2
+  exit 1
+fi
+
+if ! [[ "$FINANCE_IMAGE_DIGEST" =~ $STRICT_DIGEST_REGEX ]]; then
+  echo "❌ ERRO DE GOVERNANÇA: Referência '$FINANCE_IMAGE_DIGEST' inválida ou repositório não autorizado para o Finance." >&2
+  echo "   Formato obrigatório: <repositório>@sha256:<64 hex chars> (repositórios autorizados: bigdevz/finance-api, ghcr.io/*/bigdevz-finance-api)." >&2
   exit 1
 fi
 
