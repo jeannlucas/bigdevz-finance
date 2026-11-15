@@ -144,7 +144,7 @@ jobs:
         run: |
           echo "Instalando Trivy no runner..."
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin
-          trivy fs --format json -o trivy-finance-ci.json composer.json
+          trivy fs --format json -o trivy-finance-ci.json apps/api
 
           echo "Importando scan para Finance via API v2 em destino de teste separado (CI Security Pipeline)..."
           RESPONSE=$(curl -sf --resolve bigdevz-vps.tailf827e2.ts.net:443:100.90.8.15 -X POST "$DOJO_URL/api/v2/import-scan/" \
