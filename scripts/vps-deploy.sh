@@ -19,6 +19,7 @@ CONTAINER_API="${CONTAINER_API:-finance-api-prod}"
 DB_USER="${DB_USER:-bigdevz}"
 DB_NAME="${DB_NAME:-bigdevz_finance}"
 DEPLOY_TAG="${DEPLOY_TAG:-}"
+FINANCE_IMAGE_DIGEST="${FINANCE_IMAGE_DIGEST:-}"
 SKIP_GIT_CHECKOUT="${SKIP_GIT_CHECKOUT:-0}"
 
 while [ $# -gt 0 ]; do
@@ -27,12 +28,16 @@ while [ $# -gt 0 ]; do
       DEPLOY_TAG="$2"
       shift 2
       ;;
+    --digest|--image-digest)
+      FINANCE_IMAGE_DIGEST="$2"
+      shift 2
+      ;;
     --skip-checkout)
       SKIP_GIT_CHECKOUT=1
       shift
       ;;
     --help|-h)
-      echo "Uso: $0 [--tag vX.Y.Z] [--skip-checkout]"
+      echo "Uso: $0 [--tag vX.Y.Z] [--digest imagem@sha256:...] [--skip-checkout]"
       exit 0
       ;;
     *)
@@ -208,17 +213,25 @@ if [ -d "$TARGET_DIR/.git" ] && [ "$SKIP_GIT_CHECKOUT" -eq 0 ]; then
   git reset --hard "$TARGET_SHA" -q
 fi
 
-# 8. Recompilação e inicialização
+# 8. Inicialização com imagem homologada e imutável (--no-build)
 if [ ! -f "$COMPOSE_FILE" ]; then
   echo "Manifesto de produção ausente no commit de destino." >&2
   exit 1
 fi
-export FINANCE_IMAGE_TAG="${DEPLOY_TAG}"
-docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" build api
-docker tag "bigdevz/finance-api:${DEPLOY_TAG}" "bigdevz/finance-api:prod" 2>/dev/null || true
+
+if [ -n "$FINANCE_IMAGE_DIGEST" ]; then
+  export FINANCE_API_IMAGE="$FINANCE_IMAGE_DIGEST"
+elif [ -n "$FINANCE_API_IMAGE" ]; then
+  export FINANCE_API_IMAGE="$FINANCE_API_IMAGE"
+else
+  export FINANCE_IMAGE_TAG="${DEPLOY_TAG:-prod}"
+  export FINANCE_API_IMAGE="bigdevz/finance-api:${FINANCE_IMAGE_TAG}"
+fi
+echo "📦 Imagem alvo para implantação: $FINANCE_API_IMAGE"
+
 MIGRATIONS_RAN=1
 docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" run --rm -T --no-deps api php artisan migrate --force
-docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" up -d --build api scheduler
+docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" up -d --no-build api scheduler
 
 # 10. Validação de Saúde (Healthcheck)
 echo "🩺 Executando healthcheck pós-deploy..."

@@ -27,7 +27,7 @@ services:
         max-file: "5"
 
   api:
-    image: bigdevz/finance-api:${FINANCE_IMAGE_TAG:-prod}
+    image: ${FINANCE_API_IMAGE:-bigdevz/finance-api:${FINANCE_IMAGE_TAG:-prod}}
     build:
       context: ${API_BUILD_CONTEXT:-./apps/api}
       dockerfile: Dockerfile
