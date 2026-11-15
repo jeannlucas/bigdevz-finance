@@ -133,6 +133,11 @@ class Payment {
     required this.accountId,
     required this.amount,
     required this.paidOn,
+    this.principal,
+    this.interest,
+    this.fine,
+    this.discount,
+    this.total,
     this.reversalReason,
     this.isCorrected = false,
     this.replacesPaymentId,
@@ -145,6 +150,19 @@ class Payment {
       accountId: json['account_id'] as int,
       amount: Money.parse(json['amount'] as String),
       paidOn: json['paid_on'] as String,
+      principal: json['principal'] != null
+          ? Money.parse(json['principal'] as String)
+          : null,
+      interest: json['interest'] != null
+          ? Money.parse(json['interest'] as String)
+          : null,
+      fine: json['fine'] != null ? Money.parse(json['fine'] as String) : null,
+      discount: json['discount'] != null
+          ? Money.parse(json['discount'] as String)
+          : null,
+      total: json['total'] != null
+          ? Money.parse(json['total'] as String)
+          : null,
       reversalReason: reversal?['reason'] as String?,
       isCorrected: reversal?['kind'] == 'correction',
       replacesPaymentId: json['replaces_payment_id'] as int?,
@@ -155,11 +173,23 @@ class Payment {
   final int accountId;
   final Money amount;
   final String paidOn;
+  final Money? principal;
+  final Money? interest;
+  final Money? fine;
+  final Money? discount;
+  final Money? total;
   final String? reversalReason;
   final bool isCorrected;
   final int? replacesPaymentId;
 
   bool get isReversed => reversalReason != null;
+
+  Money get effectivePrincipal => principal ?? amount;
+  Money get effectiveTotal => total ?? amount;
+  bool get hasCharges =>
+      (interest != null && interest!.cents > 0) ||
+      (fine != null && fine!.cents > 0) ||
+      (discount != null && discount!.cents > 0);
 }
 
 class PayableChange {

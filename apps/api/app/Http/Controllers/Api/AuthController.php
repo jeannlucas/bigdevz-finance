@@ -20,7 +20,8 @@ class AuthController extends Controller
             'device_name' => ['required', 'string', 'max:80'],
         ]);
 
-        $user = User::query()->where('email', $data['email'])->first();
+        $email = mb_strtolower(trim($data['email']));
+        $user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
         if ($user === null || ! Hash::check($data['password'], $user->password)) {
             throw ValidationException::withMessages(['email' => 'E-mail ou senha inválidos.']);
         }

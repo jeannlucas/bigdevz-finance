@@ -10,6 +10,7 @@ import '../../ui/date_field.dart';
 import '../../ui/widgets.dart';
 import '../auth/auth_models.dart';
 import '../auth/session_controller.dart';
+import '../categories/category_picker_field.dart';
 import 'payable.dart';
 import 'payables_repository.dart';
 
@@ -45,6 +46,7 @@ class _PayableEditScreenState extends State<PayableEditScreen> {
   );
   final _reason = TextEditingController();
   late DateTime _due = parseApiDate(widget.payable.dueDate);
+  late int? _categoryId = widget.payable.categoryId;
   bool _saving = false;
   ApiException? _error;
 
@@ -104,6 +106,15 @@ class _PayableEditScreenState extends State<PayableEditScreen> {
         ),
       );
     }
+    if (_categoryId != widget.payable.categoryId) {
+      changes.add(
+        ChangeDifference(
+          label: 'Categoria',
+          oldValue: widget.payable.category?.name ?? '(sem categoria)',
+          newValue: _categoryId == null ? '(sem categoria)' : 'Alterada',
+        ),
+      );
+    }
 
     if (!widget.payable.isCardBill) {
       if (changes.isEmpty) {
@@ -132,6 +143,7 @@ class _PayableEditScreenState extends State<PayableEditScreen> {
         {
           'description': _description.text.trim(),
           'payee': _payee.text.trim().isEmpty ? null : _payee.text.trim(),
+          'category_id': _categoryId,
           'amount': Money.fromInput(_amount.text)!.toApi(),
           'due_date': toApiDate(_due),
           if (_reason.text.trim().isNotEmpty) 'reason': _reason.text.trim(),
@@ -222,6 +234,13 @@ class _PayableEditScreenState extends State<PayableEditScreen> {
               lastDate: DateTime(2100),
               errorText: fieldErrors['due_date'],
               onChanged: (date) => setState(() => _due = date),
+            ),
+            const SizedBox(height: 16),
+            CategoryPickerField(
+              spaceId: widget.space.id,
+              type: 'expense',
+              selectedCategoryId: _categoryId,
+              onChanged: (id) => setState(() => _categoryId = id),
             ),
             const SizedBox(height: 16),
             TextFormField(

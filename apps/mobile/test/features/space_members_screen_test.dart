@@ -146,7 +146,7 @@ void main() {
       );
       expect(
         find.text(
-          '• Operador: Cria lançamentos e baixas; não cancela, estorna nem exporta dados.',
+          '• Operador: Registra pagamentos e recebimentos; não cancela, estorna nem exporta dados.',
         ),
         findsOneWidget,
       );

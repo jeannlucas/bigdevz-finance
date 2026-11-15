@@ -155,13 +155,30 @@ class PayablesRepository {
     required Money amount,
     required String paidOn,
     required String idempotencyKey,
+    Money? interest,
+    Money? fine,
+    Money? discount,
   }) async {
+    final body = <String, Object?>{
+      'account_id': accountId,
+      'amount': amount.toApi(),
+      'paid_on': paidOn,
+    };
+    if (interest != null && interest.cents > 0) {
+      body['interest_amount'] = interest.toApi();
+    }
+    if (fine != null && fine.cents > 0) {
+      body['fine_amount'] = fine.toApi();
+    }
+    if (discount != null && discount.cents > 0) {
+      body['discount_amount'] = discount.toApi();
+    }
     final data =
-        (await _api.post('/spaces/$spaceId/payables/$payableId/payments', {
-              'account_id': accountId,
-              'amount': amount.toApi(),
-              'paid_on': paidOn,
-            }, idempotencyKey: idempotencyKey))['data']
+        (await _api.post(
+              '/spaces/$spaceId/payables/$payableId/payments',
+              body,
+              idempotencyKey: idempotencyKey,
+            ))['data']
             as Map<String, dynamic>;
     return PaymentResult(
       payment: Payment.fromJson(data['payment'] as Map<String, dynamic>),

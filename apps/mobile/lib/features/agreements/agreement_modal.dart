@@ -899,7 +899,7 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
               ),
               icon: const Icon(Icons.playlist_add_check_rounded, size: 20),
               label: Text(
-                'Baixar selecionadas (${_selectedInstallmentIds.length}) • ${_totalSelectedAmount.brl}',
+                'Receber selecionadas (${_selectedInstallmentIds.length}) • ${_totalSelectedAmount.brl}',
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
@@ -990,7 +990,7 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Baixar Parcela ${installment.number}',
+                  'Receber Parcela ${installment.number}',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -1274,8 +1274,8 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
               const SizedBox(height: 6),
               Text(
                 installments.length == 1
-                    ? 'A parcela selecionada foi baixada com sucesso.'
-                    : 'As ${installments.length} parcelas foram baixadas com sucesso.',
+                    ? 'A parcela selecionada foi recebida com sucesso.'
+                    : 'As ${installments.length} parcelas foram recebidas com sucesso.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
@@ -1311,8 +1311,8 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
               Expanded(
                 child: Text(
                   installments.length == 1
-                      ? 'Baixar 1 parcela'
-                      : 'Baixar ${installments.length} parcelas',
+                      ? 'Receber 1 parcela'
+                      : 'Receber ${installments.length} parcelas',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -1557,7 +1557,7 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
                               ),
                               const SizedBox(width: 12),
                               Text(
-                                'Baixando parcela $_batchProgress de $_batchTotal...',
+                                'Recebendo parcela $_batchProgress de $_batchTotal...',
                                 style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
@@ -1797,7 +1797,7 @@ class _InstallmentCard extends StatelessWidget {
                   ),
                 ),
                 icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
-                label: const Text('Dar baixa'),
+                label: const Text('Registrar recebimento'),
               ),
           ],
         ),

@@ -319,7 +319,7 @@ class OfxReconciliationController extends Controller
                     }
 
                     $isDebit = (isset($txData['type']) && $txData['type'] === 'debit') || (isset($txData['amount_cents']) && $txData['amount_cents'] > 0 && ! empty($txData['is_debit']));
-                    $description = $memo !== '' ? $memo : 'Lançamento bancário avulso';
+                    $description = $memo !== '' ? $memo : 'Movimentação bancária avulsa';
 
                     if ($isDebit) {
                         // Cria conta a pagar avulsa e liquida via PayPayable

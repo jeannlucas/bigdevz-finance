@@ -5,6 +5,7 @@ namespace App\Actions\Payables;
 use App\Actions\Receivables\IdempotentOperations;
 use App\Actions\Receivables\KeyedResult;
 use App\Domain\Receivables\Money;
+use App\Domain\Receivables\PaymentSettlement;
 use App\Models\Account;
 use App\Models\AccountMovement;
 use App\Models\ObligationChange;
@@ -25,34 +26,92 @@ class PayPayable
 {
     public function __construct(private readonly IdempotentOperations $keys) {}
 
-    public static function fingerprint(int $payableId, mixed $accountId, mixed $amount, mixed $paidOn): string
-    {
-        return IdempotentOperations::fingerprint(IdempotentOperations::PAYMENT, $payableId, [
-            'account_id' => $accountId, 'amount' => $amount, 'paid_on' => $paidOn,
-        ]);
+    public static function fingerprint(
+        int $payableId,
+        mixed $accountId,
+        mixed $amount,
+        mixed $paidOn,
+        mixed $interest = null,
+        mixed $fine = null,
+        mixed $discount = null
+    ): string {
+        $payload = [
+            'account_id' => $accountId,
+            'amount' => $amount,
+            'paid_on' => $paidOn,
+        ];
+        if ($interest !== null) {
+            $payload['interest_amount'] = $interest;
+        }
+        if ($fine !== null) {
+            $payload['fine_amount'] = $fine;
+        }
+        if ($discount !== null) {
+            $payload['discount_amount'] = $discount;
+        }
+
+        return IdempotentOperations::fingerprint(IdempotentOperations::PAYMENT, $payableId, $payload);
     }
 
-    public function handle(User $user, Space $space, int $payableId, int $accountId, int $amountCents, string $paidOn, string $key): KeyedResult
-    {
-        $fingerprint = self::fingerprint($payableId, $accountId, Money::fromCents($amountCents), $paidOn);
+    public function handle(
+        User $user,
+        Space $space,
+        int $payableId,
+        int $accountId,
+        int $amountCents,
+        string $paidOn,
+        string $key,
+        int $interestCents = 0,
+        int $fineCents = 0,
+        int $discountCents = 0
+    ): KeyedResult {
+        $settlement = PaymentSettlement::calculate($amountCents, $interestCents, $fineCents, $discountCents);
+        $fingerprint = self::fingerprint(
+            $payableId,
+            $accountId,
+            Money::fromCents($amountCents),
+            $paidOn,
+            $interestCents > 0 ? Money::fromCents($interestCents) : null,
+            $fineCents > 0 ? Money::fromCents($fineCents) : null,
+            $discountCents > 0 ? Money::fromCents($discountCents) : null
+        );
 
-        return $this->keys->run($user, $space, $key, IdempotentOperations::PAYMENT, $fingerprint, function () use ($user, $space, $payableId, $accountId, $amountCents, $paidOn) {
+        return $this->keys->run($user, $space, $key, IdempotentOperations::PAYMENT, $fingerprint, function () use ($user, $space, $payableId, $accountId, $paidOn, $settlement) {
             $payable = Payable::query()->where('space_id', $space->id)->lockForUpdate()->findOrFail($payableId);
             $account = Account::query()->where('space_id', $space->id)->lockForUpdate()->find($accountId);
-            self::validateTarget($payable, $account, $amountCents, $paidOn, $payable->remainingCents() ?? 0);
+            self::validateTarget(
+                $payable,
+                $account,
+                $settlement['principal_cents'],
+                $paidOn,
+                $payable->remainingCents() ?? 0,
+                0,
+                $settlement['total_cents']
+            );
 
             $payment = Payment::create([
-                'space_id' => $space->id, 'payable_id' => $payable->id, 'account_id' => $account->id,
-                'user_id' => $user->id, 'amount_cents' => $amountCents, 'paid_on' => $paidOn,
+                'space_id' => $space->id,
+                'payable_id' => $payable->id,
+                'account_id' => $account->id,
+                'user_id' => $user->id,
+                'amount_cents' => $settlement['total_cents'],
+                'principal_cents' => $settlement['principal_cents'],
+                'interest_cents' => $settlement['interest_cents'],
+                'fine_cents' => $settlement['fine_cents'],
+                'discount_cents' => $settlement['discount_cents'],
+                'total_cents' => $settlement['total_cents'],
+                'paid_on' => $paidOn,
             ]);
             $oldPaid = $payable->paid_cents;
             $oldRemaining = $payable->remainingCents();
 
             AccountMovement::create([
-                'account_id' => $account->id, 'payment_id' => $payment->id,
-                'amount_cents' => -$amountCents, 'effective_date' => $paidOn,
+                'account_id' => $account->id,
+                'payment_id' => $payment->id,
+                'amount_cents' => -$settlement['total_cents'],
+                'effective_date' => $paidOn,
             ]);
-            $payable->increment('paid_cents', $amountCents);
+            $payable->increment('paid_cents', $settlement['principal_cents']);
 
             ObligationChange::create([
                 'space_id' => $space->id,
@@ -69,11 +128,16 @@ class PayPayable
                 'after' => [
                     'payable_id' => $payable->id,
                     'amount_cents' => $payable->amount_cents,
-                    'paid_cents' => $oldPaid + $amountCents,
-                    'remaining_cents' => $oldRemaining !== null ? $oldRemaining - $amountCents : null,
+                    'paid_cents' => $oldPaid + $settlement['principal_cents'],
+                    'remaining_cents' => $oldRemaining !== null ? $oldRemaining - $settlement['principal_cents'] : null,
                     'payment_id' => $payment->id,
                     'account_id' => $account->id,
                     'paid_on' => $paidOn,
+                    'principal_cents' => $settlement['principal_cents'],
+                    'interest_cents' => $settlement['interest_cents'],
+                    'fine_cents' => $settlement['fine_cents'],
+                    'discount_cents' => $settlement['discount_cents'],
+                    'total_cents' => $settlement['total_cents'],
                 ],
             ]);
 
@@ -82,10 +146,18 @@ class PayPayable
     }
 
     /** Regras de destino de um pagamento novo ou substituto. */
-    public static function validateTarget(Payable $payable, ?Account $account, int $amountCents, string $paidOn, int $available, int $balanceRelief = 0): void
-    {
+    public static function validateTarget(
+        Payable $payable,
+        ?Account $account,
+        int $amountCents,
+        string $paidOn,
+        int $available,
+        int $balanceRelief = 0,
+        ?int $totalCents = null
+    ): void {
+        $totalCents ??= $amountCents;
         if ($payable->isCancelled()) {
-            throw ValidationException::withMessages(['payable' => 'Obrigação cancelada não recebe pagamento.']);
+            throw ValidationException::withMessages(['payable' => 'Conta a pagar cancelada não recebe pagamento.']);
         }
         if ($payable->amount_cents === null) {
             throw ValidationException::withMessages(['payable' => 'Informe o total da fatura antes de pagar.']);
@@ -102,9 +174,9 @@ class PayPayable
             ]);
         }
         if ($amountCents > $available) {
-            throw ValidationException::withMessages(['amount' => 'O valor excede o restante da obrigação ('.Money::fromCents($available).').']);
+            throw ValidationException::withMessages(['amount' => 'O valor excede o saldo restante da conta a pagar ('.Money::fromCents($available).').']);
         }
-        if ($account->balanceCents() + $balanceRelief - $amountCents < -Money::MAX_CENTS) {
+        if ($account->balanceCents() + $balanceRelief - $totalCents < -Money::MAX_CENTS) {
             throw ValidationException::withMessages(['amount' => 'O saldo da conta ultrapassaria o limite suportado.']);
         }
     }

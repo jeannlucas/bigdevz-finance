@@ -44,7 +44,7 @@ void main() {
       expect(item.userEmail, equals('jeann@bigdevz.com'));
       expect(item.reason, equals('Serviço cancelado pelo fornecedor'));
       expect(item.humanSubject, equals('Conta a pagar'));
-      expect(item.humanAction, equals('Cancelamento de lançamento'));
+      expect(item.humanAction, equals('Cancelamento de registro'));
     });
 
     test('AuditRepository fetches audit items and handles filters', () async {
@@ -88,7 +88,7 @@ void main() {
 
       expect(items.length, equals(1));
       expect(items.first.humanSubject, equals('Conta a receber'));
-      expect(items.first.humanAction, equals('Cancelamento de lançamento'));
+      expect(items.first.humanAction, equals('Cancelamento de registro'));
       expect(items.first.isCritical, isTrue);
     });
   });

@@ -87,7 +87,7 @@ class PayableScreen extends StatelessWidget {
       context,
       title: 'Cancelar conta a pagar?',
       message:
-          'A obrigação sai dos totais em aberto e fica no histórico como '
+          'A conta a pagar sai dos totais em aberto e fica no histórico como '
           'cancelada. Nenhum dinheiro é movimentado.',
       label: 'Motivo',
       confirm: 'Cancelar conta',

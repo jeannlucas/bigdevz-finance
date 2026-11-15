@@ -58,22 +58,25 @@ class ReversePayment
                 ->whereIn('id', array_values(array_unique(array_filter([$original->account_id, $replacement['account_id'] ?? null]))))
                 ->orderBy('id')->lockForUpdate()->get()->keyBy('id');
 
+            $origTotal = $original->total_cents ?? $original->amount_cents;
+            $origPrincipal = $original->principal_cents ?? $original->amount_cents;
+
             if ($replacement !== null) {
                 if ($replacement['account_id'] === $original->account_id
-                    && $replacement['amount_cents'] === $original->amount_cents
+                    && $replacement['amount_cents'] === $origTotal
                     && $replacement['paid_on'] === $original->paid_on->toDateString()) {
                     throw ValidationException::withMessages(['payment' => 'Nada a corrigir: altere a conta, o valor ou a data.']);
                 }
                 $target = $accounts->get($replacement['account_id']);
-                $relief = $target?->id === $original->account_id ? $original->amount_cents : 0;
+                $relief = $target?->id === $original->account_id ? $origTotal : 0;
                 PayPayable::validateTarget($payable, $target, $replacement['amount_cents'], $replacement['paid_on'],
-                    $payable->remainingCents() + $original->amount_cents, $relief);
+                    $payable->remainingCents() + $origPrincipal, $relief);
             }
 
             $originalAccount = $accounts->get($original->account_id);
             $netChange = ($replacement !== null && $replacement['account_id'] === $original->account_id)
-                ? ($original->amount_cents - $replacement['amount_cents'])
-                : $original->amount_cents;
+                ? ($origTotal - $replacement['amount_cents'])
+                : $origTotal;
             $resultingOriginal = $originalAccount->balanceCents() + $netChange;
             if ($resultingOriginal > Money::MAX_CENTS || $resultingOriginal < -Money::MAX_CENTS) {
                 throw ValidationException::withMessages(['amount' => 'O saldo da conta ultrapassaria o limite suportado.']);
@@ -88,9 +91,9 @@ class ReversePayment
 
             AccountMovement::create([
                 'account_id' => $original->account_id, 'payment_reversal_id' => $reversal->id,
-                'amount_cents' => $original->amount_cents, 'effective_date' => $original->paid_on->toDateString(),
+                'amount_cents' => $origTotal, 'effective_date' => $original->paid_on->toDateString(),
             ]);
-            $payable->decrement('paid_cents', $original->amount_cents);
+            $payable->decrement('paid_cents', $origPrincipal);
 
             ObligationChange::create([
                 'space_id' => $space->id,
@@ -103,12 +106,17 @@ class ReversePayment
                     'amount_cents' => $payable->amount_cents,
                     'paid_cents' => $oldPaid,
                     'remaining_cents' => $oldRemaining,
+                    'principal_cents' => $origPrincipal,
+                    'interest_cents' => $original->interest_cents ?? 0,
+                    'fine_cents' => $original->fine_cents ?? 0,
+                    'discount_cents' => $original->discount_cents ?? 0,
+                    'total_cents' => $origTotal,
                 ],
                 'after' => [
                     'payable_id' => $payable->id,
                     'amount_cents' => $payable->amount_cents,
-                    'paid_cents' => $oldPaid - $original->amount_cents,
-                    'remaining_cents' => $oldRemaining !== null ? $oldRemaining + $original->amount_cents : null,
+                    'paid_cents' => $oldPaid - $origPrincipal,
+                    'remaining_cents' => $oldRemaining !== null ? $oldRemaining + $origPrincipal : null,
                     'reversal_id' => $reversal->id,
                 ],
                 'reason' => $reason,
@@ -117,7 +125,14 @@ class ReversePayment
             if ($replacement !== null) {
                 $substitute = Payment::create([
                     'space_id' => $space->id, 'payable_id' => $payable->id, 'account_id' => $replacement['account_id'],
-                    'user_id' => $user->id, 'amount_cents' => $replacement['amount_cents'], 'paid_on' => $replacement['paid_on'],
+                    'user_id' => $user->id,
+                    'amount_cents' => $replacement['amount_cents'],
+                    'principal_cents' => $replacement['amount_cents'],
+                    'interest_cents' => 0,
+                    'fine_cents' => 0,
+                    'discount_cents' => 0,
+                    'total_cents' => $replacement['amount_cents'],
+                    'paid_on' => $replacement['paid_on'],
                 ]);
                 AccountMovement::create([
                     'account_id' => $substitute->account_id, 'payment_id' => $substitute->id,

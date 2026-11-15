@@ -37,12 +37,52 @@ class PaymentController extends Controller
         $key = $this->idempotencyKey($request);
         $validator = Validator::make($request->all(), $this->rules(), $this->messages());
         if ($validator->fails()) {
-            $fingerprint = PayPayable::fingerprint($model->id, $request->input('account_id'), $request->input('amount'), $request->input('paid_on'));
+            $fingerprint = PayPayable::fingerprint(
+                $model->id,
+                $request->input('account_id'),
+                $request->input('amount'),
+                $request->input('paid_on'),
+                $request->input('interest_amount'),
+                $request->input('fine_amount'),
+                $request->input('discount_amount')
+            );
 
             return $this->rejection($key, $keys->reject($request->user(), $space, $key, IdempotentOperations::PAYMENT, $fingerprint, $validator->errors()->toArray()));
         }
         $data = $validator->validated();
-        $result = $pay->handle($request->user(), $space, $model->id, (int) $data['account_id'], Money::toCents($data['amount']), $data['paid_on'], $key);
+        $principalCents = Money::toCents($data['amount']);
+        $interestCents = ! empty($data['interest_amount']) ? Money::toCents($data['interest_amount']) : 0;
+        $fineCents = ! empty($data['fine_amount']) ? Money::toCents($data['fine_amount']) : 0;
+        $discountCents = ! empty($data['discount_amount']) ? Money::toCents($data['discount_amount']) : 0;
+
+        if ($discountCents >= ($principalCents + $interestCents + $fineCents)) {
+            $fingerprint = PayPayable::fingerprint(
+                $model->id,
+                $data['account_id'],
+                $data['amount'],
+                $data['paid_on'],
+                $data['interest_amount'] ?? null,
+                $data['fine_amount'] ?? null,
+                $data['discount_amount'] ?? null
+            );
+
+            return $this->rejection($key, $keys->reject($request->user(), $space, $key, IdempotentOperations::PAYMENT, $fingerprint, [
+                'discount_amount' => ['O desconto não pode igualar ou superar o valor total do pagamento.'],
+            ]));
+        }
+
+        $result = $pay->handle(
+            $request->user(),
+            $space,
+            $model->id,
+            (int) $data['account_id'],
+            $principalCents,
+            $data['paid_on'],
+            $key,
+            $interestCents,
+            $fineCents,
+            $discountCents
+        );
         if ($result->rejected()) {
             return $this->rejection($key, $result);
         }
@@ -126,6 +166,9 @@ class PaymentController extends Controller
         return [
             'account_id' => ['required', 'integer', 'min:1', 'max:9223372036854775807'],
             'amount' => ['required', new MoneyAmount],
+            'interest_amount' => ['sometimes', 'nullable', new MoneyAmount(positive: false)],
+            'fine_amount' => ['sometimes', 'nullable', new MoneyAmount(positive: false)],
+            'discount_amount' => ['sometimes', 'nullable', new MoneyAmount(positive: false)],
             'paid_on' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.now(config('finance.timezone'))->toDateString()],
         ];
     }

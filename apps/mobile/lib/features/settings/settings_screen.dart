@@ -169,7 +169,7 @@ class SettingsScreen extends StatelessWidget {
                 children: [
                   _SectionHeader(
                     title: 'Segurança e Governança',
-                    subtitle: 'Auditoria de lançamentos, fechamento contábil e equipe.',
+                    subtitle: 'Auditoria de movimentações, fechamento contábil e equipe.',
                     icon: AppIcons.lock,
                   ),
                   const SizedBox(height: 10),
@@ -255,7 +255,7 @@ class SettingsScreen extends StatelessWidget {
                             subtitle: Text(
                               space.closedUntil != null
                                   ? 'Fechado até ${_formatDate(space.closedUntil!)}'
-                                  : 'Aberto para lançamentos e correções',
+                                  : 'Aberto para movimentações e correções',
                             ),
                             trailing: const Icon(Icons.chevron_right_rounded),
                             onTap: () {
