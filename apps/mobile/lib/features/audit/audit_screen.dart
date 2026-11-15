@@ -196,7 +196,7 @@ class _AuditScreenState extends State<AuditScreen> {
           TextField(
             controller: _searchController,
             decoration: InputDecoration(
-              hintText: 'Buscar por autor, motivo ou lançamento...',
+              hintText: 'Buscar por autor, motivo ou registro...',
               prefixIcon: const Icon(Icons.search_rounded, size: 20),
               suffixIcon: _searchQuery.isNotEmpty
                   ? IconButton(
@@ -616,7 +616,7 @@ class _AuditDetailDialog extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               // Categoria do lançamento
-              _detailRow('Tipo de Lançamento', item.humanSubject),
+              _detailRow('Tipo de Registro', item.humanSubject),
               const Divider(height: 16),
 
               // Autor / Responsável

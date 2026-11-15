@@ -84,7 +84,7 @@ class CreationOutcome {
     ReceiptAttemptState.confirmed =>
       '${replayed ? 'Cadastro já estava registrado' : 'Cadastro confirmado'}: '
           '${toFinancialUpper(pending.description)}, ${payables.length} '
-          '${payables.length == 1 ? 'obrigação' : 'obrigações'}.',
+          '${payables.length == 1 ? 'conta a pagar' : 'contas a pagar'}.',
     ReceiptAttemptState.rejected =>
       'A API recusou o cadastro e nada foi gravado. Revise os dados.',
     _ => switch (reason) {

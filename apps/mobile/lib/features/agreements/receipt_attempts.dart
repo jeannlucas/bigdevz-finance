@@ -94,6 +94,9 @@ class ReceiptAttempts {
     required String accountName,
     required Money amount,
     required String paidOn,
+    Money? interest,
+    Money? fine,
+    Money? discount,
   }) => _start(
     ReceiptAttempt(
       userId: userId,
@@ -106,6 +109,9 @@ class ReceiptAttempts {
       accountName: accountName,
       amount: amount,
       receivedOn: paidOn,
+      interest: interest,
+      fine: fine,
+      discount: discount,
     ),
   );
 
@@ -247,6 +253,9 @@ class ReceiptAttempts {
           amount: attempt.amount,
           paidOn: attempt.receivedOn,
           idempotencyKey: attempt.idempotencyKey,
+          interest: attempt.interest,
+          fine: attempt.fine,
+          discount: attempt.discount,
         );
       } else if (attempt.operation.isPayment) {
         paymentFix = await _payables!.fixPayment(

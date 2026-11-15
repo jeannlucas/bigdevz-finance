@@ -46,9 +46,9 @@ class SpaceMember {
       case 'administrador':
         return 'Acesso completo a todas as funções, configurações, fechamento de períodos e gestão de equipe.';
       case 'financeiro':
-        return 'Opera lançamentos diários, pagamentos, recebimentos, transferências e conciliação. Não altera saldos iniciais de contas nem gerencia membros.';
+        return 'Opera pagamentos, recebimentos, transferências e conciliação. Não altera saldos iniciais de contas nem gerencia membros.';
       case 'operador':
-        return 'Realiza lançamentos e baixas rotineiras. Não pode cancelar lançamentos, estornar valores, exportar dados nem alterar saldos iniciais.';
+        return 'Realiza pagamentos e recebimentos rotineiros. Não pode cancelar contas, estornar valores, exportar dados nem alterar saldos iniciais.';
       case 'contador':
         return 'Acesso somente para consulta e exportação de relatórios e extratos. Não possui permissão para movimentar dinheiro ou alterar cadastros.';
       default:

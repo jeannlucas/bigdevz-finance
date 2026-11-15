@@ -360,7 +360,7 @@ class _CategoriesContentState extends State<_CategoriesContent> {
         title: const Text('Excluir Categoria?'),
         content: Text(
           'Deseja excluir a categoria "${toFinancialUpper(category.name)}"?\n\n'
-          'Os lançamentos e contas a pagar vinculados a ela não serão excluídos, '
+          'As movimentações e contas a pagar vinculadas a ela não serão excluídas, '
           'apenas ficarão sem categoria.',
         ),
         actions: [

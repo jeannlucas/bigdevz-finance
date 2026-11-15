@@ -183,7 +183,7 @@ class _OfxScreenState extends State<OfxScreen> {
           SnackBar(
             backgroundColor: const Color(0xFF0F8A5F),
             content: Text(
-              'Conciliação finalizada! $reconciled lançamentos conciliados e $ignored ignorados.',
+              'Conciliação finalizada! $reconciled movimentações conciliadas e $ignored ignoradas.',
             ),
           ),
         );
@@ -474,7 +474,7 @@ class _OfxScreenState extends State<OfxScreen> {
                               Text(
                                 tx.memo.isNotEmpty
                                     ? tx.memo
-                                    : 'Lançamento bancário',
+                                    : 'Movimentação bancária',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w700,
                                   fontSize: 14,
@@ -618,7 +618,7 @@ class _OfxScreenState extends State<OfxScreen> {
                                 const DropdownMenuItem(
                                   value: 'new_movement',
                                   child: Text(
-                                    'Criar novo lançamento avulso na conta',
+                                    'Criar nova movimentação avulsa na conta',
                                   ),
                                 ),
                                 const DropdownMenuItem(

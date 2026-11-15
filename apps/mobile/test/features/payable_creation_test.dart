@@ -325,7 +325,9 @@ void main() {
       gate.complete();
       await tester.pumpAndSettle();
       expect(
-        find.text('Cadastro já estava registrado: CONSERTO IT, 1 obrigação.'),
+        find.text(
+          'Cadastro já estava registrado: CONSERTO IT, 1 conta a pagar.',
+        ),
         findsOneWidget,
       );
       expect(count('Conserto IT'), 1);
@@ -380,7 +382,9 @@ void main() {
       await pump(tester, const PayablesTab(space: pf));
       await tapText(tester, 'Verificar cadastro');
       expect(
-        find.text('Cadastro já estava registrado: ALUGUEL IT, 15 obrigações.'),
+        find.text(
+          'Cadastro já estava registrado: ALUGUEL IT, 15 contas a pagar.',
+        ),
         findsOneWidget,
       );
       expect(count('Aluguel IT'), 15);

@@ -260,9 +260,9 @@ void main() {
       expect(find.text(r'R$ 50,00'), findsOneWidget); // Já recebido (topo)
       expect(find.text('1 parcela vencida a receber'), findsOneWidget);
 
-      // Obrigações a pagar exclusivas de PF
+      // Contas a pagar exclusivas de PF
       await tester.scrollUntilVisible(
-        find.text('Obrigações e Faturas'),
+        find.text('Contas a Pagar e Faturas'),
         200,
         scrollable: find.byType(Scrollable).first,
       );
@@ -313,9 +313,9 @@ void main() {
       expect(find.text(r'R$ 800,00'), findsOneWidget); // Já recebido (topo)
       expect(find.text('4 parcelas vencidas a receber'), findsOneWidget);
 
-      // Obrigações a pagar exclusivas de PJ
+      // Contas a pagar exclusivas de PJ
       await tester.scrollUntilVisible(
-        find.text('Obrigações e Faturas'),
+        find.text('Contas a Pagar e Faturas'),
         200,
         scrollable: find.byType(Scrollable).first,
       );
@@ -528,7 +528,7 @@ void main() {
       await tester.pump();
 
       await tester.scrollUntilVisible(
-        find.text('Obrigações e Faturas'),
+        find.text('Contas a Pagar e Faturas'),
         200,
         scrollable: find.byType(Scrollable).first,
       );
@@ -650,7 +650,7 @@ void main() {
 
       // Nenhuma exceção de overflow visual disparada
       expect(tester.takeException(), isNull);
-      expect(find.text('Obrigações e Faturas'), findsOneWidget);
+      expect(find.text('Contas a Pagar e Faturas'), findsOneWidget);
     },
   );
 
@@ -749,11 +749,11 @@ void main() {
 
       // 7. Cartão de Obrigações e Faturas
       await tester.scrollUntilVisible(
-        find.text('Obrigações e Faturas'),
+        find.text('Contas a Pagar e Faturas'),
         200,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(find.text('Obrigações e Faturas'));
+      await tester.tap(find.text('Contas a Pagar e Faturas'));
       expect(openedTab, 2);
 
       // 8. Cartão de Acesso à Carteira de Contas
@@ -792,7 +792,7 @@ void main() {
       expect(find.text(r'R$ 1.250,00'), findsOneWidget);
 
       await tester.scrollUntilVisible(
-        find.text('Obrigações e Faturas'),
+        find.text('Contas a Pagar e Faturas'),
         200,
         scrollable: find.byType(Scrollable).first,
       );
@@ -803,7 +803,7 @@ void main() {
       // Ressalva contábil mandatória explícita
       expect(
         find.text(
-          'Obrigações não alteram saldo bancário; somente pagamentos efetivados.',
+          'Contas a pagar não alteram o saldo disponível; somente pagamentos efetivados.',
         ),
         findsOneWidget,
       );

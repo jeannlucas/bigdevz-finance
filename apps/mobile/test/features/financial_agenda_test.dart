@@ -531,7 +531,7 @@ void main() {
         }
 
         // O modal abre direcionado diretamente para a Parcela 2!
-        expect(find.text('Baixar Parcela 2'), findsOneWidget);
+        expect(find.text('Receber Parcela 2'), findsOneWidget);
         expect(find.text('Confirmar recebimento'), findsOneWidget);
       },
     );

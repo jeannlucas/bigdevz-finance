@@ -134,15 +134,15 @@ void main() {
       expect(find.text('Auditoria e Conformidade'), findsOneWidget);
       expect(find.text('Apenas Operações Críticas'), findsOneWidget);
       expect(find.text('Operação Crítica'), findsOneWidget);
-      expect(find.text('Cancelamento de lançamento'), findsOneWidget);
+      expect(find.text('Cancelamento de registro'), findsOneWidget);
       expect(find.text('Responsável: Gestor Carlos'), findsOneWidget);
       expect(find.text('Alteração de dados'), findsOneWidget);
 
       // Clicar no evento de cancelamento para abrir o modal de detalhes
-      await tester.tap(find.text('Cancelamento de lançamento'));
+      await tester.tap(find.text('Cancelamento de registro'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Tipo de Lançamento'), findsOneWidget);
+      expect(find.text('Tipo de Registro'), findsOneWidget);
       expect(find.text('Conta a pagar'), findsNWidgets(2));
       expect(find.text('Cancelado por duplicidade'), findsOneWidget);
       expect(find.text('Situação Contábil'), findsOneWidget);
@@ -166,14 +166,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Cancelamento de lançamento'), findsOneWidget);
+    expect(find.text('Cancelamento de registro'), findsOneWidget);
     expect(find.text('Alteração de dados'), findsOneWidget);
 
     // Ativa filtro de operações críticas
     await tester.tap(find.text('Apenas Operações Críticas'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Cancelamento de lançamento'), findsOneWidget);
+    expect(find.text('Cancelamento de registro'), findsOneWidget);
     expect(find.text('Alteração de dados'), findsNothing);
   });
 }

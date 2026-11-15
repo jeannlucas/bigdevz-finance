@@ -34,7 +34,7 @@ void main() {
       expect(member.role, equals('operador'));
       expect(member.isOwner, isFalse);
       expect(member.roleLabel, equals('Operador'));
-      expect(member.roleDescription, contains('lançamentos'));
+      expect(member.roleDescription, contains('pagamentos'));
     });
 
     test('SpaceMembersRepository list members from API', () async {
