@@ -138,19 +138,19 @@ if [ "$USE_DOCKER_PHP" -eq 0 ] && php -m 2>/dev/null | grep -qi pgsql; then
 
   echo "  -> Executando suíte completa de testes da API (inclui concorrência e idempotência)..."
   (cd "$ROOT_DIR/apps/api" && php artisan test)
-elif docker ps --format '{{.Names}}' | grep -q 'bigdevz-finance-api'; then
-  API_CONTAINER=$(docker ps --format '{{.Names}}' | grep 'bigdevz-finance-api' | head -n 1)
+elif docker ps --format '{{.Names}}' | grep -E -q '^(finance-api-dev|bigdevz-finance-api)'; then
+  API_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E '^(finance-api-dev|bigdevz-finance-api)' | head -n 1)
   echo "  -> Executando suíte completa de testes da API via container ativo ($API_CONTAINER)..."
   docker exec -e DB_DATABASE=bigdevz_finance_test "$API_CONTAINER" php artisan test
 else
   echo "  -> Garantindo container postgres ativo na rede Compose..."
   if ! docker compose ps postgres --filter "status=running" -q | grep -q .; then
     echo "  -> Iniciando container postgres via Docker Compose..."
-    BIGDEVZ_DB_PASSWORD="${BIGDEVZ_DB_PASSWORD:-bigdevz_local_dev}" docker compose up -d postgres
+    BIGDEVZ_DB_PASSWORD="${BIGDEVZ_DB_PASSWORD:-bigdevz_local_password}" docker compose up -d postgres
   fi
 
   echo "  -> Executando suíte completa de testes da API via container (concorrência e idempotência)..."
-  BIGDEVZ_DB_PASSWORD="${BIGDEVZ_DB_PASSWORD:-bigdevz_local_dev}" docker compose run --rm \
+  BIGDEVZ_DB_PASSWORD="${BIGDEVZ_DB_PASSWORD:-bigdevz_local_password}" docker compose run --rm \
     -e DB_HOST=postgres \
     -e DB_PORT=5432 \
     -e DB_DATABASE=bigdevz_finance_test \
