@@ -163,6 +163,12 @@ void main() {
       await tester.tap(find.text('Registrar pagamento'));
       await tester.pumpAndSettle();
 
+      // Seleciona a conta bancária no dropdown
+      await tester.tap(find.byType(DropdownButtonFormField<int>).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('BANCO INTER (R\$ 2.000,00)').last);
+      await tester.pumpAndSettle();
+
       // Expande seção de juros, multa e desconto
       await tester.tap(find.text('Juros, multa e desconto (opcional)'));
       await tester.pumpAndSettle();

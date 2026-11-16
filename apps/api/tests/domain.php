@@ -166,6 +166,17 @@ $tests = [
         invalid(static fn () => PaymentSettlement::calculate(10000, 0, -50, 0));
         invalid(static fn () => PaymentSettlement::calculate(10000, 0, 0, -10));
     },
+    'Money::toCents permite valores negativos quando explicitamente habilitado' => static function (): void {
+        same(-100, Money::toCents('-1.00', allowNegative: true));
+        same(-99598, Money::toCents('-995.98', allowNegative: true));
+        same(0, Money::toCents('0.00', allowNegative: true));
+        same(0, Money::toCents('-0.00', allowNegative: true));
+        same(150000, Money::toCents('1500.00', allowNegative: true));
+        same(-99999999999999, Money::toCents('-999999999999.99', allowNegative: true));
+        invalid(static fn () => Money::toCents('-1000000000000.00', allowNegative: true));
+        invalid(static fn () => Money::toCents('-1,00', allowNegative: true));
+        invalid(static fn () => Money::toCents('-1.001', allowNegative: true));
+    },
 ];
 
 $failures = 0;

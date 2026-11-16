@@ -23,8 +23,8 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
 - **AC-FIN-004 [Limites Máximos Individuais vs. Totais Agregados]:**
   - **Limite Individual (`Money::MAX_CENTS`):** O valor monetário unitário máximo suportado por cada conta, movimentação, pagamento, recebimento, obrigação ou acordo individual é `999999999999.99` (representado por `99999999999999` centavos = R$ 999 bilhões), protegido por restrições `CHECK` no banco de dados e validações de domínio.
   - **Totais Agregados Exatos:** Agregações de múltiplas entidades (saldo consolidado do espaço no Dashboard, totalizador de compromissos abertos/vencidos, prévias de recorrências de múltiplos ciclos) podem ultrapassar o limite unitário de R$ 999 bilhões, sendo processados e formatados via `Money::formatAggregate(int|string $cents)` e lidos no Flutter até o teto de inteiros de 64 bits (`PHP_INT_MAX` / Dart int64 = ~92 quadrilhões de reais), sem truncamento, sem float e sem estouro de exceção.
-  - Valores informados em formulários e cadastros são obrigatoriamente positivos (`> 0` ou `>= 0` para saldo de abertura).
-  - Saldos de contas podem tornar-se negativos exclusivamente após pagamentos efetivados superiores ao disponível, representados com sinal negativo (ex.: `"-250.00"`).
+  - **Valores Permitidos na Abertura e Correção de Contas:** No cadastro inicial e na correção auditada de abertura de conta bancária, são permitidos valores positivos, zero e negativos (ex.: cheque especial utilizado antes do início do controle ou saldo inicial devedor), respeitando o intervalo $-999.999.999.999,99 \le \text{saldo inicial} \le 999.999.999.999,99$ (em centavos de 64 bits de $-99999999999999$ a $99999999999999$), refletindo exatamente no saldo disponível da conta bancária. Demais valores informados em pagamentos e recebimentos são obrigatoriamente positivos ($> 0$).
+  - Saldos de contas podem tornar-se negativos tanto por saldo de abertura negativo quanto após pagamentos efetivados superiores ao disponível, representados com sinal negativo (ex.: `"-250.00"`, `"-995.98"`).
 
 ---
 
@@ -194,6 +194,18 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
 
 ---
 
+### 2.8. Seleção Explícita de Contas nas Liquidações (AC-FIN-024)
+
+- **AC-FIN-024 [Seleção Explícita Obrigatória de Conta Bancária nas Baixas]:**
+  - Nos fluxos de liquidação de contas a pagar (`PayableActionModal`, `BatchPayableModal`, `PaymentFormScreen`) e de contas a receber (`AgreementActionModal`, `ReceiptFormScreen`), unitários ou em lote:
+    1. O campo de conta bancária inicia obrigatoriamente sem pré-seleção, exibindo o hint orientativo `"Selecione uma conta"`.
+    2. É expressamente proibida a auto-seleção da primeira conta cadastrada da lista, prevenindo débitos ou créditos acidentais na conta bancária errada por desatenção.
+    3. A tentativa de confirmação sem seleção prévia de conta é bloqueada com mensagem de validação clara (`"Selecione uma conta bancária para debitar o pagamento."` / `"Selecione uma conta bancária de destino para o recebimento."`).
+    4. O comportamento é perfeitamente uniforme e consistente entre recebimentos e pagamentos, fluxos individuais e em lote, inclusive quando existir apenas uma única conta cadastrada no espaço ativo.
+    5. Apenas contas ativas e pertencentes ao espaço autenticado são listadas e aceitas na operação.
+
+---
+
 ## 3. Matriz de Rastreabilidade (Spec ↔ Código ↔ Testes)
 
 | Critério | Implementação Backend / Mobile | Testes Automatizados |
@@ -224,3 +236,4 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
 | **AC-PAY-REV-001..006** | `ReversePayment.php`, `PaymentController.php`, `payable_modal.dart`, `payment_fix_screen.dart` | `PayablesTest.php`, `payable_modal_reversal_test.dart` |
 | **AC-PAY-CAT-001..006** | `PayableController.php`, `ChangeObligations.php`, `payable_modal.dart`, `payable_edit_screen.dart` | `PayableCategoryEditTest.php`, `payable_category_edit_widget_test.dart` |
 | **AC-PAY-INT-001..007** | `PayPayable.php`, `Payment.php`, `PaymentController.php`, `payable_modal.dart`, `payment_form_screen.dart` | `domain.php`, `PayableChargesAndDiscountsTest.php`, `payment_charges_widget_test.dart` |
+| **AC-FIN-024** | `payable_modal.dart`, `batch_payable_modal.dart`, `agreement_modal.dart`, `payment_form_screen.dart`, `receipt_form_screen.dart` | `payable_modal_test.dart`, `agreement_modal_test.dart`, `payables_test.dart`, `payable_charges_widget_test.dart` |
