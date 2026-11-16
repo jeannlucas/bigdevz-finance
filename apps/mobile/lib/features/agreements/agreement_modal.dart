@@ -70,15 +70,20 @@ Future<void> showAgreementModal(
           top: Radius.circular(AppTokens.r24),
         ),
       ),
-      builder: (sheetContext) => ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.9,
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
         ),
-        child: _AgreementModalContent(
-          space: space,
-          agreementId: agreementId,
-          initialInstallmentId: initialInstallmentId,
-          onUpdated: onUpdated,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.9,
+          ),
+          child: _AgreementModalContent(
+            space: space,
+            agreementId: agreementId,
+            initialInstallmentId: initialInstallmentId,
+            onUpdated: onUpdated,
+          ),
         ),
       ),
     );
@@ -741,6 +746,7 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
         // Conteúdo rolável com Resumo e Lista de Parcelas
         Flexible(
           child: ListView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             shrinkWrap: true,
             padding: const EdgeInsets.all(AppTokens.p20),
             children: [
@@ -1049,6 +1055,7 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
           child: Form(
             key: _formKey,
             child: ListView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               shrinkWrap: true,
               padding: const EdgeInsets.all(AppTokens.p20),
               children: [
@@ -1375,6 +1382,7 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
           child: Form(
             key: _formKey,
             child: ListView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               shrinkWrap: true,
               padding: const EdgeInsets.all(AppTokens.p20),
               children: [

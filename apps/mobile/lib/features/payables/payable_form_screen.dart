@@ -421,8 +421,19 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
     required bool isModal,
   }) {
     return ListView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       shrinkWrap: isModal,
-      padding: isModal ? EdgeInsets.zero : const EdgeInsets.all(16),
+      padding: isModal
+          ? EdgeInsets.only(
+              bottom: (MediaQuery.viewInsetsOf(context).bottom > 0 ? 32 : 0),
+            )
+          : EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 16,
+              bottom:
+                  16 + (MediaQuery.viewInsetsOf(context).bottom > 0 ? 32 : 0),
+            ),
       children: [
         Align(
           alignment: Alignment.centerLeft,
@@ -579,8 +590,19 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
       key: _form,
       onChanged: () => setState(() {}),
       child: ListView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         shrinkWrap: isModal,
-        padding: isModal ? EdgeInsets.zero : const EdgeInsets.all(16),
+        padding: isModal
+            ? EdgeInsets.only(
+                bottom: (MediaQuery.viewInsetsOf(context).bottom > 0 ? 32 : 0),
+              )
+            : EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom:
+                    16 + (MediaQuery.viewInsetsOf(context).bottom > 0 ? 32 : 0),
+              ),
         children: [
           Align(
             alignment: Alignment.centerLeft,

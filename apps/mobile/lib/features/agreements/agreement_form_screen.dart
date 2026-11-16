@@ -475,7 +475,15 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
               ),
             )
           : ListView(
-              padding: const EdgeInsets.all(AppTokens.p16),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.only(
+                left: AppTokens.p16,
+                right: AppTokens.p16,
+                top: AppTokens.p16,
+                bottom:
+                    AppTokens.p16 +
+                    (MediaQuery.viewInsetsOf(context).bottom > 0 ? 32 : 0),
+              ),
               children: formChildren,
             ),
     );
