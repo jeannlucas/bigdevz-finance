@@ -272,8 +272,9 @@ class _ReceiptFormScreenState extends State<ReceiptFormScreen> {
                 const SizedBox(height: 16),
               ],
               DropdownButtonFormField<int>(
+                isExpanded: true,
                 initialValue: _accountId,
-                hint: const Text('Escolha a conta'),
+                hint: const Text('Selecione uma conta'),
                 decoration: InputDecoration(
                   labelText: 'Conta de destino',
                   errorText: fieldErrors['account_id'],

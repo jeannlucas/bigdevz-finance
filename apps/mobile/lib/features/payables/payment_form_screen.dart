@@ -227,8 +227,9 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                 const SizedBox(height: 16),
               ],
               DropdownButtonFormField<int>(
+                isExpanded: true,
                 initialValue: _accountId,
-                hint: const Text('Escolha a conta'),
+                hint: const Text('Selecione uma conta'),
                 decoration: InputDecoration(
                   labelText: 'Conta de origem',
                   errorText: fieldErrors['account_id'],

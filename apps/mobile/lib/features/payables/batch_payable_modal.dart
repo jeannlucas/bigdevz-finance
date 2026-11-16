@@ -123,9 +123,7 @@ class _BatchPayableModalContentState extends State<_BatchPayableModalContent> {
         final activeAccounts = accounts.where((a) => !a.isArchived).toList();
         setState(() {
           _accounts = activeAccounts;
-          if (activeAccounts.isNotEmpty) {
-            _selectedAccountId = activeAccounts.first.id;
-          }
+          _selectedAccountId = null;
           _loading = false;
         });
       }
@@ -141,7 +139,10 @@ class _BatchPayableModalContentState extends State<_BatchPayableModalContent> {
 
   Future<void> _submit() async {
     if (_selectedAccountId == null) {
-      setState(() => _submitError = 'Selecione uma conta bancária de origem.');
+      setState(
+        () => _submitError =
+            'Selecione uma conta bancária para debitar o pagamento.',
+      );
       return;
     }
 
@@ -151,7 +152,15 @@ class _BatchPayableModalContentState extends State<_BatchPayableModalContent> {
       return;
     }
 
-    final account = _accounts.firstWhere((a) => a.id == _selectedAccountId);
+    final account = _accounts
+        .where((a) => a.id == _selectedAccountId)
+        .firstOrNull;
+    if (account == null) {
+      setState(
+        () => _submitError = 'Selecione uma conta válida do espaço ativo.',
+      );
+      return;
+    }
 
     setState(() {
       _submitting = true;
@@ -429,6 +438,7 @@ class _BatchPayableModalContentState extends State<_BatchPayableModalContent> {
               // Seletor de Conta Bancária
               DropdownButtonFormField<int>(
                 initialValue: _selectedAccountId,
+                hint: const Text('Selecione uma conta'),
                 isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Pagar com qual conta bancária? *',
@@ -446,7 +456,13 @@ class _BatchPayableModalContentState extends State<_BatchPayableModalContent> {
                     .toList(),
                 onChanged: _submitting
                     ? null
-                    : (val) => setState(() => _selectedAccountId = val),
+                    : (val) => setState(() {
+                        _selectedAccountId = val;
+                        _submitError = null;
+                      }),
+                validator: (val) => val == null
+                    ? 'Selecione uma conta bancária para debitar o pagamento.'
+                    : null,
               ),
 
               const SizedBox(height: 16),
@@ -520,27 +536,64 @@ class _BatchPayableModalContentState extends State<_BatchPayableModalContent> {
         const Divider(height: 1),
         Padding(
           padding: const EdgeInsets.all(AppTokens.p16),
-          child: FilledButton.icon(
-            onPressed: _submitting ? null : _submit,
-            style: FilledButton.styleFrom(
-              minimumSize: const Size(double.infinity, 48),
-              backgroundColor: _success ? const Color(0xFF0F8A5F) : dangerColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppTokens.r12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_submitError != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.errorContainer,
+                    borderRadius: BorderRadius.circular(AppTokens.r8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        size: 20,
+                        color: theme.colorScheme.onErrorContainer,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _submitError!,
+                          style: TextStyle(
+                            color: theme.colorScheme.onErrorContainer,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              FilledButton.icon(
+                onPressed: _submitting ? null : _submit,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 48),
+                  backgroundColor: _success
+                      ? const Color(0xFF0F8A5F)
+                      : dangerColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTokens.r12),
+                  ),
+                ),
+                icon: Icon(
+                  _success ? Icons.check_circle_rounded : Icons.payment_rounded,
+                  size: 20,
+                ),
+                label: Text(
+                  _success
+                      ? 'Pagamentos realizados com sucesso!'
+                      : widget.payables.length == 1
+                      ? 'Confirmar pagamento de 1 conta'
+                      : 'Confirmar pagamento de ${widget.payables.length} contas',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
               ),
-            ),
-            icon: Icon(
-              _success ? Icons.check_circle_rounded : Icons.payment_rounded,
-              size: 20,
-            ),
-            label: Text(
-              _success
-                  ? 'Pagamentos realizados com sucesso!'
-                  : widget.payables.length == 1
-                  ? 'Confirmar pagamento de 1 conta'
-                  : 'Confirmar pagamento de ${widget.payables.length} contas',
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
+            ],
           ),
         ),
       ],

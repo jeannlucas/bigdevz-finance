@@ -66,8 +66,16 @@ void main() {
     expect(
       Money.fromInput('-1,00')?.cents,
       100,
-      reason: 'entrada nunca negativa',
+      reason: 'entrada nunca negativa por padrão',
     );
+    expect(
+      Money.fromSignedInput('-1,00')?.cents,
+      -100,
+      reason: 'entrada assinada aceita negativo',
+    );
+    expect(Money.fromSignedInput('-995,98')?.toApi(), '-995.98');
+    expect(Money.fromSignedInput('0,00')?.toApi(), '0.00');
+    expect(Money.fromSignedInput('1.500,50')?.toApi(), '1500.50');
   });
 
   test('lê valores agregados acima de maxCents com exatidão sem float', () {

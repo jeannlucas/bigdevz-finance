@@ -10,10 +10,21 @@ final class Money
 {
     public const MAX_CENTS = 99999999999999;
 
-    public static function toCents(string $decimal): int
+    public static function toCents(string $decimal, bool $allowNegative = false): int
     {
-        if (! preg_match('/\A(0|[1-9][0-9]{0,11})\.([0-9]{2})\z/', $decimal, $parts)) {
+        $pattern = $allowNegative
+            ? '/\A(-?)(0|[1-9][0-9]{0,11})\.([0-9]{2})\z/'
+            : '/\A(0|[1-9][0-9]{0,11})\.([0-9]{2})\z/';
+
+        if (! preg_match($pattern, $decimal, $parts)) {
             throw new InvalidArgumentException('Informe um valor decimal com duas casas dentro do limite permitido.');
+        }
+
+        if ($allowNegative) {
+            $isNegative = $parts[1] === '-';
+            $cents = ((int) $parts[2]) * 100 + (int) $parts[3];
+
+            return $isNegative && $cents > 0 ? -$cents : $cents;
         }
 
         return ((int) $parts[1]) * 100 + (int) $parts[2];

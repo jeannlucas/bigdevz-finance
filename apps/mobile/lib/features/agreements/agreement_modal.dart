@@ -164,7 +164,7 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
       _isBatchMode = true;
       _selectedInstallment = null;
       _selectedDate = DateUtils.dateOnly(DateTime.now());
-      _selectedAccountId = _accounts.isNotEmpty ? _accounts.first.id : null;
+      _selectedAccountId = null;
       _submitError = null;
       _success = false;
     });
@@ -227,7 +227,7 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
             _selectedInstallment = preselected;
             _amountController.text = preselected.remaining.plain;
             _selectedDate = DateUtils.dateOnly(DateTime.now());
-            _selectedAccountId = accounts.isNotEmpty ? accounts.first.id : null;
+            _selectedAccountId = null;
             _submitError = null;
             _success = false;
           }
@@ -248,7 +248,7 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
       _selectedInstallment = installment;
       _amountController.text = installment.remaining.plain;
       _selectedDate = DateUtils.dateOnly(DateTime.now());
-      _selectedAccountId = _accounts.isNotEmpty ? _accounts.first.id : null;
+      _selectedAccountId = null;
       _submitError = null;
       _success = false;
     });
@@ -381,7 +381,10 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
   Future<void> _submitBaixa() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedAccountId == null) {
-      setState(() => _submitError = 'Selecione uma conta bancária de destino.');
+      setState(
+        () => _submitError =
+            'Selecione uma conta bancária de destino para o recebimento.',
+      );
       return;
     }
 
@@ -394,7 +397,15 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
     final installment = _selectedInstallment;
     if (installment == null) return;
 
-    final account = _accounts.firstWhere((a) => a.id == _selectedAccountId);
+    final account = _accounts
+        .where((a) => a.id == _selectedAccountId)
+        .firstOrNull;
+    if (account == null) {
+      setState(
+        () => _submitError = 'Selecione uma conta válida do espaço ativo.',
+      );
+      return;
+    }
 
     final amount = Money.fromInput(_amountController.text.trim());
     if (amount == null || amount.cents <= 0) {
@@ -518,7 +529,10 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
   Future<void> _submitBatchBaixa() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedAccountId == null) {
-      setState(() => _submitError = 'Selecione uma conta bancária de destino.');
+      setState(
+        () => _submitError =
+            'Selecione uma conta bancária de destino para o recebimento.',
+      );
       return;
     }
 
@@ -531,7 +545,15 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
     final installments = _selectedInstallments;
     if (installments.isEmpty) return;
 
-    final account = _accounts.firstWhere((a) => a.id == _selectedAccountId);
+    final account = _accounts
+        .where((a) => a.id == _selectedAccountId)
+        .firstOrNull;
+    if (account == null) {
+      setState(
+        () => _submitError = 'Selecione uma conta válida do espaço ativo.',
+      );
+      return;
+    }
 
     setState(() {
       _submitting = true;
@@ -1155,7 +1177,9 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<int>(
+                  isExpanded: true,
                   initialValue: _selectedAccountId,
+                  hint: const Text('Selecione uma conta'),
                   decoration: InputDecoration(
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(AppTokens.r12),
@@ -1175,7 +1199,9 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
                       ),
                   ],
                   onChanged: (id) => setState(() => _selectedAccountId = id),
-                  validator: (id) => id == null ? 'Selecione a conta' : null,
+                  validator: (id) => id == null
+                      ? 'Selecione uma conta bancária de destino para o recebimento.'
+                      : null,
                 ),
 
                 const SizedBox(height: 16),
@@ -1490,7 +1516,9 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<int>(
+                  isExpanded: true,
                   initialValue: _selectedAccountId,
+                  hint: const Text('Selecione uma conta'),
                   decoration: InputDecoration(
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(AppTokens.r12),
@@ -1510,7 +1538,9 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
                       ),
                   ],
                   onChanged: (id) => setState(() => _selectedAccountId = id),
-                  validator: (id) => id == null ? 'Selecione a conta' : null,
+                  validator: (id) => id == null
+                      ? 'Selecione uma conta bancária de destino para o recebimento.'
+                      : null,
                 ),
 
                 const SizedBox(height: 16),

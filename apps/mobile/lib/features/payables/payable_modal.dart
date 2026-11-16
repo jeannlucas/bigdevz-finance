@@ -194,7 +194,7 @@ class _PayableModalContentState extends State<_PayableModalContent> {
       _discountController.clear();
       _showCharges = false;
       _selectedDate = DateUtils.dateOnly(DateTime.now());
-      _selectedAccountId = _accounts.isNotEmpty ? _accounts.first.id : null;
+      _selectedAccountId = null;
       _submitError = null;
       _success = false;
     });
@@ -1065,7 +1065,8 @@ class _PayableModalContentState extends State<_PayableModalContent> {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedAccountId == null) {
       setState(
-        () => _submitError = 'Selecione uma conta de saída para debitar.',
+        () => _submitError =
+            'Selecione uma conta bancária para debitar o pagamento.',
       );
       return;
     }
@@ -1079,7 +1080,15 @@ class _PayableModalContentState extends State<_PayableModalContent> {
     final payable = _payable;
     if (payable == null) return;
 
-    final account = _accounts.firstWhere((a) => a.id == _selectedAccountId);
+    final account = _accounts
+        .where((a) => a.id == _selectedAccountId)
+        .firstOrNull;
+    if (account == null) {
+      setState(
+        () => _submitError = 'Selecione uma conta válida do espaço ativo.',
+      );
+      return;
+    }
 
     final principal = Money.fromInput(_amountController.text.trim());
     if (principal == null || principal.cents <= 0) {
@@ -2461,7 +2470,9 @@ class _PayableModalContentState extends State<_PayableModalContent> {
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<int>(
+                  isExpanded: true,
                   initialValue: _selectedAccountId,
+                  hint: const Text('Selecione uma conta'),
                   decoration: InputDecoration(
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(AppTokens.r12),
@@ -2481,7 +2492,9 @@ class _PayableModalContentState extends State<_PayableModalContent> {
                       ),
                   ],
                   onChanged: (id) => setState(() => _selectedAccountId = id),
-                  validator: (id) => id == null ? 'Selecione a conta' : null,
+                  validator: (id) => id == null
+                      ? 'Selecione uma conta bancária para debitar o pagamento.'
+                      : null,
                 ),
 
                 const SizedBox(height: 16),

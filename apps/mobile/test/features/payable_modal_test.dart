@@ -217,4 +217,86 @@ void main() {
       expect(find.text('Salvar total da fatura'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'PayableActionModal exige seleção explícita de conta bancária sem pré-seleção',
+    (tester) async {
+      tester.view.physicalSize = const Size(1080, 1920);
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.reset);
+
+      final client = MockClient((request) async {
+        requests.add(request);
+        if (request.url.path.contains('/payables/42')) {
+          return http.Response(jsonEncode(payableResponse), 200);
+        }
+        if (request.url.path.contains('/accounts')) {
+          return http.Response(jsonEncode(accountsResponse), 200);
+        }
+        if (request.url.path.contains('/payments')) {
+          return http.Response(
+            jsonEncode({
+              'data': {
+                'payment': {'id': 1, 'amount': '150.00'},
+                'payable': {'id': 42, 'status': 'paid'},
+                'account': {'id': 10, 'balance': '1350.00'},
+              },
+            }),
+            201,
+          );
+        }
+        return http.Response('{"message": "Not found"}', 404);
+      });
+
+      final api = ApiClient(baseUrl: 'http://api.test/api', client: client);
+
+      await tester.pumpWidget(
+        buildTestWidget(
+          api: api,
+          child: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () =>
+                  showPayableModal(context, space: pf, payableId: 42),
+              child: const Text('Abrir Modal Pagável'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Abrir Modal Pagável'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Registrar pagamento'));
+      await tester.pumpAndSettle();
+
+      // 1. Campo inicia sem conta selecionada exibindo o hint
+      expect(find.text('Selecione uma conta'), findsOneWidget);
+
+      // 2. Tentar confirmar sem selecionar conta exibe mensagem clara
+      await tester.tap(find.text('Confirmar pagamento'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Selecione uma conta bancária para debitar o pagamento.'),
+        findsOneWidget,
+      );
+      expect(requests.where((r) => r.url.path.contains('/payments')), isEmpty);
+
+      // 3. Seleciona a conta no dropdown
+      await tester.tap(find.text('Selecione uma conta'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('NUBANK (R\$ 1.500,00)').last);
+      await tester.pumpAndSettle();
+
+      // 4. Confirma pagamento com sucesso
+      await tester.tap(find.text('Confirmar pagamento'));
+      await tester.pumpAndSettle();
+
+      expect(
+        requests.where((r) => r.url.path.contains('/payments')),
+        isNotEmpty,
+      );
+    },
+  );
 }
