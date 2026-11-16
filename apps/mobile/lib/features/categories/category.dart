@@ -75,6 +75,14 @@ class Category {
       'palette' => Icons.palette_rounded,
       'local_gas_station' => Icons.local_gas_station_rounded,
       'receipt' => Icons.receipt_long_rounded,
+      'receipt_long' => Icons.receipt_long_rounded,
+      'add_circle' => Icons.add_circle_outline_rounded,
+      'more_horiz' => Icons.more_horiz_rounded,
+      'attach_money' => Icons.attach_money_rounded,
+      'payments' => Icons.payments_rounded,
+      'credit_card' => Icons.credit_card_rounded,
+      'savings' => Icons.savings_rounded,
+      'category' => Icons.category_rounded,
       _ => Icons.category_rounded,
     };
   }

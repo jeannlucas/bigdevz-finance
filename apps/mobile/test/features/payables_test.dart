@@ -1032,7 +1032,7 @@ void main() {
         await pump(
           tester,
           const Scaffold(body: PayablesTab(space: pf)),
-          physicalSize: const Size(1200, 1800),
+          physicalSize: const Size(1200, 2400),
         );
         await tester.pumpAndSettle();
 

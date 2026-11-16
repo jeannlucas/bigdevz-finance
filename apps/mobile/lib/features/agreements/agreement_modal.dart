@@ -455,13 +455,26 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
             _success = true;
           });
           widget.onUpdated?.call();
-          await _loadData();
-          await Future.delayed(const Duration(milliseconds: 1000));
-          if (mounted) {
-            setState(() {
-              _selectedInstallment = null;
-              _success = false;
-            });
+          if (widget.initialInstallmentId != null) {
+            await Future.delayed(const Duration(milliseconds: 700));
+            if (mounted) {
+              final messenger = ScaffoldMessenger.of(context);
+              Navigator.of(context).pop();
+              messenger.showSnackBar(
+                const SnackBar(
+                  content: Text('Recebimento registrado com sucesso.'),
+                ),
+              );
+            }
+          } else {
+            await _loadData();
+            await Future.delayed(const Duration(milliseconds: 800));
+            if (mounted) {
+              setState(() {
+                _selectedInstallment = null;
+                _success = false;
+              });
+            }
           }
         }
       }

@@ -104,10 +104,11 @@ class ReceiptReview extends StatelessWidget {
                         children: [
                           _Line(
                             id: 'Acordo',
-                            label: 'Acordo',
+                            label: 'Conta a receber',
                             value: Text(
                               toFinancialUpper(
-                                installment.agreementDescription ?? 'Acordo',
+                                installment.agreementDescription ??
+                                    'Conta a receber',
                               ),
                             ),
                           ),

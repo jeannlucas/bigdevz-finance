@@ -22,6 +22,7 @@ import 'package:bigdevz_finance/features/payables/payables_repository.dart';
 import 'package:bigdevz_finance/features/payables/payables_tab.dart';
 import 'package:bigdevz_finance/ui/financial/financial_desktop_table.dart';
 import 'package:bigdevz_finance/ui/financial/financial_mobile_card.dart';
+import 'package:bigdevz_finance/ui/financial/financial_search_bar.dart';
 
 import '../support/fake_backend.dart';
 import '../support/fake_payables_api.dart';
@@ -101,7 +102,10 @@ void main() {
 
         await tester.pumpWidget(
           wrapWidget(
-            child: const PayablesTab(space: pf),
+            child: const PayablesTab(
+              space: pf,
+              initialPeriod: FinancialPeriodSelection.all(),
+            ),
             client: client,
             size: const Size(1200, 900),
           ),
@@ -189,7 +193,10 @@ void main() {
 
         await tester.pumpWidget(
           wrapWidget(
-            child: const AgreementsTab(space: pf),
+            child: const AgreementsTab(
+              space: pf,
+              initialPeriod: FinancialPeriodSelection.all(),
+            ),
             client: client,
             size: const Size(1200, 900),
           ),
@@ -228,7 +235,10 @@ void main() {
 
         await tester.pumpWidget(
           wrapWidget(
-            child: const PayablesTab(space: pf),
+            child: const PayablesTab(
+              space: pf,
+              initialPeriod: FinancialPeriodSelection.all(),
+            ),
             client: client,
             size: const Size(390, 844),
           ),
@@ -302,7 +312,10 @@ void main() {
 
         await tester.pumpWidget(
           wrapWidget(
-            child: const AgreementsTab(space: pf),
+            child: const AgreementsTab(
+              space: pf,
+              initialPeriod: FinancialPeriodSelection.all(),
+            ),
             client: client,
             size: const Size(390, 844),
           ),
@@ -343,7 +356,10 @@ void main() {
 
         await tester.pumpWidget(
           wrapWidget(
-            child: const PayablesTab(space: pf),
+            child: const PayablesTab(
+              space: pf,
+              initialPeriod: FinancialPeriodSelection.all(),
+            ),
             client: client,
             size: const Size(1200, 800),
           ),
@@ -509,7 +525,10 @@ void main() {
 
         await tester.pumpWidget(
           wrapWidget(
-            child: const AgreementsTab(space: pf),
+            child: const AgreementsTab(
+              space: pf,
+              initialPeriod: FinancialPeriodSelection.all(),
+            ),
             client: client,
             size: const Size(1200, 900),
           ),
@@ -554,7 +573,10 @@ void main() {
 
         await tester.pumpWidget(
           wrapWidget(
-            child: const PayablesTab(space: pf),
+            child: const PayablesTab(
+              space: pf,
+              initialPeriod: FinancialPeriodSelection.all(),
+            ),
             client: client,
             size: const Size(1200, 900),
           ),
@@ -686,7 +708,10 @@ void main() {
 
         await tester.pumpWidget(
           wrapWidget(
-            child: const PayablesTab(space: pf),
+            child: const PayablesTab(
+              space: pf,
+              initialPeriod: FinancialPeriodSelection.all(),
+            ),
             client: client,
             size: const Size(1200, 900),
           ),
@@ -853,7 +878,10 @@ void main() {
 
         await tester.pumpWidget(
           wrapWidget(
-            child: const AgreementsTab(space: pf),
+            child: const AgreementsTab(
+              space: pf,
+              initialPeriod: FinancialPeriodSelection.all(),
+            ),
             client: client,
             size: const Size(1200, 900),
           ),

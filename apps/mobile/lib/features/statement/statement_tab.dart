@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/dates.dart';
 import '../../core/money.dart';
 import '../../core/text_formatters.dart';
-import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
+import '../../ui/financial/financial_search_bar.dart';
 import '../accounts/account.dart';
 import '../accounts/accounts_repository.dart';
 import '../auth/auth_models.dart';
@@ -15,9 +16,10 @@ import 'statement_entry.dart';
 import 'statement_repository.dart';
 
 class StatementTab extends StatefulWidget {
-  const StatementTab({super.key, required this.space});
+  const StatementTab({super.key, required this.space, this.initialPeriod});
 
   final Space space;
+  final FinancialPeriodSelection? initialPeriod;
 
   @override
   State<StatementTab> createState() => _StatementTabState();
@@ -32,10 +34,13 @@ class _StatementTabState extends State<StatementTab> {
   int? _selectedAccountId;
   String _selectedDirection = 'all'; // 'all', 'credit', 'debit'
   int? _selectedCategoryId;
+  late FinancialPeriodSelection _periodSelection;
 
   @override
   void initState() {
     super.initState();
+    _periodSelection =
+        widget.initialPeriod ?? FinancialPeriodSelection.currentMonth();
     _load();
   }
 
@@ -46,6 +51,8 @@ class _StatementTabState extends State<StatementTab> {
       _selectedAccountId = null;
       _selectedDirection = 'all';
       _selectedCategoryId = null;
+      _periodSelection =
+          widget.initialPeriod ?? FinancialPeriodSelection.currentMonth();
       _load();
     }
   }
@@ -64,6 +71,12 @@ class _StatementTabState extends State<StatementTab> {
       final statementFuture = statementRepo.list(
         widget.space.id,
         accountId: _selectedAccountId,
+        from: _periodSelection.startDate != null
+            ? toApiDate(_periodSelection.startDate!)
+            : null,
+        to: _periodSelection.endDate != null
+            ? toApiDate(_periodSelection.endDate!)
+            : null,
         direction: _selectedDirection == 'all' ? null : _selectedDirection,
         categoryId: _selectedCategoryId,
       );
@@ -85,6 +98,22 @@ class _StatementTabState extends State<StatementTab> {
     }
   }
 
+  void _clearFilters() {
+    setState(() {
+      _periodSelection = FinancialPeriodSelection.currentMonth();
+      _selectedDirection = 'all';
+      _selectedAccountId = null;
+      _selectedCategoryId = null;
+    });
+    _load();
+  }
+
+  bool get _hasActiveFilters =>
+      !_periodSelection.isCurrentMonth() ||
+      _selectedDirection != 'all' ||
+      _selectedAccountId != null ||
+      _selectedCategoryId != null;
+
   @override
   Widget build(BuildContext context) {
     final preferences = context.watch<PreferencesController?>();
@@ -92,188 +121,332 @@ class _StatementTabState extends State<StatementTab> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      body: RefreshIndicator(
-        onRefresh: _load,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(AppTokens.p16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1040),
+          child: RefreshIndicator(
+            onRefresh: _load,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppTokens.p16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Extrato',
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
+                        Row(
+                          children: [
+                            Text(
+                              'Extrato',
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const Spacer(),
+                            if (_loading)
+                              const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                          ],
                         ),
-                        const Spacer(),
-                        if (_loading)
-                          const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
+                        const SizedBox(height: AppTokens.p12),
+                        _buildFilters(theme),
+                        if (!_loading && _error == null) ...[
+                          const SizedBox(height: AppTokens.p16),
+                          _buildSummaryCard(theme, obscure),
+                        ],
                       ],
                     ),
-                    const SizedBox(height: AppTokens.p12),
-                    _buildFilters(theme),
-                    if (!_loading && _error == null) ...[
-                      const SizedBox(height: AppTokens.p16),
-                      _buildSummaryCard(theme, obscure),
-                    ],
-                  ],
+                  ),
                 ),
-              ),
+                if (_loading && _entries.isEmpty)
+                  const SliverFillRemaining(
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (_error != null)
+                  SliverFillRemaining(
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(_error!),
+                          const SizedBox(height: AppTokens.p12),
+                          FilledButton.tonal(
+                            onPressed: _load,
+                            child: const Text('Tentar novamente'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else if (_entries.isEmpty)
+                  SliverFillRemaining(
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _hasActiveFilters
+                                ? Icons.filter_list_off_rounded
+                                : Icons.receipt_long_rounded,
+                            size: 48,
+                            color: theme.colorScheme.outline,
+                          ),
+                          const SizedBox(height: AppTokens.p12),
+                          Text(
+                            _hasActiveFilters
+                                ? 'Nenhuma movimentação neste filtro'
+                                : 'Nenhuma movimentação encontrada',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (_hasActiveFilters) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              'Tente outro período ou limpe os filtros ativos.',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            OutlinedButton.icon(
+                              onPressed: _clearFilters,
+                              icon: const Icon(
+                                Icons.clear_all_rounded,
+                                size: 16,
+                              ),
+                              label: const Text('Limpar filtros'),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppTokens.p16,
+                    ),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final entry = _entries[index];
+                        return _StatementTile(entry: entry, obscure: obscure);
+                      }, childCount: _entries.length),
+                    ),
+                  ),
+                const SliverToBoxAdapter(child: SizedBox(height: 80)),
+              ],
             ),
-            if (_loading && _entries.isEmpty)
-              const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_error != null)
-              SliverFillRemaining(
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(_error!),
-                      const SizedBox(height: AppTokens.p12),
-                      FilledButton.tonal(
-                        onPressed: _load,
-                        child: const Text('Tentar novamente'),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else if (_entries.isEmpty)
-              SliverFillRemaining(
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      AppIcon(
-                        AppIcons.receipt,
-                        size: 48,
-                        color: theme.colorScheme.outline,
-                      ),
-                      const SizedBox(height: AppTokens.p12),
-                      Text(
-                        'Nenhuma movimentação encontrada',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: AppTokens.p16),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate((context, index) {
-                    final entry = _entries[index];
-                    return _StatementTile(entry: entry, obscure: obscure);
-                  }, childCount: _entries.length),
-                ),
-              ),
-            const SliverToBoxAdapter(child: SizedBox(height: 80)),
-          ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildFilters(ThemeData theme) {
-    return Wrap(
-      spacing: AppTokens.p8,
-      runSpacing: AppTokens.p8,
-      crossAxisAlignment: WrapCrossAlignment.center,
+    Account? selectedAccount;
+    if (_selectedAccountId != null) {
+      for (final a in _accounts) {
+        if (a.id == _selectedAccountId) {
+          selectedAccount = a;
+          break;
+        }
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Filtro de Direção (Segmented ou Chips)
-        ChoiceChip(
-          label: const Text('Todos'),
-          selected: _selectedDirection == 'all',
-          onSelected: (selected) {
-            if (selected) {
-              setState(() => _selectedDirection = 'all');
+        // Barra de Período Mensal / Personalizado
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: FinancialPeriodBar(
+            selection: _periodSelection,
+            onChanged: (sel) {
+              setState(() => _periodSelection = sel);
               _load();
-            }
-          },
-        ),
-        ChoiceChip(
-          avatar: const Icon(
-            Icons.arrow_downward,
-            size: 14,
-            color: AppTokens.income,
+            },
           ),
-          label: const Text('Entradas'),
-          selected: _selectedDirection == 'credit',
-          onSelected: (selected) {
-            if (selected) {
-              setState(() => _selectedDirection = 'credit');
-              _load();
-            }
-          },
         ),
-        ChoiceChip(
-          avatar: const Icon(
-            Icons.arrow_upward,
-            size: 14,
-            color: AppTokens.expense,
-          ),
-          label: const Text('Saídas'),
-          selected: _selectedDirection == 'debit',
-          onSelected: (selected) {
-            if (selected) {
-              setState(() => _selectedDirection = 'debit');
-              _load();
-            }
-          },
-        ),
-        CategoryFilterChip(
-          spaceId: widget.space.id,
-          selectedCategoryId: _selectedCategoryId,
-          onChanged: (catId) {
-            setState(() => _selectedCategoryId = catId);
-            _load();
-          },
-        ),
-        if (_accounts.isNotEmpty)
-          DropdownButtonHideUnderline(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                border: Border.all(color: theme.colorScheme.outlineVariant),
-                borderRadius: BorderRadius.circular(AppTokens.r8),
-              ),
-              child: DropdownButton<int?>(
-                value: _selectedAccountId,
-                hint: const Text('Todas as contas'),
-                isDense: true,
-                items: [
-                  const DropdownMenuItem<int?>(
-                    value: null,
-                    child: Text('Todas as contas'),
-                  ),
-                  for (final acc in _accounts)
-                    DropdownMenuItem<int?>(
-                      value: acc.id,
-                      child: Text(toFinancialUpper(acc.name)),
-                    ),
-                ],
-                onChanged: (accId) {
-                  setState(() => _selectedAccountId = accId);
+        // Linha de seletores rápidos
+        Wrap(
+          spacing: AppTokens.p8,
+          runSpacing: AppTokens.p8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            // Filtro de Direção (Segmented ou Chips)
+            ChoiceChip(
+              label: const Text('Todos'),
+              selected: _selectedDirection == 'all',
+              onSelected: (selected) {
+                if (selected) {
+                  setState(() => _selectedDirection = 'all');
                   _load();
-                },
-              ),
+                }
+              },
             ),
+            ChoiceChip(
+              avatar: const Icon(
+                Icons.arrow_downward,
+                size: 14,
+                color: AppTokens.income,
+              ),
+              label: const Text('Entradas'),
+              selected: _selectedDirection == 'credit',
+              onSelected: (selected) {
+                if (selected) {
+                  setState(() => _selectedDirection = 'credit');
+                  _load();
+                }
+              },
+            ),
+            ChoiceChip(
+              avatar: const Icon(
+                Icons.arrow_upward,
+                size: 14,
+                color: AppTokens.expense,
+              ),
+              label: const Text('Saídas'),
+              selected: _selectedDirection == 'debit',
+              onSelected: (selected) {
+                if (selected) {
+                  setState(() => _selectedDirection = 'debit');
+                  _load();
+                }
+              },
+            ),
+            CategoryFilterChip(
+              spaceId: widget.space.id,
+              selectedCategoryId: _selectedCategoryId,
+              onChanged: (catId) {
+                setState(() => _selectedCategoryId = catId);
+                _load();
+              },
+            ),
+            if (_accounts.isNotEmpty)
+              DropdownButtonHideUnderline(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: theme.colorScheme.outlineVariant),
+                    borderRadius: BorderRadius.circular(AppTokens.r8),
+                  ),
+                  child: DropdownButton<int?>(
+                    value: _selectedAccountId,
+                    hint: const Text('Todas as contas'),
+                    isDense: true,
+                    items: [
+                      const DropdownMenuItem<int?>(
+                        value: null,
+                        child: Text('Todas as contas'),
+                      ),
+                      for (final acc in _accounts)
+                        DropdownMenuItem<int?>(
+                          value: acc.id,
+                          child: Text(toFinancialUpper(acc.name)),
+                        ),
+                    ],
+                    onChanged: (accId) {
+                      setState(() => _selectedAccountId = accId);
+                      _load();
+                    },
+                  ),
+                ),
+              ),
+          ],
+        ),
+        // Chips de filtros ativos e botão de limpar
+        if (_hasActiveFilters) ...[
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                'Filtros ativos:',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              if (!_periodSelection.isCurrentMonth())
+                InputChip(
+                  avatar: const Icon(Icons.date_range_rounded, size: 14),
+                  label: Text('Período: ${_periodSelection.label}'),
+                  onDeleted: () {
+                    setState(
+                      () => _periodSelection =
+                          FinancialPeriodSelection.currentMonth(),
+                    );
+                    _load();
+                  },
+                  visualDensity: VisualDensity.compact,
+                ),
+              if (_selectedDirection != 'all')
+                InputChip(
+                  avatar: Icon(
+                    _selectedDirection == 'credit'
+                        ? Icons.arrow_downward
+                        : Icons.arrow_upward,
+                    size: 14,
+                    color: _selectedDirection == 'credit'
+                        ? AppTokens.income
+                        : AppTokens.expense,
+                  ),
+                  label: Text(
+                    'Tipo: ${_selectedDirection == 'credit' ? 'Entradas' : 'Saídas'}',
+                  ),
+                  onDeleted: () {
+                    setState(() => _selectedDirection = 'all');
+                    _load();
+                  },
+                  visualDensity: VisualDensity.compact,
+                ),
+              if (selectedAccount != null)
+                InputChip(
+                  avatar: const Icon(
+                    Icons.account_balance_wallet_outlined,
+                    size: 14,
+                  ),
+                  label: Text(
+                    'Conta: ${toFinancialUpper(selectedAccount.name)}',
+                  ),
+                  onDeleted: () {
+                    setState(() => _selectedAccountId = null);
+                    _load();
+                  },
+                  visualDensity: VisualDensity.compact,
+                ),
+              if (_selectedCategoryId != null)
+                InputChip(
+                  avatar: const Icon(Icons.category_rounded, size: 14),
+                  label: const Text('Categoria filtrada'),
+                  onDeleted: () {
+                    setState(() => _selectedCategoryId = null);
+                    _load();
+                  },
+                  visualDensity: VisualDensity.compact,
+                ),
+              ActionChip(
+                avatar: const Icon(Icons.clear_all_rounded, size: 14),
+                label: const Text('Limpar filtros'),
+                onPressed: _clearFilters,
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
           ),
+        ],
       ],
     );
   }
@@ -448,7 +621,7 @@ class _StatementTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${toFinancialUpper(entry.accountName)} • ${entry.effectiveDate}',
+                  '${toFinancialUpper(entry.accountName)} • ${formatDateBr(entry.effectiveDate)}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),

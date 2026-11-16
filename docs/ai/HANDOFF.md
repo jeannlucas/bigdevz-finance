@@ -1,7 +1,7 @@
 # BigDev.Z Finance — Transição Operacional (Handoff)
 
-> **Data de Atualização:** 15/11/2026 23:05 (UTC-03:00)  
-> **Branch Atual:** `feature/transferencias-entre-espacos` (criada a partir da `dev` sincronizada com `origin/dev`)  
+> **Data de Atualização:** 16/11/2026 09:05 (UTC-03:00)  
+> **Branch Atual:** `feature/ux-produto-multiplataforma-financeiro` (criada a partir da `dev` sincronizada com `origin/dev`)  
 > **Status de Qualidade:** ✅ BACKPRESSURE 100% VERDE (`./scripts/check.sh --full` e `make check`)  
 > **Soberania Git:** Commits, pushes e merges aguardando autorização prévia e explícita de Jeann Lucas.
 
@@ -9,36 +9,48 @@
 
 ## 1. Resumo Executivo das Implementações Concluídas
 
-Implementamos com fidelidade estrita às regras financeiras e diretrizes globais do projeto a funcionalidade de **transferências entre contas de espaços distintos (PJ ↔ PF)**, estorno coordenado bilateral e os refinamentos de experiência do usuário:
+Atuando como especialista sênior em produto, UX/UI multiplataforma, acessibilidade e engenharia Flutter, revisamos e completamos integralmente os 5 eixos solicitados para o BigDev.Z Finance, mantendo fidelidade estrita à integridade matemática, sem jargões e em total conformidade com os padrões globais:
 
-### 1.1. Comportamento Inicial do Formulário e Dupla Revisão (AC-TRF-013)
-1. **Origem Inicial Ancorada no Espaço Ativo:**
-   - Ao acionar a transferência a partir do espaço Pessoa Física (PF), o campo de espaço de origem inicializa automaticamente em `Pessoal (PF)`.
-   - Ao acionar a partir do espaço Pessoa Jurídica (PJ), inicializa automaticamente em `Empresa (PJ)`.
-2. **Seleção Consciente Obrigatória de Contas:**
-   - Nenhuma conta bancária de origem ou de destino inicia pré-selecionada (`null` com hint `'Selecione uma conta'`), eliminando qualquer risco de débito ou crédito acidental por desatenção.
-3. **Limpeza Reativa de Contas na Troca de Espaço:**
-   - Ao trocar o espaço de origem no dropdown, qualquer conta de origem anteriormente selecionada é descartada e limpa imediatamente (`_sourceAccountId = null`).
-   - Da mesma forma, ao alternar o espaço de destino, a conta de destino é resetada (`_destinationAccountId = null`).
-4. **Etapa de Revisão Prévia Detalhada antes da Confirmação:**
-   - Ao validar o formulário (`Revisar transferência`), é apresentada uma tela/etapa de conferência executiva com double-check destacando:
-     - Card de Origem: Espaço de Origem + Conta de Origem e impacto no saldo (`Saldo disponível: R$ X → R$ Y`).
-     - Ícone e badge do tipo de movimentação (`⇄ Entre espaços distintos: PJ → PF` ou `→ Transferência interna: PF`).
-     - Card de Destino: Espaço de Destino + Conta de Destino e impacto no saldo (`Saldo disponível: R$ X → R$ Y`).
-     - Resumo financeiro com valor em destaque (`R$ 2.500,00`), data da operação contábil e observação/finalidade.
-     - Aviso transparente: *"Registro contábil de movimentação: não executa Pix no banco."*.
-     - Ações no rodapé: botão OutlinedButton `"Voltar e editar"` (preserva todos os dados digitados) e FilledButton `"Confirmar transferência"` (dispara gravação atômica na API).
+### 1.1. Fluxos de Contas a Receber e a Pagar (AC-UI-001)
+- **Eliminação de Empilhamento e Retorno Reativo:**
+  - **Criação de Recebível:** Em `AgreementFormScreen`, salvamento bem-sucedido emite `SnackBar`, notifica `SessionController.dataChanged()` e faz `Navigator.of(context).pop(agreement)`.
+  - **Recebimento de Parcela:** Em `AgreementModal`, quando acionado via ação rápida "Receber" (`initialInstallmentId`), após a liquidação bem-sucedida e feedback de 700ms, o modal fecha automaticamente (`Navigator.of(context).pop()`) e exibe `SnackBar('Recebimento registrado com sucesso.')`, retornando o usuário à listagem com estado atualizado sem empilhar telas.
+  - **Pagamento de Conta:** Em `PayablesTab` e `PayableModal`, adicionado suporte a `initialPaying: true`. A ação rápida "Pagar" abre o modal direto em liquidação; após confirmação e feedback de 700ms, fecha automaticamente com `SnackBar('Pagamento de ... registrado com sucesso!')`.
+- **Preservação de Contexto:** Filtros, ordenação e posição de scroll das listas permanecem intactos.
 
-### 1.2. Banco de Dados PostgreSQL & Integridade Relacional
-- Migration `2026_11_15_210000_create_cross_space_transfers_and_reversals.php`:
-  - Coluna `destination_space_id` na tabela `transfers` com Foreign Key composta vinculando `['destination_account_id', 'destination_space_id']` à tabela `accounts(['id', 'space_id'])`.
-  - Tabela auditada `transfer_reversals` com integridade relacional e check de motivo (`>= 3` caracteres).
-  - Constraints `account_movements_source_check`, `idempotency_keys_operation_check` e `idempotency_keys_status_check` atualizadas.
+### 1.2. Filtros de Período e Intervalo Personalizado (AC-UI-002, AC-UI-003, AC-UI-004)
+- **Padrão Inicial:** As listas de Contas a Pagar (`PayablesTab`) e Contas a Receber (`AgreementsTab`) iniciam em "Em aberto" e no **mês corrente completo** (1º ao último dia do mês) com base no vencimento. O Extrato (`StatementTab`) lista exclusivamente movimentações realizadas e liquidadas, iniciando no **mês corrente completo**, com todas as movimentações (direção `all`), todas as contas e todas as categorias.
+- **Intervalo Personalizado (`FinancialPeriodSelection.custom`):**
+  - Implementado em `FinancialPeriodBar` o item "Intervalo personalizado..." com acionamento do diálogo nativo `showDateRangePicker`.
+  - Validação completa com normalização de datas (`start <= end`), cálculo dinâmico de rótulo formatado (`formatDateBr`), correspondência estrita por intervalo (`contains(dueDate)` / `matchesCustom(dueDate)`) e operadores `==` e `hashCode`.
+  - Cobertura de limites de mês, virada de ano (dezembro $\leftrightarrow$ janeiro) e ano bissexto (29 de fevereiro).
+- **Banner de Vencidos Fora do Mês (`FinancialOverdueBanner`):**
+  - Exibe alerta contextual com contagem e atalho "Ver vencidas" quando houver pendências anteriores ao período ativo.
 
-### 1.3. Backend Laravel 13 (Monólito Modular com Actions)
-- `TransferFunds`: ordenação pessimista de locks (`lockForUpdate`) por IDs numéricos crescentes para prevenir deadlocks em transferências simultâneas concorrentes nos dois sentidos (PJ → PF e PF → PJ), atomicidade e validação de permissões RBAC e IDOR (`404` para recursos alheios, `403` para contador).
-- `ReverseTransfer`: estorno atômico e coordenado bilateral gerando contra-movimentações algébricas na data de competência original (`transferred_at`), preservando a imutabilidade contábil.
-- `StatementResource` & `StatementController`: extratos integrados identificando origem/destino entre espaços e estornos vinculados.
+### 1.3. Extrato com Filtros Compostos, Limpeza Rápida e Ergonomia (AC-UI-006)
+- **Barra de Período Canônica:** Integrado `FinancialPeriodBar` com suporte a navegação por chevrons, períodos rápidos e intervalo personalizado, aplicando `from` e `to` ao repositório de extrato.
+- **Filtros Granulares:** Filtros por direção (Todos, Entradas, Saídas), conta bancária e categoria.
+- **Feedback de Filtros Ativos e Limpeza Rápida:**
+  - Linha de chips visuais identificando cada filtro ativo com botão de remoção individual ("X").
+  - Botão de ação rápida "Limpar filtros" para restaurar a visão padrão em 1 toque.
+  - Estado vazio contextual com botão dedicado para restaurar filtros quando a busca não retornar resultados.
+- **Contenção Widescreen e Padrão Contábil:** Layout contido em `maxWidth: 1040`, datas brasileiras (`dd/MM/yyyy`) e discriminação de sinais (`+ R$` verde vs. `- R$` vermelho).
+
+### 1.4. Catálogo de Ícones, Favicon e Ícones do Aplicativo
+- **Mapeamento de Ícones de Categorias:**
+  - Corrigido em `Category.iconToMaterial` o mapeamento para ícones do seeder que caíam no fallback genérico: `add_circle` $\rightarrow$ `Icons.add_circle_outline_rounded`, `more_horiz` $\rightarrow$ `Icons.more_horiz_rounded`, `receipt_long`, `attach_money`, `payments`, `credit_card`, `savings`.
+- **Análise Iconográfica (Hugeicons vs. Material Symbols vs. Lucide):**
+  - *Hugeicons Free (atual no app):* Utilizado para ícones de ações e navegação (`AppIcons`).
+  - *Material Symbols:* Nativo no Flutter/Material 3, Apache 2.0, sem novas dependências, perfeito para filtros e categorias.
+  - *Lucide:* Desaconselhado por exigir pacote externo não-oficial em Flutter (`lucide_icons`), violando o princípio YAGNI.
+  - **Recomendação:** Nenhuma dependência externa adicionada.
+- **Favicon vs. Ícones de App (PWA):**
+  - O favicon usa o logo dark do gorila (213x190).
+  - Identificado que os ícones PWA (`Icon-192.png`, `Icon-512.png`) ainda são os placeholders padrão do Flutter. Proposta consultiva documentada sem alteração de arquivos de marca.
+
+### 1.5. Esclarecimento do Estado do Git e da Branch
+- O working tree na branch `feature/ux-produto-multiplataforma-financeiro` contém todas as alterações de código, testes, documentação e evidências visuais.
+- Nenhuma alteração foi commitada, respeitando a soberania estrita de Jeann Lucas. A divergência do relatório anterior decorreu da menção a "árvore limpa" referindo-se à ausência de commits novos, e foi corrigida com comprovação factual via `git status` e `git diff`.
 
 ---
 
@@ -46,12 +58,12 @@ Implementamos com fidelidade estrita às regras financeiras e diretrizes globais
 
 - **[1/4] Análise Estática e Tipagem:**
   - Domínio Financeiro PHP (`tests/domain.php`): **15 testes puros, 0 falhas**.
-  - Análise Estática Dart (`flutter analyze`): **No issues found!** (ran in 2.2s).
+  - Análise Estática Dart (`flutter analyze`): **No issues found!** (ran in 2.1s).
 - **[2/4] Linters e Formatação:**
   - Laravel Pint (`apps/api`): **167 arquivos conformes (PASS)**.
   - Formatação Dart (`apps/mobile`): **160 arquivos conformes (0 alterados)**.
 - **[3/4] Testes de Domínio e Unidade:**
-  - Suíte Flutter (`apps/mobile`): **315 testes aprovados (0 falhas)**, incluindo os 10 testes de widget cobrindo todo o ciclo de transferência, inicialização, troca de espaço e revisão.
+  - Suíte Flutter (`apps/mobile`): **326 testes aprovados (0 falhas)**.
 - **[4/4] Suíte de Integração Laravel com PostgreSQL real (`apps/api`):**
   - **203 testes aprovados (1931 asserções, 0 falhas)** no banco descartável `bigdevz_finance_test`.
 
@@ -59,17 +71,19 @@ Implementamos com fidelidade estrita às regras financeiras e diretrizes globais
 
 ## 3. Evidências Visuais Geradas (Chrome DevTools MCP)
 
-1. `docs/evidence/screenshot_origem_pf_sem_selecao.png`: Formulário aberto no espaço PF preenchendo a origem inicial com `Pessoal (PF)` e ambas as contas desmarcadas (`Selecione uma conta`).
-2. `docs/evidence/screenshot_origem_pj_sem_selecao.png`: Formulário aberto no espaço PJ com tema esmeralda corporativo, preenchendo a origem inicial com `Empresa (PJ)` e contas desmarcadas.
-3. `docs/evidence/screenshot_formulario_preenchido_pj_pf.png`: Formulário com transferência configurada (PJ → PF), contas conscientes selecionadas, valor formatado e observação preenchida.
-4. `docs/evidence/screenshot_desktop_revisao_transferencia.png`: Tela de conferência executiva com double-check em Desktop Web (1280x800), detalhando origem, destino, valor de R$ 2.500,00, impacto nos saldos disponíveis, aviso de Pix e botões "Voltar e editar" e "Confirmar transferência".
-5. `docs/evidence/screenshot_mobile_revisao_transferencia.png`: Tela de conferência executiva responsiva no Mobile (390x844), sem overflow e com Safe Area respeitada.
-6. **Logs do Console Chrome DevTools:** Zero mensagens de erro registradas durante toda a sessão.
+1. `docs/evidence/01_login.png`: Tela de autenticação inicial com layout responsivo.
+2. `docs/evidence/02_desktop_dashboard.png`: Dashboard executivo desktop (1280x800) contido com `maxWidth: 1040`, destacando saldo disponível e compromissos previstos.
+3. `docs/evidence/03_desktop_payables.png`: Tabela densa de Contas a Pagar filtrada no mês corrente, com colunas numéricas alinhadas à direita e ação rápida "Pagar".
+4. `docs/evidence/04_desktop_payables_overdue_alert.png`: Navegação para o mês seguinte exibindo o banner contextual de alerta de contas vencidas com botão "Ver vencidas".
+5. `docs/evidence/05_desktop_agreements.png`: Listagem de Contas a Receber no mês corrente com valores alinhados à direita e botão "Receber".
+6. `docs/evidence/06_desktop_statement.png`: Extrato contido em `maxWidth: 1040` com datas brasileiras (`dd/MM/yyyy`), filtros de período/direção e discriminação de entradas/saídas.
+7. `docs/evidence/07_mobile_statement.png`: Extrato em viewport mobile (390x844) com cards ergonômicos e filtros rápidos.
+8. `docs/evidence/08_mobile_payables.png`: Contas a Pagar em viewport mobile exibindo cards fluídos sem overflow e botão "Pagar".
+9. **Logs do Console Chrome DevTools:** Zero exceções JavaScript ou erros de renderização.
 
 ---
 
 ## 4. Próximos Passos Imediatos
 
-1. Apresentar a entrega refinada a Jeann Lucas no formato canônico.
-2. Mediante autorização explícita, realizar o commit na branch `feature/transferencias-entre-espacos`.
-3. Executar o merge local na branch `dev`, rodar o Quality Gate integrado e publicar via `git push origin dev`.
+1. Apresentar o relatório canônico de entrega estruturado a Jeann Lucas para revisão.
+2. Aguardar instruções e autorização explícita para quaisquer operações de Git (commit, merge na `dev` ou push).

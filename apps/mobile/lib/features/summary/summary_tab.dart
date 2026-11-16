@@ -75,139 +75,148 @@ class _SummaryTabState extends State<SummaryTab> {
 
         return RefreshIndicator(
           onRefresh: refresh,
-          child: ListView(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppTokens.p16,
-              vertical: AppTokens.p16,
-            ),
-            children: [
-              // Cabeçalho acolhedor com saudação, contexto de espaço e chip semântico
-              _DashboardHeader(
-                space: space,
-                accountsCount: summary.accountsCount,
-              ),
-              const SizedBox(height: 14),
-
-              // Cartão Master de Saldo Disponível (Hero Fintech Card)
-              _BalanceHeroCard(
-                space: space,
-                summary: summary,
-                obscureBalance: obscureBalance,
-                isDark: isDark,
-                onToggleVisibility: () {
-                  if (preferences != null) {
-                    preferences.togglePrivacy();
-                  } else {
-                    setState(() {
-                      _localObscureBalance = !_localObscureBalance;
-                    });
-                  }
-                },
-              ),
-              const SizedBox(height: 18),
-
-              // Grid de Ações Rápidas (Navegação contextual direta para funcionalidades existentes)
-              _QuickActionsSection(space: space, onOpenTab: widget.onOpenTab),
-              const SizedBox(height: 18),
-
-              // Métricas em Destaque: A Receber (Previsto vs Realizado)
-              Text(
-                'Recebimentos',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: isDark
-                      ? AppTokens.darkTextPrimary
-                      : AppTokens.lightTextPrimary,
-                  letterSpacing: -0.2,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1040),
+              child: ListView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTokens.p16,
+                  vertical: AppTokens.p16,
                 ),
-              ),
-              const SizedBox(height: 10),
-              Row(
                 children: [
-                  Expanded(
-                    child: _FintechMetricCard(
-                      label: 'A receber (previsto)',
-                      value: summary.receivableRemaining,
-                      obscure: obscureBalance,
-                      icon: AppIcons.clock,
-                      accentColor: space.isPf
-                          ? AppTokens.brandPrimary
-                          : AppTokens.pjSeed,
-                      onTap: () => widget.onOpenTab(1, filter: 'open'),
+                  // Cabeçalho acolhedor com saudação, contexto de espaço e chip semântico
+                  _DashboardHeader(
+                    space: space,
+                    accountsCount: summary.accountsCount,
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Cartão Master de Saldo Disponível (Hero Fintech Card)
+                  _BalanceHeroCard(
+                    space: space,
+                    summary: summary,
+                    obscureBalance: obscureBalance,
+                    isDark: isDark,
+                    onToggleVisibility: () {
+                      if (preferences != null) {
+                        preferences.togglePrivacy();
+                      } else {
+                        setState(() {
+                          _localObscureBalance = !_localObscureBalance;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Grid de Ações Rápidas (Navegação contextual direta para funcionalidades existentes)
+                  _QuickActionsSection(
+                    space: space,
+                    onOpenTab: widget.onOpenTab,
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Métricas em Destaque: A Receber (Previsto vs Realizado)
+                  Text(
+                    'Recebimentos',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: isDark
+                          ? AppTokens.darkTextPrimary
+                          : AppTokens.lightTextPrimary,
+                      letterSpacing: -0.2,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _FintechMetricCard(
-                      label: 'Já recebido',
-                      value: summary.receivedTotal,
-                      obscure: obscureBalance,
-                      icon: AppIcons.check,
-                      accentColor: AppTokens.income,
-                      onTap: () => widget.onOpenTab(1, filter: 'all'),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _FintechMetricCard(
+                          label: 'A receber (previsto)',
+                          value: summary.receivableRemaining,
+                          obscure: obscureBalance,
+                          icon: AppIcons.clock,
+                          accentColor: space.isPf
+                              ? AppTokens.brandPrimary
+                              : AppTokens.pjSeed,
+                          onTap: () => widget.onOpenTab(1, filter: 'open'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _FintechMetricCard(
+                          label: 'Já recebido',
+                          value: summary.receivedTotal,
+                          obscure: obscureBalance,
+                          icon: AppIcons.check,
+                          accentColor: AppTokens.income,
+                          onTap: () => widget.onOpenTab(1, filter: 'all'),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Alerta contextual caso existam parcelas vencidas a receber
+                  if (summary.overdueInstallments > 0) ...[
+                    const SizedBox(height: 12),
+                    _OverdueAlertBanner(
+                      count: summary.overdueInstallments,
+                      isDark: isDark,
+                      onTap: () => widget.onOpenTab(1, filter: 'overdue'),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+
+                  // Seção de Obrigações Financeiras: A Pagar (Previsto vs Realizado)
+                  Text(
+                    'Compromissos a Pagar',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: isDark
+                          ? AppTokens.darkTextPrimary
+                          : AppTokens.lightTextPrimary,
+                      letterSpacing: -0.2,
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  _ModernPayablesCard(
+                    payables: summary.payables,
+                    obscure: obscureBalance,
+                    isDark: isDark,
+                    onTap: () => widget.onOpenTab(2),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Card de Acesso à Carteira de Contas
+                  _AccountsAccessCard(
+                    accountsCount: summary.accountsCount,
+                    archivedCount: summary.archivedAccountsCount,
+                    isDark: isDark,
+                    space: space,
+                    onTap: () {
+                      if (summary.accountsCount == 0) {
+                        showAccountFormModal(context, space: space);
+                      } else {
+                        widget.onOpenTab(3);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Gráficos e Inteligência Visual Executiva (Donut de Bancos + Fluxo de Caixa)
+                  ExecutiveDashboardCharts(
+                    summary: summary,
+                    accounts: accounts,
+                    obscure: obscureBalance,
+                    onOpenAccounts: () => widget.onOpenTab(3),
+                    onOpenReceivables: () =>
+                        widget.onOpenTab(1, filter: 'open'),
+                    onOpenPayables: () => widget.onOpenTab(2, filter: 'open'),
+                  ),
+                  const SizedBox(height: 24),
                 ],
               ),
-
-              // Alerta contextual caso existam parcelas vencidas a receber
-              if (summary.overdueInstallments > 0) ...[
-                const SizedBox(height: 12),
-                _OverdueAlertBanner(
-                  count: summary.overdueInstallments,
-                  isDark: isDark,
-                  onTap: () => widget.onOpenTab(1, filter: 'overdue'),
-                ),
-              ],
-              const SizedBox(height: 20),
-
-              // Seção de Obrigações Financeiras: A Pagar (Previsto vs Realizado)
-              Text(
-                'Compromissos a Pagar',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: isDark
-                      ? AppTokens.darkTextPrimary
-                      : AppTokens.lightTextPrimary,
-                  letterSpacing: -0.2,
-                ),
-              ),
-              const SizedBox(height: 10),
-              _ModernPayablesCard(
-                payables: summary.payables,
-                obscure: obscureBalance,
-                isDark: isDark,
-                onTap: () => widget.onOpenTab(2),
-              ),
-              const SizedBox(height: 20),
-
-              // Card de Acesso à Carteira de Contas
-              _AccountsAccessCard(
-                accountsCount: summary.accountsCount,
-                archivedCount: summary.archivedAccountsCount,
-                isDark: isDark,
-                space: space,
-                onTap: () {
-                  if (summary.accountsCount == 0) {
-                    showAccountFormModal(context, space: space);
-                  } else {
-                    widget.onOpenTab(3);
-                  }
-                },
-              ),
-              const SizedBox(height: 20),
-
-              // Gráficos e Inteligência Visual Executiva (Donut de Bancos + Fluxo de Caixa)
-              ExecutiveDashboardCharts(
-                summary: summary,
-                accounts: accounts,
-                obscure: obscureBalance,
-                onOpenAccounts: () => widget.onOpenTab(3),
-                onOpenReceivables: () => widget.onOpenTab(1, filter: 'open'),
-                onOpenPayables: () => widget.onOpenTab(2, filter: 'open'),
-              ),
-              const SizedBox(height: 24),
-            ],
+            ),
           ),
         );
       },

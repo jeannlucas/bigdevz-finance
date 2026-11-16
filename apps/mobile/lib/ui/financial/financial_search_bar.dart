@@ -20,7 +20,7 @@ enum FinancialSortOption {
   final IconData icon;
 }
 
-/// Opções de filtro por período de vencimento.
+/// Opções de filtro por período de vencimento (legado).
 enum FinancialPeriodFilter {
   all('Todos os períodos'),
   overdue('Vencidas'),
@@ -33,6 +33,225 @@ enum FinancialPeriodFilter {
   const FinancialPeriodFilter(this.label);
 
   final String label;
+}
+
+const List<String> _monthNamesPtBr = [
+  '',
+  'Janeiro',
+  'Fevereiro',
+  'Março',
+  'Abril',
+  'Maio',
+  'Junho',
+  'Julho',
+  'Agosto',
+  'Setembro',
+  'Outubro',
+  'Novembro',
+  'Dezembro',
+];
+
+/// Formata uma data no formato "Mês de AAAA" em português do Brasil (ex.: "Novembro de 2026").
+String formatMonthYearBr(DateTime date) {
+  final m = (date.month >= 1 && date.month <= 12)
+      ? _monthNamesPtBr[date.month]
+      : '';
+  return '$m de ${date.year}';
+}
+
+/// Tipos de seleção de período financeiro.
+enum FinancialPeriodType {
+  month,
+  overdue,
+  all,
+  today,
+  next7Days,
+  next30Days,
+  custom,
+}
+
+/// Representa a seleção temporal ativa na agenda financeira.
+///
+/// Permite filtrar por mês específico com navegação (mês anterior/próximo),
+/// visualizar apenas vencidas, exibir todos os períodos ou intervalo personalizado.
+class FinancialPeriodSelection {
+  const FinancialPeriodSelection({
+    required this.type,
+    this.referenceMonth,
+    this.customStartDate,
+    this.customEndDate,
+  });
+
+  /// Inicia no mês corrente completo (1º ao último dia do mês corrente).
+  factory FinancialPeriodSelection.currentMonth([DateTime? now]) {
+    final n = now ?? DateTime.now();
+    return FinancialPeriodSelection(
+      type: FinancialPeriodType.month,
+      referenceMonth: DateTime(n.year, n.month, 1),
+    );
+  }
+
+  /// Seleção de um mês específico pelo ano e mês.
+  factory FinancialPeriodSelection.month(int year, int month) {
+    return FinancialPeriodSelection(
+      type: FinancialPeriodType.month,
+      referenceMonth: DateTime(year, month, 1),
+    );
+  }
+
+  /// Seleção exclusiva de contas vencidas.
+  const FinancialPeriodSelection.overdue()
+    : type = FinancialPeriodType.overdue,
+      referenceMonth = null,
+      customStartDate = null,
+      customEndDate = null;
+
+  /// Exibir todas as contas sem restrição de período.
+  const FinancialPeriodSelection.all()
+    : type = FinancialPeriodType.all,
+      referenceMonth = null,
+      customStartDate = null,
+      customEndDate = null;
+
+  /// Seleção de intervalo personalizado com validação de datas.
+  factory FinancialPeriodSelection.custom(DateTime start, DateTime end) {
+    final s = DateUtils.dateOnly(start);
+    final e = DateUtils.dateOnly(end);
+    final validStart = s.isAfter(e) ? e : s;
+    final validEnd = s.isAfter(e) ? s : e;
+    return FinancialPeriodSelection(
+      type: FinancialPeriodType.custom,
+      customStartDate: validStart,
+      customEndDate: validEnd,
+    );
+  }
+
+  final FinancialPeriodType type;
+  final DateTime? referenceMonth;
+  final DateTime? customStartDate;
+  final DateTime? customEndDate;
+
+  DateTime? get startDate {
+    if (type == FinancialPeriodType.custom) {
+      return customStartDate;
+    }
+    if (type != FinancialPeriodType.month || referenceMonth == null) {
+      return null;
+    }
+    return DateTime(referenceMonth!.year, referenceMonth!.month, 1);
+  }
+
+  DateTime? get endDate {
+    if (type == FinancialPeriodType.custom) {
+      return customEndDate;
+    }
+    if (type != FinancialPeriodType.month || referenceMonth == null) {
+      return null;
+    }
+    return DateTime(referenceMonth!.year, referenceMonth!.month + 1, 0);
+  }
+
+  String get label {
+    switch (type) {
+      case FinancialPeriodType.month:
+        return referenceMonth != null
+            ? formatMonthYearBr(referenceMonth!)
+            : 'Mês corrente';
+      case FinancialPeriodType.overdue:
+        return 'Vencidas';
+      case FinancialPeriodType.all:
+        return 'Todos os períodos';
+      case FinancialPeriodType.today:
+        return 'Hoje';
+      case FinancialPeriodType.next7Days:
+        return 'Próximos 7 dias';
+      case FinancialPeriodType.next30Days:
+        return 'Próximos 30 dias';
+      case FinancialPeriodType.custom:
+        if (customStartDate != null && customEndDate != null) {
+          return '${formatDateBr(toApiDate(customStartDate!))} a ${formatDateBr(toApiDate(customEndDate!))}';
+        }
+        return 'Intervalo personalizado';
+    }
+  }
+
+  bool isCurrentMonth([DateTime? now]) {
+    if (type != FinancialPeriodType.month || referenceMonth == null) {
+      return false;
+    }
+    final n = now ?? DateTime.now();
+    return referenceMonth!.year == n.year && referenceMonth!.month == n.month;
+  }
+
+  FinancialPeriodSelection nextMonth() {
+    final base = referenceMonth ?? DateTime.now();
+    return FinancialPeriodSelection.month(base.year, base.month + 1);
+  }
+
+  FinancialPeriodSelection previousMonth() {
+    final base = referenceMonth ?? DateTime.now();
+    return FinancialPeriodSelection.month(base.year, base.month - 1);
+  }
+
+  bool matches(String dueDateStr, [DateTime? now]) {
+    if (type == FinancialPeriodType.all) return true;
+    final n = now ?? DateTime.now();
+    final today = DateTime(n.year, n.month, n.day);
+    final due = parseApiDate(dueDateStr);
+    final dueDate = DateTime(due.year, due.month, due.day);
+
+    switch (type) {
+      case FinancialPeriodType.all:
+        return true;
+      case FinancialPeriodType.overdue:
+        return dueDate.isBefore(today);
+      case FinancialPeriodType.today:
+        return dueDate.isAtSameMomentAs(today);
+      case FinancialPeriodType.next7Days:
+        final in7 = today.add(const Duration(days: 7));
+        return !dueDate.isBefore(today) && !dueDate.isAfter(in7);
+      case FinancialPeriodType.next30Days:
+        final in30 = today.add(const Duration(days: 30));
+        return !dueDate.isBefore(today) && !dueDate.isAfter(in30);
+      case FinancialPeriodType.month:
+        final ref = referenceMonth ?? today;
+        final startOfMonth = DateTime(ref.year, ref.month, 1);
+        final endOfMonth = DateTime(ref.year, ref.month + 1, 0);
+        return !dueDate.isBefore(startOfMonth) && !dueDate.isAfter(endOfMonth);
+      case FinancialPeriodType.custom:
+        final start = customStartDate != null
+            ? DateUtils.dateOnly(customStartDate!)
+            : null;
+        final end = customEndDate != null
+            ? DateUtils.dateOnly(customEndDate!)
+            : null;
+        if (start != null && dueDate.isBefore(start)) return false;
+        if (end != null && dueDate.isAfter(end)) return false;
+        return true;
+    }
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FinancialPeriodSelection &&
+          runtimeType == other.runtimeType &&
+          type == other.type &&
+          (type != FinancialPeriodType.month ||
+              (referenceMonth?.year == other.referenceMonth?.year &&
+                  referenceMonth?.month == other.referenceMonth?.month)) &&
+          (type != FinancialPeriodType.custom ||
+              (customStartDate == other.customStartDate &&
+                  customEndDate == other.customEndDate));
+
+  @override
+  int get hashCode => Object.hash(
+    type,
+    type == FinancialPeriodType.month ? referenceMonth?.year : null,
+    type == FinancialPeriodType.month ? referenceMonth?.month : null,
+    type == FinancialPeriodType.custom ? customStartDate : null,
+    type == FinancialPeriodType.custom ? customEndDate : null,
+  );
 }
 
 /// Determina se uma data de vencimento atende ao filtro de período.
@@ -151,6 +370,7 @@ List<T> filterAndSortFinancialItems<T extends FinancialItemView>(
   String? query,
   FinancialSortOption sort = FinancialSortOption.dueDateAsc,
   FinancialPeriodFilter period = FinancialPeriodFilter.all,
+  FinancialPeriodSelection? periodSelection,
   int? categoryId,
   DateTime? now,
 }) {
@@ -173,7 +393,9 @@ List<T> filterAndSortFinancialItems<T extends FinancialItemView>(
     }
 
     // 2. Filtro de período
-    if (period != FinancialPeriodFilter.all) {
+    if (periodSelection != null) {
+      if (!periodSelection.matches(item.dueDate, n)) return false;
+    } else if (period != FinancialPeriodFilter.all) {
       if (!matchesPeriod(item.dueDate, period, n)) return false;
     }
 
@@ -573,6 +795,372 @@ class FinancialSearchBar extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// Barra de navegação e seletor de período para a agenda financeira (mês atual, mês anterior/próximo, vencidas e todas).
+class FinancialPeriodBar extends StatelessWidget {
+  const FinancialPeriodBar({
+    super.key,
+    required this.selection,
+    required this.onChanged,
+    this.overdueCount = 0,
+    this.now,
+  });
+
+  final FinancialPeriodSelection selection;
+  final ValueChanged<FinancialPeriodSelection> onChanged;
+  final int overdueCount;
+  final DateTime? now;
+
+  Future<void> _pickCustomRange(BuildContext context) async {
+    final baseNow = now ?? DateTime.now();
+    final initialStart =
+        selection.startDate ?? DateTime(baseNow.year, baseNow.month, 1);
+    final initialEnd =
+        selection.endDate ?? DateTime(baseNow.year, baseNow.month + 1, 0);
+    final range = DateTimeRange(
+      start: initialStart.isBefore(initialEnd) ? initialStart : initialEnd,
+      end: initialEnd.isAfter(initialStart) ? initialEnd : initialStart,
+    );
+
+    final picked = await showDateRangePicker(
+      context: context,
+      initialDateRange: range,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2035),
+      cancelText: 'Cancelar',
+      confirmText: 'Aplicar',
+      helpText: 'Selecione o intervalo de vencimento',
+      saveText: 'Aplicar',
+    );
+
+    if (picked != null) {
+      onChanged(FinancialPeriodSelection.custom(picked.start, picked.end));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isCurrent = selection.isCurrentMonth(now);
+    final isMonth = selection.type == FinancialPeriodType.month;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.35,
+        ),
+        borderRadius: BorderRadius.circular(AppTokens.r12),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Botão Anterior (<)
+          IconButton(
+            icon: const Icon(Icons.chevron_left_rounded, size: 22),
+            onPressed: isMonth
+                ? () => onChanged(selection.previousMonth())
+                : () => onChanged(FinancialPeriodSelection.currentMonth(now)),
+            tooltip: isMonth ? 'Mês anterior' : 'Voltar ao mês atual',
+            visualDensity: VisualDensity.compact,
+          ),
+
+          // Seletor Central
+          Expanded(
+            child: PopupMenuButton<String>(
+              tooltip: 'Alterar período (${selection.label})',
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTokens.r12),
+              ),
+              onSelected: (val) {
+                if (val == 'current') {
+                  onChanged(FinancialPeriodSelection.currentMonth(now));
+                } else if (val == 'overdue') {
+                  onChanged(FinancialPeriodSelection.overdue());
+                } else if (val == 'custom') {
+                  _pickCustomRange(context);
+                } else if (val == 'all') {
+                  onChanged(FinancialPeriodSelection.all());
+                }
+              },
+              itemBuilder: (ctx) => [
+                PopupMenuItem(
+                  value: 'current',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_month_rounded,
+                        size: 18,
+                        color: isCurrent
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Mês atual (${formatMonthYearBr(now ?? DateTime.now())})',
+                        style: TextStyle(
+                          fontWeight: isCurrent
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'overdue',
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.warning_amber_rounded,
+                        size: 18,
+                        color: AppTokens.expense,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        overdueCount > 0
+                            ? 'Vencidas ($overdueCount)'
+                            : 'Vencidas',
+                        style: TextStyle(
+                          fontWeight:
+                              selection.type == FinancialPeriodType.overdue
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'custom',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.date_range_rounded,
+                        size: 18,
+                        color: selection.type == FinancialPeriodType.custom
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Intervalo personalizado...',
+                        style: TextStyle(
+                          fontWeight:
+                              selection.type == FinancialPeriodType.custom
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'all',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.all_inclusive_rounded,
+                        size: 18,
+                        color: selection.type == FinancialPeriodType.all
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Todos os períodos',
+                        style: TextStyle(
+                          fontWeight: selection.type == FinancialPeriodType.all
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      selection.type == FinancialPeriodType.overdue
+                          ? Icons.warning_amber_rounded
+                          : (selection.type == FinancialPeriodType.all
+                                ? Icons.all_inclusive_rounded
+                                : (selection.type == FinancialPeriodType.custom
+                                      ? Icons.date_range_rounded
+                                      : Icons.calendar_today_rounded)),
+                      size: 16,
+                      color: selection.type == FinancialPeriodType.overdue
+                          ? AppTokens.expense
+                          : theme.colorScheme.primary,
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        selection.label,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: selection.type == FinancialPeriodType.overdue
+                              ? AppTokens.expense
+                              : theme.colorScheme.onSurface,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    Icon(
+                      Icons.arrow_drop_down_rounded,
+                      size: 18,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Botão Próximo (>)
+          IconButton(
+            icon: const Icon(Icons.chevron_right_rounded, size: 22),
+            onPressed: isMonth
+                ? () => onChanged(selection.nextMonth())
+                : () => onChanged(FinancialPeriodSelection.currentMonth(now)),
+            tooltip: isMonth ? 'Próximo mês' : 'Voltar ao mês atual',
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Banner de alerta e ação rápida para contas vencidas fora do período visualizado.
+class FinancialOverdueBanner extends StatelessWidget {
+  const FinancialOverdueBanner({
+    super.key,
+    required this.overdueCount,
+    required this.onViewOverdue,
+    this.isOverdueMode = false,
+    this.onReturnToMonth,
+  });
+
+  final int overdueCount;
+  final VoidCallback onViewOverdue;
+  final bool isOverdueMode;
+  final VoidCallback? onReturnToMonth;
+
+  @override
+  Widget build(BuildContext context) {
+    if (overdueCount == 0 && !isOverdueMode) {
+      return const SizedBox.shrink();
+    }
+
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    if (isOverdueMode) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppTokens.expense.withValues(alpha: isDark ? 0.18 : 0.08),
+          borderRadius: BorderRadius.circular(AppTokens.r12),
+          border: Border.all(color: AppTokens.expense.withValues(alpha: 0.35)),
+        ),
+        child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              children: [
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  size: 20,
+                  color: AppTokens.expense,
+                ),
+                Text(
+                  'Exibindo contas vencidas em aberto.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: AppTokens.expense,
+                  ),
+                ),
+              ],
+            ),
+            if (onReturnToMonth != null)
+              FilledButton.tonal(
+                onPressed: onReturnToMonth,
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                ),
+                child: const Text('Voltar ao mês'),
+              ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTokens.warning.withValues(alpha: isDark ? 0.18 : 0.1),
+        borderRadius: BorderRadius.circular(AppTokens.r12),
+        border: Border.all(color: AppTokens.warning.withValues(alpha: 0.4)),
+      ),
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 8,
+        runSpacing: 4,
+        children: [
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            children: [
+              const Icon(
+                Icons.info_outline_rounded,
+                size: 20,
+                color: AppTokens.warning,
+              ),
+              Text(
+                overdueCount == 1
+                    ? '1 conta vencida fora deste mês.'
+                    : '$overdueCount contas vencidas fora deste mês.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          FilledButton.tonal(
+            onPressed: onViewOverdue,
+            style: FilledButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            ),
+            child: const Text('Ver vencidas'),
+          ),
+        ],
+      ),
     );
   }
 }
