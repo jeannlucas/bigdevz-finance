@@ -16,9 +16,18 @@ class TransferFunds
 {
     public function __construct(private readonly IdempotentOperations $keys) {}
 
-    public static function fingerprint(int $sourceAccountId, int $destinationAccountId, mixed $amount, string $transferredAt, ?string $notes): string
-    {
+    public static function fingerprint(
+        int $sourceAccountId,
+        int $destinationAccountId,
+        mixed $amount,
+        string $transferredAt,
+        ?string $notes,
+        ?int $sourceSpaceId = null,
+        ?int $destinationSpaceId = null
+    ): string {
         return IdempotentOperations::fingerprint(IdempotentOperations::TRANSFER, $sourceAccountId, [
+            'source_space_id' => $sourceSpaceId,
+            'destination_space_id' => $destinationSpaceId,
             'destination_account_id' => $destinationAccountId,
             'amount' => $amount,
             'transferred_at' => $transferredAt,
@@ -34,19 +43,26 @@ class TransferFunds
         int $amountCents,
         string $transferredAt,
         ?string $notes,
-        string $key
+        string $key,
+        ?Space $destinationSpace = null
     ): KeyedResult {
+        $sourceSpace = $space;
+        $destSpace = $destinationSpace ?? $space;
+
         $fingerprint = self::fingerprint(
             $sourceAccountId,
             $destinationAccountId,
             Money::fromCents($amountCents),
             $transferredAt,
-            $notes
+            $notes,
+            $sourceSpace->id,
+            $destSpace->id
         );
 
-        return $this->keys->run($user, $space, $key, IdempotentOperations::TRANSFER, $fingerprint, function () use (
+        return $this->keys->run($user, $sourceSpace, $key, IdempotentOperations::TRANSFER, $fingerprint, function () use (
             $user,
-            $space,
+            $sourceSpace,
+            $destSpace,
             $sourceAccountId,
             $destinationAccountId,
             $amountCents,
@@ -65,12 +81,17 @@ class TransferFunds
                 ]);
             }
 
+            $sourceSpace->ensureCan($user, 'transfer_funds');
+            $destSpace->ensureCan($user, 'transfer_funds');
+
+            $sourceSpace->ensureDateNotClosed($transferredAt, 'transferência entre contas');
+            $destSpace->ensureDateNotClosed($transferredAt, 'transferência entre contas');
+
             // Ordena os IDs para evitar deadlock em concorrência
             $orderedIds = [$sourceAccountId, $destinationAccountId];
             sort($orderedIds);
 
             $accounts = Account::query()
-                ->where('space_id', $space->id)
                 ->whereIn('id', $orderedIds)
                 ->orderBy('id')
                 ->lockForUpdate()
@@ -80,13 +101,13 @@ class TransferFunds
             $sourceAccount = $accounts->get($sourceAccountId);
             $destinationAccount = $accounts->get($destinationAccountId);
 
-            if ($sourceAccount === null) {
+            if ($sourceAccount === null || $sourceAccount->space_id !== $sourceSpace->id) {
                 throw ValidationException::withMessages([
                     'source_account_id' => 'Conta de origem inválida ou pertencente a outro espaço.',
                 ]);
             }
 
-            if ($destinationAccount === null) {
+            if ($destinationAccount === null || $destinationAccount->space_id !== $destSpace->id) {
                 throw ValidationException::withMessages([
                     'destination_account_id' => 'Conta de destino inválida ou pertencente a outro espaço.',
                 ]);
@@ -131,7 +152,8 @@ class TransferFunds
             }
 
             $transfer = Transfer::create([
-                'space_id' => $space->id,
+                'space_id' => $sourceSpace->id,
+                'destination_space_id' => $destSpace->id,
                 'user_id' => $user->id,
                 'source_account_id' => $sourceAccount->id,
                 'destination_account_id' => $destinationAccount->id,

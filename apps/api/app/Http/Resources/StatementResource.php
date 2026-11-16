@@ -50,6 +50,9 @@ class StatementResource extends JsonResource
         if ($this->transfer_id) {
             return 'transfer';
         }
+        if ($this->transfer_reversal_id) {
+            return 'transfer_reversal';
+        }
         if ($this->loan_disbursement_id) {
             return 'loan_disbursement';
         }
@@ -73,8 +76,11 @@ class StatementResource extends JsonResource
                 ? 'Estorno de pagamento: '.$this->paymentReversal->reason
                 : 'Estorno de pagamento',
             'transfer' => $this->amount_cents < 0
-                ? 'Transferência para '.($this->transfer?->destinationAccount?->name ?? 'conta')
-                : 'Transferência de '.($this->transfer?->sourceAccount?->name ?? 'conta'),
+                ? 'Transferência para '.($this->transfer?->destinationAccount?->name ?? 'conta').($this->transfer?->isCrossSpace() && $this->transfer?->destinationSpace ? ' ('.$this->transfer->destinationSpace->name.')' : '')
+                : 'Transferência de '.($this->transfer?->sourceAccount?->name ?? 'conta').($this->transfer?->isCrossSpace() && $this->transfer?->space ? ' ('.$this->transfer->space->name.')' : ''),
+            'transfer_reversal' => $this->amount_cents > 0
+                ? 'Estorno de transferência para '.($this->transferReversal?->destinationAccount?->name ?? 'conta').($this->transferReversal?->destinationSpace && $this->transferReversal?->destination_space_id !== $this->transferReversal?->space_id ? ' ('.$this->transferReversal->destinationSpace->name.')' : '').': '.$this->transferReversal?->reason
+                : 'Estorno de transferência de '.($this->transferReversal?->sourceAccount?->name ?? 'conta').($this->transferReversal?->space && $this->transferReversal?->destination_space_id !== $this->transferReversal?->space_id ? ' ('.$this->transferReversal->space->name.')' : '').': '.$this->transferReversal?->reason,
             'loan_disbursement' => $this->loanDisbursement?->kind === 'granted'
                 ? 'Empréstimo concedido: '.($this->loanDisbursement->title ?? '')
                 : 'Empréstimo tomado: '.($this->loanDisbursement?->title ?? ''),
