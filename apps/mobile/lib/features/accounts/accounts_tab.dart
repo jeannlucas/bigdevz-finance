@@ -8,6 +8,7 @@ import '../../ui/app_tokens.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import '../auth/auth_models.dart';
+import '../auth/session_controller.dart';
 import '../settings/preferences_controller.dart';
 import '../transfers/transfer_form_screen.dart';
 import 'account.dart';
@@ -47,6 +48,12 @@ class AccountsTab extends StatelessWidget {
         final active = accounts.where((a) => !a.isArchived).toList();
         final archived = accounts.where((a) => a.isArchived).toList();
         final total = Money(accounts.fold(0, (t, a) => t + a.balance.cents));
+
+        final session = context.watch<SessionController?>();
+        final canMoveCrossSpace =
+            (session?.spaces.where((s) => s.canMoveMoney).length ?? 0) > 1;
+        final canTransfer =
+            active.length >= 2 || (active.isNotEmpty && canMoveCrossSpace);
 
         return RefreshIndicator(
           onRefresh: refresh,
@@ -94,7 +101,7 @@ class AccountsTab extends StatelessWidget {
                                 spacing: AppTokens.p8,
                                 runSpacing: AppTokens.p8,
                                 children: [
-                                  if (active.length >= 2)
+                                  if (canTransfer)
                                     FilledButton.tonalIcon(
                                       key: const ValueKey(
                                         'accounts_tab_transfer_button',

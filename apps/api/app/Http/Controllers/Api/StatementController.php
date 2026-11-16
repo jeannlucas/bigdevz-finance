@@ -44,6 +44,12 @@ class StatementController extends Controller
                 'paymentReversal',
                 'transfer.sourceAccount',
                 'transfer.destinationAccount',
+                'transfer.space',
+                'transfer.destinationSpace',
+                'transferReversal.sourceAccount',
+                'transferReversal.destinationAccount',
+                'transferReversal.space',
+                'transferReversal.destinationSpace',
                 'loanDisbursement',
             ]);
 

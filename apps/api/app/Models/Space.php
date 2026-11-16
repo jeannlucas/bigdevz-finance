@@ -88,6 +88,7 @@ class Space extends Model
             'cancel_agreement',
             'reverse_receipt',
             'reverse_payment',
+            'reverse_transfer',
             'adjust_opening_balance' => in_array($role, [self::ROLE_OPERATOR, self::ROLE_ACCOUNTANT], true),
 
             'move_money',

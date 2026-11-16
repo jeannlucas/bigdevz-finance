@@ -93,6 +93,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/transfers', [TransferController::class, 'index']);
         Route::post('/transfers', [TransferController::class, 'store']);
         Route::get('/transfers/{transfer}', [TransferController::class, 'show']);
+        Route::post('/transfers/{transfer}/reversal', [TransferController::class, 'reverse']);
         Route::get('/loans', [LoanController::class, 'index']);
         Route::post('/loans', [LoanController::class, 'store']);
         Route::get('/loans/{loan}', [LoanController::class, 'show']);
