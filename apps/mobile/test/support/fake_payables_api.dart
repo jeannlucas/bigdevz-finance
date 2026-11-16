@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:bigdevz_finance/core/dates.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
@@ -34,7 +35,9 @@ class FakePayable {
   String description;
   int? amountCents;
   String? payee;
-  String dueDate = '2026-03-20';
+  String dueDate = toApiDate(
+    DateTime(DateTime.now().year, DateTime.now().month, 15),
+  );
   String? cancelReason;
   final List<FakePayment> payments = [];
 

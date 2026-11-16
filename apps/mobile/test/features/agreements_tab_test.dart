@@ -6,6 +6,7 @@ import 'package:bigdevz_finance/features/agreements/agreements_tab.dart';
 import 'package:bigdevz_finance/features/auth/auth_models.dart';
 import 'package:bigdevz_finance/features/auth/auth_repository.dart';
 import 'package:bigdevz_finance/features/auth/session_controller.dart';
+import 'package:bigdevz_finance/ui/financial/financial_search_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -48,29 +49,36 @@ void main() {
     int id = 10,
     int agreementId = 1,
     int number = 1,
-    String dueDate = '2026-02-10',
+    String? dueDate,
     String amount = '400.00',
     String received = '0.00',
     String remaining = '400.00',
     String status = 'pending',
-    bool overdue = true,
-  }) => {
-    'id': id,
-    'agreement_id': agreementId,
-    'number': number,
-    'due_date': dueDate,
-    'amount': amount,
-    'received': received,
-    'remaining': remaining,
-    'status': status,
-    'overdue': overdue,
-  };
+    bool overdue = false,
+  }) {
+    final now = DateTime.now();
+    final defaultDue = overdue
+        ? '${now.year}-${(now.month - 1).clamp(1, 12).toString().padLeft(2, '0')}-10'
+        : '${now.year}-${now.month.toString().padLeft(2, '0')}-15';
+    return {
+      'id': id,
+      'agreement_id': agreementId,
+      'number': number,
+      'due_date': dueDate ?? defaultDue,
+      'amount': amount,
+      'received': received,
+      'remaining': remaining,
+      'status': status,
+      'overdue': overdue,
+    };
+  }
 
   Future<void> pumpTab(
     WidgetTester tester, {
     required List<Map<String, dynamic>> agreements,
     int? totalCount,
     String initialFilter = 'open',
+    FinancialPeriodSelection? initialPeriod,
     Size? physicalSize,
     Future<http.Response> Function(http.Request)? overrideHandler,
   }) async {
@@ -116,7 +124,11 @@ void main() {
         ],
         child: MaterialApp(
           home: Scaffold(
-            body: AgreementsTab(space: pf, initialFilter: initialFilter),
+            body: AgreementsTab(
+              space: pf,
+              initialFilter: initialFilter,
+              initialPeriod: initialPeriod,
+            ),
           ),
         ),
       ),
@@ -208,6 +220,7 @@ void main() {
   ) async {
     await pumpTab(
       tester,
+      initialPeriod: FinancialPeriodSelection.all(),
       agreements: [],
       overrideHandler: (req) async =>
           http.Response('{"message": "Erro no servidor"}', 500),
@@ -225,6 +238,7 @@ void main() {
   ) async {
     await pumpTab(
       tester,
+      initialPeriod: FinancialPeriodSelection.all(),
       agreements: [
         agreementJson(
           id: 1,

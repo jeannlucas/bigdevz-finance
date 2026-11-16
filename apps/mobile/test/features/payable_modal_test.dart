@@ -227,23 +227,29 @@ void main() {
 
       final client = MockClient((request) async {
         requests.add(request);
+        if (request.url.path.contains('/payments')) {
+          return http.Response(
+            jsonEncode({
+              'data': {
+                'payment': {
+                  'id': 1,
+                  'account_id': 10,
+                  'amount': '150.00',
+                  'paid_on': '2026-03-10',
+                },
+                'payable': payableResponse['data'],
+                'account': {'id': 10, 'balance': '1350.00'},
+                'replayed': false,
+              },
+            }),
+            201,
+          );
+        }
         if (request.url.path.contains('/payables/42')) {
           return http.Response(jsonEncode(payableResponse), 200);
         }
         if (request.url.path.contains('/accounts')) {
           return http.Response(jsonEncode(accountsResponse), 200);
-        }
-        if (request.url.path.contains('/payments')) {
-          return http.Response(
-            jsonEncode({
-              'data': {
-                'payment': {'id': 1, 'amount': '150.00'},
-                'payable': {'id': 42, 'status': 'paid'},
-                'account': {'id': 10, 'balance': '1350.00'},
-              },
-            }),
-            201,
-          );
         }
         return http.Response('{"message": "Not found"}', 404);
       });
@@ -291,11 +297,98 @@ void main() {
 
       // 4. Confirma pagamento com sucesso
       await tester.tap(find.text('Confirmar pagamento'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
       await tester.pumpAndSettle();
 
       expect(
         requests.where((r) => r.url.path.contains('/payments')),
         isNotEmpty,
+      );
+    },
+  );
+
+  testWidgets(
+    'PayableActionModal com initialPaying fecha o modal e emite feedback visual ao confirmar',
+    (tester) async {
+      tester.view.physicalSize = const Size(1080, 1920);
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.reset);
+
+      final client = MockClient((request) async {
+        requests.add(request);
+        if (request.url.path.contains('/payments')) {
+          return http.Response(
+            jsonEncode({
+              'data': {
+                'payment': {
+                  'id': 1,
+                  'account_id': 10,
+                  'amount': '150.00',
+                  'paid_on': '2026-03-10',
+                },
+                'payable': payableResponse['data'],
+                'account': {'id': 10, 'balance': '1350.00'},
+                'replayed': false,
+              },
+            }),
+            201,
+          );
+        }
+        if (request.url.path.contains('/payables/42')) {
+          return http.Response(jsonEncode(payableResponse), 200);
+        }
+        if (request.url.path.contains('/accounts')) {
+          return http.Response(jsonEncode(accountsResponse), 200);
+        }
+        return http.Response('{"message": "Not found"}', 404);
+      });
+
+      final api = ApiClient(baseUrl: 'http://api.test/api', client: client);
+
+      await tester.pumpWidget(
+        buildTestWidget(
+          api: api,
+          child: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () => showPayableModal(
+                context,
+                space: pf,
+                payableId: 42,
+                initialPaying: true,
+              ),
+              child: const Text('Abrir Pagar Direto'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Abrir Pagar Direto'));
+      await tester.pumpAndSettle();
+
+      // Já abre diretamente no formulário de pagamento
+      expect(find.text('Confirmar pagamento'), findsOneWidget);
+
+      // Seleciona a conta
+      await tester.tap(find.byType(DropdownButtonFormField<int>));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('NUBANK (R\$ 1.500,00)').last);
+      await tester.pumpAndSettle();
+
+      // Confirma pagamento
+      await tester.ensureVisible(find.text('Confirmar pagamento'));
+      await tester.tap(find.text('Confirmar pagamento'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 800));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Modal fechou e retornou à tela principal
+      expect(find.text('Abrir Pagar Direto'), findsOneWidget);
+      expect(find.text('Confirmar pagamento'), findsNothing);
+      expect(
+        find.text('Pagamento de R\$ 150,00 registrado com sucesso!'),
+        findsOneWidget,
       );
     },
   );

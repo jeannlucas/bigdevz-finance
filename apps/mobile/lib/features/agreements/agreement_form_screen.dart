@@ -10,12 +10,10 @@ import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
 import '../../ui/date_field.dart';
 import '../../ui/installment_summary_card.dart';
-import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import '../auth/auth_models.dart';
 import '../auth/session_controller.dart';
 import '../categories/category_picker_field.dart';
-import 'agreement_screen.dart';
 import 'agreements_repository.dart';
 
 enum _AgreementKind { single, installment }
@@ -210,28 +208,12 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
       );
       if (!mounted) return;
       context.read<SessionController>().dataChanged();
-      if (widget.asModal) {
-        Navigator.of(context).pop();
-        Navigator.of(context).push(
-          spaceRoute(
-            isPf: widget.space.isPf,
-            child: AgreementScreen(
-              space: widget.space,
-              agreementId: agreement.id,
-            ),
-          ),
-        );
-      } else {
-        Navigator.of(context).pushReplacement(
-          spaceRoute(
-            isPf: widget.space.isPf,
-            child: AgreementScreen(
-              space: widget.space,
-              agreementId: agreement.id,
-            ),
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Conta a receber cadastrada com sucesso.'),
+        ),
+      );
+      Navigator.of(context).pop(agreement);
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error);
     } finally {
