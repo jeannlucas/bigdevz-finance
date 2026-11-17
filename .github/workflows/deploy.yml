@@ -154,4 +154,4 @@ jobs:
           chmod 644 ~/.ssh/known_hosts
 
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -p "$VPS_SSH_PORT" "$VPS_SSH_USER@$VPS_HOST" \
-            "--tag $TAG_NAME --digest $IMAGE_DIGEST"
+            -- "$TAG_NAME" "$IMAGE_DIGEST"

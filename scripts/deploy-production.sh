@@ -87,11 +87,18 @@ ssh "$SSH_ALIAS" "mkdir -p ${BACKUP_DIR}/db ${BACKUP_DIR}/web_previous ${BACKUP_
 
 echo "Gerando dump da base bigdevz_finance antes de aplicar qualquer alteração..."
 ssh "$SSH_ALIAS" "
-    CONTAINER_PG='bigdevz-finance-postgres-1'
+    PROJECT_NAME=\"\${COMPOSE_PROJECT_NAME:-finance-prod}\"
+    CONTAINER_PG=\$(docker ps --format '{{.Names}}' | grep -E 'finance-prod-postgres-1|bigdevz-finance-postgres-1|postgres' | head -n1)
+    if [ -z \"\$CONTAINER_PG\" ]; then
+        echo 'ERRO FATAL: Container PostgreSQL não encontrado!' >&2
+        exit 1
+    fi
     BACKUP_FILE='${BACKUP_DIR}/db/pre_deploy_${TIMESTAMP}.dump'
     docker exec -i \$CONTAINER_PG pg_dump -U bigdevz -d bigdevz_finance -Fc --no-owner --no-acl > \$BACKUP_FILE
     if command -v sha256sum >/dev/null 2>&1; then
         sha256sum \$BACKUP_FILE > \${BACKUP_FILE}.sha256
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 \$BACKUP_FILE > \${BACKUP_FILE}.sha256
     fi
     echo 'Backup concluído: ' \$BACKUP_FILE
 "
@@ -111,9 +118,9 @@ ssh "$SSH_ALIAS" "
     fi
 "
 
-echo "=== [6/7] Sincronização Segura do Código (Frontend Web e Backend API) ==="
-# Sincroniza Flutter Web
-rsync -avz --delete apps/mobile/build/web/ "${SSH_ALIAS}:${REMOTE_DIR}/web/"
+echo "=== [6/7] Sincronização Segura do Código (Frontend Web Staging e Backend API) ==="
+# Sincroniza Flutter Web em diretório de staging (promovido apenas após healthcheck 100% verde da API)
+rsync -avz --delete apps/mobile/build/web/ "${SSH_ALIAS}:${REMOTE_DIR}/web_staging/"
 
 # Sincroniza API Laravel preservando storage, logs e production.conf
 rsync -avz --exclude 'storage/logs/*' --exclude 'storage/framework/cache/*' \
@@ -122,19 +129,26 @@ rsync -avz --exclude 'storage/logs/*' --exclude 'storage/framework/cache/*' \
 echo "Recompilando containers da API e Scheduler na VPS..."
 ssh "$SSH_ALIAS" "
     cd ${REMOTE_DIR}
-    docker compose up -d --build api scheduler
+    PROJECT_NAME=\"\${COMPOSE_PROJECT_NAME:-finance-prod}\"
+    docker compose -p \"\$PROJECT_NAME\" up -d --build api scheduler
 "
 
 echo "Executando migrações no banco bigdevz_finance (--force)..."
 ssh "$SSH_ALIAS" "
-    docker exec -i bigdevz-finance-api-1 php artisan migrate --force
+    CONTAINER_API=\$(docker ps --format '{{.Names}}' | grep -E 'finance-prod-api-1|bigdevz-finance-api-1|api' | head -n1)
+    if [ -z \"\$CONTAINER_API\" ]; then
+        echo 'ERRO FATAL: Container da API não encontrado para migrações!' >&2
+        exit 1
+    fi
+    docker exec -i \"\$CONTAINER_API\" php artisan migrate --force
 "
 
 echo "Otimizando caches de produção do Laravel..."
 ssh "$SSH_ALIAS" "
-    docker exec -i bigdevz-finance-api-1 php artisan config:cache
-    docker exec -i bigdevz-finance-api-1 php artisan route:cache
-    docker exec -i bigdevz-finance-api-1 php artisan view:cache
+    CONTAINER_API=\$(docker ps --format '{{.Names}}' | grep -E 'finance-prod-api-1|bigdevz-finance-api-1|api' | head -n1)
+    docker exec -i \"\$CONTAINER_API\" php artisan config:cache
+    docker exec -i \"\$CONTAINER_API\" php artisan route:cache
+    docker exec -i \"\$CONTAINER_API\" php artisan view:cache
 "
 
 echo "=== [7/7] Validação de Saúde e Teste de Fumaça Pós-Deploy ==="
@@ -156,6 +170,14 @@ ssh "$SSH_ALIAS" "
         exit 1
     fi
     echo 'OK: Base de dados e storage íntegros.'
+
+    # Promoção atômica do Frontend Web apenas com backend validado e saudável
+    if [ -d '${REMOTE_DIR}/web_staging' ]; then
+        echo 'Promovendo bundle Frontend Web de staging para produção...'
+        rsync -ac --delete '${REMOTE_DIR}/web_staging/' '${REMOTE_DIR}/web/'
+        rm -rf '${REMOTE_DIR}/web_staging'
+        echo 'OK: Frontend Web promovido com sucesso.'
+    fi
 "
 
 echo "=============================================================================="

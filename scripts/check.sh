@@ -157,6 +157,12 @@ else
     api php artisan test
 fi
 
+echo "  -> Executando testes de infraestrutura, governança SemVer e hardening de deploy..."
+"$ROOT_DIR/tests/infra/test-deploy-governance.sh"
+"$ROOT_DIR/tests/infra/test-vps-deploy-transition.sh"
+"$ROOT_DIR/tests/infra/test-deploy-hardening-preflight.sh"
+"$ROOT_DIR/tests/infra/test-deploy-integrated-simulation.sh"
+
 echo "================================================="
 echo "✅ TUDO VERDE (--full): Homologação automatizada completa!"
 echo "   Backpressure satisfeito com ZERO erros."

@@ -17,11 +17,11 @@ flowchart TD
     
     subgraph HostVPS["VPS Host (srv1884441 - /srv/finance)"]
         CaddyHost -->|/ (Arquivos Estáticos SPA)| WebDir["/srv/finance/web (Flutter Web Release)"]
-        CaddyHost -->|/api/* (Reverse Proxy 127.0.0.1:8510)| ApiContainer["bigdevz-finance-api-1 (Laravel 13 - Port 8000)"]
+        CaddyHost -->|/api/* (Reverse Proxy 127.0.0.1:8510)| ApiContainer["finance-prod-api-1 (Laravel 13 - Port 8000)"]
         
-        subgraph DockerNet["Rede Docker (bigdevz-finance)"]
-            ApiContainer -->|Porta 5432| Postgres["bigdevz-finance-postgres-1 (PostgreSQL 17 Alpine)"]
-            Scheduler["bigdevz-finance-scheduler-1 (Schedule Work)"] -->|Porta 5432| Postgres
+        subgraph DockerNet["Rede Docker (finance-prod_default)"]
+            ApiContainer -->|Porta 5432| Postgres["finance-prod-postgres-1 (PostgreSQL 17 Alpine)"]
+            Scheduler["finance-prod-scheduler-1 (Schedule Work)"] -->|Porta 5432| Postgres
         end
         
         Postgres -->|Persistência| VolumePg[("Volume: postgres-data")]
@@ -30,18 +30,16 @@ flowchart TD
     end
 ```
 
-### Regras Críticas de Integridade:
+### Regras Críticas de Integridade e Pré-Voo (Hardening):
 1. **Preservação Estrita do PostgreSQL 17:** É proibido atualizar ou migrar para PostgreSQL 18. O banco oficial é estritamente `bigdevz_finance` sobre o volume persistente `postgres-data`.
 2. **Caddy Nativo no Host:** O Caddy já gerencia certificados HTTPS e atua como terminador TLS e servidor de arquivos estáticos para `/srv/finance/web`, com fallback para `index.html`. Não há contêiner Nginx em produção.
 3. **Isolamento de Portas:** O PostgreSQL (5432) não possui qualquer porta exposta no host ou na internet. A API Laravel escuta estritamente no bind local `127.0.0.1:8510`.
 4. **Execução sem Root:** O container da API executa sob usuário não-root dedicado `appuser` (UID/GID 1000).
-5. **Configuração de Cache e Cabeçalhos no Caddy:**
-   - Documentos de ciclo de vida (`index.html`, `flutter_service_worker.js`, `version.json`, `manifest.json`): `Cache-Control: "no-cache, no-store, must-revalidate"` para garantir invalidação imediata em novas publicações.
-   - Assets estáticos (`/assets/*`, `/canvaskit/*`, `/icons/*`): `Cache-Control: "public, max-age=31536000, immutable"` para alta eficiência e zero revalidação desnecessária.
-   - Bundles JS (`*.js`): `Cache-Control: "public, max-age=86400, stale-while-revalidate=3600"`.
-6. **Segregação Estrita de Ambientes no Build:**
-   - O build do frontend web utiliza obrigatoriamente `./scripts/build-web.sh --env=production`.
-   - O runtime valida se o host atual é compatível com o endpoint da API via `resolveApiBaseUrl()`, impedindo que builds locais acessem produção ou que produções apontem para endereços locais.
+5. **Pré-Voo de Permissões Fail-Closed:** Antes de qualquer alteração, o script testa permissões de escrita atômica no diretório `/var/lib/vps-deploy/<projeto>` e nos marcadores (`implantado_tag`, `implantado`, `implantado_digest`, `recuperacao_pendente`), evitando falhas permissivas pós-migração.
+6. **Pré-Voo de Rede e Conectividade Compose:** Antes de parar os escritores da API e antes do dump do banco, um container efêmero testa a conectividade PDO com o PostgreSQL na rede Compose exata do projeto (`finance-prod`), abortando imediatamente se houver divergência de projeto ou resolução de host.
+7. **Promoção Coordenada do Frontend Web:** O bundle web é recebido em `/srv/finance/web_staging/` e promovido atomicamente para `/srv/finance/web/` somente APÓS a API responder com sucesso 200 OK no endpoint de liveness (`/up`), garantindo que clientes nunca acessem rotas ou frontends novos sem o backend correspondente.
+8. **Desacoplamento de Rollback Pós-Healthcheck:** Caso o healthcheck seja aprovado com 100% de sucesso, qualquer falha posterior em metadados secundários não desliga a API saudável em produção.
+9. **Invocação SSH Segura:** Todas as chamadas SSH que encaminham tags e digests utilizam o separador `--` para neutralizar parsing ambíguo de opções no cliente OpenSSH.
 
 ---
 
@@ -51,11 +49,12 @@ flowchart TD
 |---|---|
 | **Host / Alias** | `srv1884441` (`ssh bigdevz`) |
 | **Diretório Canônico** | `/srv/finance` (subdiretórios `api/`, `web/`, `infra/`, `backups/`) |
-| **Banco de Dados** | PostgreSQL 17 Alpine (`bigdevz-finance-postgres-1`) |
+| **Projeto Compose** | `finance-prod` (configurável via `COMPOSE_PROJECT_NAME`) |
+| **Banco de Dados** | PostgreSQL 17 Alpine (`finance-prod-postgres-1` com fallback dinâmico) |
 | **Base de Dados** | `bigdevz_finance` |
 | **Volume Docker** | `postgres-data` |
-| **Backend API** | `bigdevz-finance-api-1` (`127.0.0.1:8510->8000/tcp`) |
-| **Agendador** | `bigdevz-finance-scheduler-1` (`php artisan schedule:work`) |
+| **Backend API** | `finance-prod-api-1` (`127.0.0.1:8510->8000/tcp`) |
+| **Agendador** | `finance-prod-scheduler-1` (`php artisan schedule:work`) |
 | **Frontend Web** | `/srv/finance/web` servido diretamente pelo Caddy |
 | **Proxy Reverso / TLS** | Caddy Server com Let's Encrypt |
 | **Domínio Oficial** | `https://finance.bigdevz.com` |

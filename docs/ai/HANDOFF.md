@@ -1,87 +1,85 @@
 # BigDev.Z Finance — Transição Operacional (Handoff)
 
-> **Data de Atualização:** 17/11/2026 02:20 (UTC-03:00)  
-> **Branch Atual:** `task/auditoria-e-homologacao-multiplataforma` (criada a partir da `dev` local)  
-> **Status de Qualidade:** ✅ HOMOLOGAÇÃO MULTIPLATAFORMA INTEGRALMENTE CONCLUÍDA (iOS Nativo, Android Nativo e Web) com Backpressure 100% Verde (`./scripts/check.sh --full`)  
-> **Soberania Git:** Commits, pushes e merges sob autoridade exclusiva de Jeann Lucas. Nenhuma alteração publicada sem autorização prévia e explícita.
+> **Data de Atualização:** 17/11/2026 10:40 (UTC-03:00)  
+> **Versão em Produção:** `v1.2.0` (commit [`7af3d2d49b41836911acd9e7740ece015f9b7e86`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/))  
+> **Branch Ativa de Trabalho:** `fix/deploy-pipeline-hardening`  
+> **Status Operacional:** ✅ HARDENING E RESILIÊNCIA DO PIPELINE DE DEPLOY E RECUPERAÇÃO CONCLUÍDOS COM 100% DE TESTES AUTOMATIZADOS VERDES  
+> **Soberania Git:** Commits, pushes e tags sob autoridade exclusiva de Jeann Lucas. Nenhuma alteração em produção realizada.
 
 ---
 
-## 1. Resumo Executivo da Homologação Multiplataforma
+## 1. Contexto e Diagnóstico das Falhas Corrigidas
 
-Atuando como responsável técnico pela auditoria, correção e validação ponta a ponta do BigDev.Z Finance, executamos a homologação visual e funcional nos ambientes reais:
-- **Simulador iOS Nativo:** `iPhone 18 Pro` (`27E240C5-8C09-4606-B0DE-4512BA0154BC`), iOS 27.2, motor Impeller/Metal.
-- **Emulador Android Nativo:** `emulator-5554` (`Medium_Phone_API_37.0`), Android 17 (API 37), Adaptive Icons.
-- **Web Desktop e Mobile:** Google Chrome via Chrome DevTools MCP em resoluções 1280x800 (Desktop) e 390x844 (Mobile Viewport) com console auditado (zero erros).
-
----
-
-## 2. Diagnóstico, Correções e Rigor Metodológico
-
-1. **Eliminação de Falsos Positivos e Tolerância Zero a Fluxos Ignorados:**
-   - A suíte de teste unificada (`apps/mobile/integration_test/ios_homologation_test.dart`) elimina quaisquer condicionais defensivas que mascarem etapas.
-   - Navegação de filtros de status de Contas a Pagar (`ChoiceChip`) implementada com rolagem horizontal bidirecional automática (`AxisDirection.right`).
-   - Todos os fechamentos, navegações e submissões operam **exclusivamente através dos widgets reais da interface gráfica do usuário** (sem atalhos internos).
-2. **Filtro Temporal e Intervalo com Comprovação Determinística:**
-   - Comprovação estrita de lançamentos que devem aparecer e ficar fora do resultado:
-     - Conta a pagar cadastrada com vencimento no mês corrente.
-     - Ao acionar o filtro para o mês anterior (`chevron_left`), a asserção `expect(..., findsNothing)` comprova formalmente que o lançamento fica fora do resultado filtrado ([`ios_homolog_11b_payables_filtered_out_previous_month.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_11b_payables_filtered_out_previous_month.png) e [`android_homolog_11b_payables_filtered_out_previous_month.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_11b_payables_filtered_out_previous_month.png)).
-     - Ao retornar ao mês atual (`chevron_right`), a asserção `expect(..., findsWidgets)` comprova o reaparecimento do lançamento ([`ios_homolog_11c_payables_reappearing_current_month.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_11c_payables_reappearing_current_month.png) e [`android_homolog_11c_payables_reappearing_current_month.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_11c_payables_reappearing_current_month.png)).
-3. **Validação Obrigatória de Conta Bancária nas Baixas:**
-   - Em Contas a Pagar: tentativa de liquidação sem seleção de conta aciona e valida a mensagem `'Selecione uma conta bancária para debitar o pagamento.'`.
-   - Em Contas a Receber: tentativa de baixa sem seleção de conta aciona e valida a mensagem `'Selecione uma conta bancária de destino para o recebimento.'`.
-4. **Fluxo Completo de Estorno de Pagamento:**
-   - Liquidação de conta de energia elétrica realizada com sucesso no Nubank PF.
-   - Abertura dos detalhes da conta liquidada, acionamento do botão `Estornar` no histórico de pagamentos.
-   - Diálogo `AlertDialog` com título `Estornar pagamento`, preenchimento da justificativa auditada e confirmação.
-   - Comprovação contábil: reabertura automática da conta a pagar para o status *Em aberto* e recomposição integral do saldo disponível no Dashboard e no Extrato.
-5. **Prevenção de Overflow Visual (Zero RenderFlex Overflow):**
-   - Criação e renderização de compromissos com descrição longa (104+ caracteres) sem quebras ou oclusões de layout.
-6. **Ajuste de Abertura com Saldo Negativo/Devedor:**
-   - Abertura de `OpeningAdjustmentScreen` para conta bancária na Carteira de Contas.
-   - Seleção do segmento `Saldo negativo / devedor (-)`, definição de saldo inicial devedor (-R$ 500,00), preenchimento do motivo, tela de revisão contábil e confirmação.
-   - Restauração subsequente para preservação do ambiente de teste limpo.
-7. **Aviso Explícito de Governança Pix na Transferência Cross-Space:**
-   - Tela de revisão exige e valida a presença do texto oficial: *"Registro contábil de movimentação: não executa Pix no banco."*.
-   - Navegação pós-transferência realizada 100% via `NavigationBar` da interface real, conferindo débito em PF e crédito em PJ.
+Durante o incidente de deploy da release `v1.2.0`, foram identificadas vulnerabilidades operacionais na orquestração:
+1. **Divergência de Projeto Compose:** Scripts esperavam o nome de projeto `bigdevz-finance`, enquanto a VPS executa os containers sob o projeto `finance-prod` (rede `finance-prod_default`, containers `finance-prod-*-1`), causando falha de resolução de hostname do banco de dados (`postgres`) em comandos efêmeros.
+2. **Invocação de Opções no Cliente SSH:** O workflow do GitHub Actions (`deploy.yml`) executava `ssh ... "--tag $TAG --digest $DIGEST"` sem o separador `--`, fazendo o cliente OpenSSH interpretar incorretamente argumentos como switches do próprio cliente SSH (`exit code 255`).
+3. **Permissão de Escrita em Marcadores:** O arquivo `/var/lib/vps-deploy/bigdevz-finance/implantado_digest` pertencia a `root:root` (modo 0644), gerando `Permission denied` ao final do deploy sob usuário operacional (`jeann`).
+4. **Acoplamento Indevido de Trap Pós-Healthcheck:** A trap de rollback `perform_rollback` em `scripts/vps-deploy.sh` interrompia serviços saudáveis caso ocorresse qualquer erro em metadados secundários mesmo após o healthcheck `/up` já ter sido aprovado.
+5. **Publicação Antecipada do Bundle Web:** A sincronização de `/srv/finance/web` ocorria antes da validação do backend, expondo o novo frontend a usuários antes que a API estivesse funcional.
 
 ---
 
-## 3. Matriz de Homologação por Plataforma e Fluxo de Negócio
+## 2. Hardening e Soluções Implementadas
 
-| # | Fluxo de Negócio | iOS (iPhone 18 Pro) | Android (API 37) | Web (Desktop/Mobile) | Evidências Canônicas |
-|---|---|:---:|:---:|:---:|---|
-| **1** | **Ícone Oficial Instalado** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_00_homescreen_icon.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_00_homescreen_icon.png)<br>[`android_homolog_00_homescreen_icon.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_00_homescreen_icon.png) |
-| **2** | **Login Autenticado** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_01_login.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_01_login.png)<br>[`android_homolog_01_login.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_01_login.png)<br>[`web_desktop_login.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/web_desktop_login.png)<br>[`web_mobile_login.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/web_mobile_login.png) |
-| **3** | **Dashboard PF (Saldo vs. Previstos)** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_03_dashboard_pf.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_03_dashboard_pf.png)<br>[`android_homolog_03_dashboard_pf.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_03_dashboard_pf.png) |
-| **4** | **Alternância entre Espaços (PF $\leftrightarrow$ PJ)** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_04_dashboard_pj.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_04_dashboard_pj.png)<br>[`android_homolog_04_dashboard_pj.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_04_dashboard_pj.png) |
-| **5** | **Contas a Pagar: Filtros e Chips** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_06_payables_list.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_06_payables_list.png)<br>[`android_homolog_07_payables_vencidas.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_07_payables_vencidas.png) |
-| **6** | **Intervalo Personalizado e Filtro Temporal** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_08_payables_custom_period_picker.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_08_payables_custom_period_picker.png)<br>[`ios_homolog_11b_payables_filtered_out_previous_month.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_11b_payables_filtered_out_previous_month.png)<br>[`ios_homolog_11c_payables_reappearing_current_month.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_11c_payables_reappearing_current_month.png) |
-| **7** | **Formulários e Teclado Virtual** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_09_payable_form_empty.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_09_payable_form_empty.png)<br>[`android_homolog_10_payable_form_filled.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_10_payable_form_filled.png) |
-| **8** | **Contas a Pagar: Criação e Edição (Double-Check)** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_11_payables_after_creation.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_11_payables_after_creation.png)<br>[`android_homolog_13_payable_edited_modal.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_13_payable_edited_modal.png) |
-| **9** | **Contas a Pagar: Cancelamento com Justificativa** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_14_payables_after_cancellation.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_14_payables_after_cancellation.png)<br>[`android_homolog_14_payables_after_cancellation.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_14_payables_after_cancellation.png) |
-| **10**| **Validação de Conta Obrigatória na Baixa** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_15b_payment_validation_error.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_15b_payment_validation_error.png)<br>[`android_homolog_15b_payment_validation_error.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_15b_payment_validation_error.png) |
-| **11**| **Baixa de Conta a Pagar (Débito e Extrato)** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_16_payment_success.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_16_payment_success.png)<br>[`android_homolog_18_statement_after_payment.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_18_statement_after_payment.png) |
-| **12**| **Estorno de Pagamento e Recomposição Contábil** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_16b_revert_payment_dialog.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_16b_revert_payment_dialog.png)<br>[`android_homolog_16d_dashboard_after_reversal.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_16d_dashboard_after_reversal.png) |
-| **13**| **Contas a Receber: Fluxo Completo e Sem Overflow** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_21_receivables_after_creation.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_21_receivables_after_creation.png)<br>[`android_homolog_24b_receivable_long_description_modal.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_24b_receivable_long_description_modal.png) |
-| **14**| **Validação Obrigatória e Baixa de Recebimento** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_25b_receipt_validation_error.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_25b_receipt_validation_error.png)<br>[`android_homolog_28_statement_after_receipt.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_28_statement_after_receipt.png) |
-| **15**| **Ajuste de Abertura com Saldo Devedor (-)** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_29c_opening_adjustment_negative_form.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_29c_opening_adjustment_negative_form.png)<br>[`android_homolog_29e_account_screen_negative_opening.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_29e_account_screen_negative_opening.png) |
-| **16**| **Transferência Cross-Space com Aviso Pix** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_31_transfer_review_pix_warning.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_31_transfer_review_pix_warning.png)<br>[`android_homolog_31_transfer_review_pix_warning.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_31_transfer_review_pix_warning.png) |
-| **17**| **Navegação UI Nativa e Extratos PF/PJ** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_32_statement_pf_transfer_out.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_32_statement_pf_transfer_out.png)<br>[`android_homolog_34_statement_pj_transfer_in.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_34_statement_pj_transfer_in.png) |
+1. **Scripts de Deploy Canônico (`scripts/vps-deploy.sh`):**
+   - **Resolução Consistente de Projeto:** Exportação padronizada de `COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-${PROJECT_NAME:-finance-prod}}"`.
+   - **Descoberta Dinâmica de Containers:** Funções auxiliares `resolve_containers` e `get_service_container` para identificar automaticamente os containers reais de banco e API (`finance-prod-postgres-1`, `finance-prod-api-1` ou convenções do projeto).
+   - **Pré-Voo Fail-Closed de Permissões:** Função `check_permissions_preflight` que valida permissão de escrita atômica em `/var/lib/vps-deploy/<projeto>` e nos marcadores (`implantado_tag`, `implantado`, `implantado_digest`, `recuperacao_pendente`) antes de parar qualquer escritor ou iniciar migrações.
+   - **Pré-Voo de Infraestrutura:** Valida a presença e o status de execução do container PostgreSQL antes do snapshot.
+   - **Escrita Atômica Segura:** Função `safe_write_marker` que cria arquivos temporários com `mktemp`, define permissão `0644` e executa substituição atômica (`mv -f`).
+   - **Desacoplamento de Rollback Pós-Healthcheck:** Flag `DEPLOY_HEALTH_PASSED=1` protege os containers saudáveis contra parada acidental na trap `perform_rollback`.
+   - **Estadiamento Coordenado da Web:** Suporte a `/srv/finance/web_staging/`, promovendo para `/srv/finance/web/` somente após confirmação 200 OK do endpoint `/up`.
+2. **Wrapper SSH (`scripts/vps-deploy-wrapper.sh`):**
+   - Suporte transparente a argumentos posicionais (`$1` como tag, `$2` como digest), flags nomeadas (`--tag`, `--digest`) e descarte seguro de separadores `--` passados pelo OpenSSH.
+   - Suporte a execução tanto via `SSH_ORIGINAL_COMMAND` quanto por linha de comando direta.
+3. **Workflow GitHub Actions (`.github/workflows/deploy.yml`):**
+   - Linha de invocação SSH corrigida com `--` explícito para neutralizar parsing ambíguo de opções:
+     `ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -p "$VPS_SSH_PORT" "$VPS_SSH_USER@$VPS_HOST" -- "$TAG_NAME" "$IMAGE_DIGEST"`
+4. **Scripts de Suporte Operacional (`scripts/deploy-production.sh`, `scripts/rollback-production.sh`, `scripts/backup-production.sh`):**
+   - Alinhamento de todos os scripts ao projeto `finance-prod`.
+   - Remoção de nomes hardcoded estáticos em favor de resolução dinâmica resiliente.
+   - Sincronização web direcionada a `web_staging` no `deploy-production.sh`, com swap atômico somente pós-healthcheck.
+5. **Configuração Docker Compose (`docker-compose.production.yml`):**
+   - Nome do projeto configurado como `name: ${COMPOSE_PROJECT_NAME:-finance-prod}`.
+6. **Nova Suíte de Testes Automatizados (`tests/infra/test-deploy-hardening-preflight.sh`):**
+   - Valida suporte do wrapper a argumentos com e sem `--`.
+   - Valida bloqueio fail-closed no pré-voo quando marcadores não possuem permissão de escrita.
+   - Valida que a trap não derruba serviços pós-healthcheck.
+   - Valida sintaxe segura do workflow `deploy.yml`.
+   - Integrada à suíte de qualidade obrigatória em `scripts/check.sh --full`.
+7. **Documentação e Runbooks Atualizados:**
+   - [`docs/operations/production-deployment.md`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/operations/production-deployment.md): Arquitetura, regras de pré-voo, projeto Compose e fluxo de staging web.
+   - [`docs/operations/production-runbook.md`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/operations/production-runbook.md): Inventário de serviços atualizado e playbook `INC-07` para diagnóstico de permissões e rede Compose.
 
 ---
 
-## 4. Estado de Qualidade e Governança Local
+## 3. Comprovação de Backpressure e Testes Automatizados
 
-- **Branch Dedicada:** `task/auditoria-e-homologacao-multiplataforma`.
-- **Backpressure Pré-Push (`./scripts/check.sh --full`):**
-  1. Domínio Financeiro: 15/15 PASS (0 falhas).
-  2. Linter PHP (Laravel Pint): 167 arquivos auditados, PASS.
-  3. Tipagem e Análise Dart (`flutter analyze`): 0 issues (No issues found).
-  4. Formatação Dart (`dart format`): 162 arquivos formatados (0 changed).
-  5. Suíte Flutter (`flutter test`): **332 testes PASS** (100% verde).
-  6. Suíte API Laravel (`php artisan test`): **203 testes PASS (1.931 asserções)** em PostgreSQL real.
-- **Isolamento de Segurança e Zero Credenciais:**
-  - Zero credenciais rastreadas ou expostas em logs/código.
-  - Nenhum acesso, leitura ou alteração em dados de produção.
-  - Base de dados de homologação isolada e redefinida com integridade referencial.
+Comando executado: `./scripts/check.sh --full`
+- **Domínio Financeiro Puro (PHP):** 15/15 PASS (0 falhas).
+- **Linter e Estilo PHP (Laravel Pint):** 167 arquivos auditados, PASS.
+- **Tipagem e Análise Dart (`flutter analyze`):** 0 issues (No issues found).
+- **Formatação Dart (`dart format`):** 162 arquivos formatados (0 changed).
+- **Suíte Flutter (`flutter test`):** **332 testes PASS** (100% verde).
+- **Suíte API Laravel (`php artisan test`):** **203 testes PASS (1.931 asserções)** em PostgreSQL real.
+- **Testes de Governança SemVer (`tests/infra/test-deploy-governance.sh`):** **7/7 cenários PASS**.
+- **Testes de Transição de Deploy SemVer (`tests/infra/test-vps-deploy-transition.sh`):** **3/3 cenários PASS**.
+- **Testes de Hardening e Pré-Voo (`tests/infra/test-deploy-hardening-preflight.sh`):** **4/4 cenários PASS**.
+- **Status Geral:** **100% VERDE (ZERO ERROS)**.
+
+---
+
+## 4. Estado da Produção e Salvaguardas
+
+- **Produção Atual (`srv1884441`):** Permanece 100% intacta, ativa e saudável servindo `v1.2.0` (commit `7af3d2d49b41836911acd9e7740ece015f9b7e86`).
+- **Nenhum Deploy Executado:** Nenhuma alteração foi aplicada na VPS durante esta sessão.
+- **Segurança de Credenciais:** Zero credenciais lidas, impressas ou commitadas. Nenhum arquivo `.env` real tocado.
+
+---
+
+## 5. Próximos Passos Imediatos
+
+1. Apresentar os resultados, arquivos alterados e comprovação de testes a Jeann Lucas.
+2. Aguardar revisão humana e autorização prévia e explícita para:
+   - Criação do commit na branch `fix/deploy-pipeline-hardening`.
+   - Merge na branch `dev` e publicação.
