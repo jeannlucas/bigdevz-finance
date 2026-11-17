@@ -1,83 +1,87 @@
 # BigDev.Z Finance — Transição Operacional (Handoff)
 
-> **Data de Atualização:** 16/11/2026 17:35 (UTC-03:00)  
-> **Branch Atual:** `dev` (sincronizada com `origin/dev` no commit `809c089`)  
-> **Status de Qualidade:** ✅ BACKPRESSURE 100% VERDE (`./scripts/check.sh --full` e GitHub Actions CI)  
-> **Soberania Git:** Commits, pushes e merges sob autoridade exclusiva de Jeann Lucas. Autorização expressa executada com sucesso.
+> **Data de Atualização:** 17/11/2026 02:20 (UTC-03:00)  
+> **Branch Atual:** `task/auditoria-e-homologacao-multiplataforma` (criada a partir da `dev` local)  
+> **Status de Qualidade:** ✅ HOMOLOGAÇÃO MULTIPLATAFORMA INTEGRALMENTE CONCLUÍDA (iOS Nativo, Android Nativo e Web) com Backpressure 100% Verde (`./scripts/check.sh --full`)  
+> **Soberania Git:** Commits, pushes e merges sob autoridade exclusiva de Jeann Lucas. Nenhuma alteração publicada sem autorização prévia e explícita.
 
 ---
 
-## 1. Resumo Executivo da Entrega Concluída e Publicada
+## 1. Resumo Executivo da Homologação Multiplataforma
 
-Atuando como especialista sênior em produto, UX/UI multiplataforma, acessibilidade e engenharia Flutter/Laravel, concluímos integralmente a entrega dos ícones nativos (iOS e Android), ergonomia de UX multiplataforma e homologação dos fluxos operacionais:
-
-### 1.1. Identidade Visual Oficial nos Ícones Nativos (iOS e Android)
-- **Extensão da Opção A Homologada:** Fundo gradiente Navy Profundo (`#122646` $\rightarrow$ `#081222`) com o gorila oficial branco centralizado na área de segurança (Safe Zone).
-- **iOS (`AppIcon.appiconset`):**
-  - Substituídos todos os 15 ícones do catálogo Xcode (`1024x1024`, `20x20`, `29x29`, `40x40`, `60x60`, `76x76`, `83.5x83.5` em suas escalas `@1x`, `@2x`, `@3x`).
-  - Imagens 100% opacas (RGB puro de 24 bits sem transparência, conforme exigência Apple).
-  - Ícone oficial inspecionado e comprovado na Home Screen do iOS Simulator (`docs/evidence/ios_app_homescreen_new_icon.png`).
-- **Android (`res/mipmap-*` e `res/drawable-*`):**
-  - Gerados ícones legados (`ic_launcher.png`) e circulares (`ic_launcher_round.png`) para todas as densidades (`mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`).
-  - Configurados **Adaptive Icons** em `res/mipmap-anydpi-v26/` com background em gradiente Navy (`ic_launcher_background.xml`) e foreground com gorila branco perfeitamente dimensionado na safe zone de 72dp dentro do canvas de 108dp.
-  - Atualizado `AndroidManifest.xml` vinculando `android:icon="@mipmap/ic_launcher"` e `android:roundIcon="@mipmap/ic_launcher_round"`.
-  - Ícone oficial redondo inspecionado e comprovado no Launcher Android (`docs/evidence/android_launcher_new_icon.png`).
-
-### 1.2. Teclado Virtual, Rolagem e Ergonomia de Formulários
-- **LoginScreen:** Scroll on drag (`ScrollViewKeyboardDismissBehavior.onDrag`) e padding inferior dinâmico contra oclusão de botões pelo teclado virtual.
-- **PayableModal e AgreementModal:** Injeção de `viewInsets.bottom` no `showModalBottomSheet` e scroll on drag em todos os `ListView`s internos.
-- **AgreementFormScreen e PayableFormScreen:** Padding dinâmico e rolagem natural em formulários longos.
-- Comprovado nativamente no Android com `android_app_form_keyboard_open.png` e testes de widget dedicados.
+Atuando como responsável técnico pela auditoria, correção e validação ponta a ponta do BigDev.Z Finance, executamos a homologação visual e funcional nos ambientes reais:
+- **Simulador iOS Nativo:** `iPhone 18 Pro` (`27E240C5-8C09-4606-B0DE-4512BA0154BC`), iOS 27.2, motor Impeller/Metal.
+- **Emulador Android Nativo:** `emulator-5554` (`Medium_Phone_API_37.0`), Android 17 (API 37), Adaptive Icons.
+- **Web Desktop e Mobile:** Google Chrome via Chrome DevTools MCP em resoluções 1280x800 (Desktop) e 390x844 (Mobile Viewport) com console auditado (zero erros).
 
 ---
 
-## 2. Esclarecimentos de Infraestrutura e Governança
+## 2. Diagnóstico, Correções e Rigor Metodológico
 
-1. **Investigação Conclusiva do Warning da API (`202 passed + 1 warning`):**
-   - **Mensagem Original Localizada nos Logs:** `WARN Tests\Feature\AccountManagementTest ! rename keeps identity space balance and history → file_get_contents… 0.42s`.
-   - **Causa Real:** Disparo transitório de `E_WARNING` pelo `file_get_contents` interno do pacote Whoops (`Whoops\Exception\Frame.php:120`) ao tentar ler o cache de arquivo de código durante a serialização de log sob alta concorrência de CPU (builds paralelos de Flutter e Android no Mac).
-   - **Integridade da Suíte:** Nenhum teste foi ignorado, pulado, adicionado ou removido. A suíte é composta estritamente por **203 testes e 1931 asserções**, todos passando 100% verdes (`Tests: 203 passed (1931 assertions)`).
-2. **Ambiente Local Estritamente Segregado:**
-   - Confirmado antes de qualquer mutação: `APP_ENV=local`, banco local `bigdevz_finance` no PostgreSQL 17 (container `finance-postgres-dev` na porta `5440`). Zero contato ou risco para produção.
-   - Regra inegociável de **Zero Credenciais Rastreadas** respeitada: nenhum arquivo `.env` real foi lido, criado ou commitado.
-3. **Dados de Homologação Criados no Banco Local (`bigdevz_finance`):**
-   - **Usuário ID 2:** `homologacao@bigdevz.local` (nome: `Usuario Homologacao`).
-   - **Espaço 3 (PF):**
-     - Conta ID 5: `Nubank PF (Homologação)` (Abertura: R$ 5.000,00).
-     - Conta ID 7: `Carteira Dinheiro (Homologação)` (Abertura: R$ 0,00).
-     - Conta a Pagar 1: `Aluguel Residencial (Homologação)` (R$ 1.800,00, Vence: 20/11/2026, Em aberto).
-     - Conta a Pagar 2: `Energia Elétrica (Homologação)` (R$ 220,00, Venceu: 15/10/2026, Liquidada durante homologação nativa via modal, saldo atualizado para R$ 4.780,00).
-     - Conta a Receber 1: `Salário Prolabore (Homologação)` (R$ 7.500,00, Vence: 30/11/2026).
-     - Conta a Receber 2: `Consultoria Técnica (Homologação)` (R$ 3.500,00, Recebida via API, saldo atualizado para R$ 7.980,00).
-   - **Espaço 4 (PJ):**
-     - Conta ID 6: `Inter Empresas PJ (Homologação)` (Abertura: R$ 15.000,00 $\rightarrow$ R$ 15.300,00 após transferência entre espaços).
-     - Conta a Pagar: `Servidor Cloud (Homologação)` (R$ 450,00, Vence: 25/11/2026, Em aberto).
-     - Conta a Receber: `Consultoria Empresarial (Homologação)` (R$ 8.000,00, Vence: 28/11/2026, Em aberto).
+1. **Eliminação de Falsos Positivos e Tolerância Zero a Fluxos Ignorados:**
+   - A suíte de teste unificada (`apps/mobile/integration_test/ios_homologation_test.dart`) elimina quaisquer condicionais defensivas que mascarem etapas.
+   - Navegação de filtros de status de Contas a Pagar (`ChoiceChip`) implementada com rolagem horizontal bidirecional automática (`AxisDirection.right`).
+   - Todos os fechamentos, navegações e submissões operam **exclusivamente através dos widgets reais da interface gráfica do usuário** (sem atalhos internos).
+2. **Filtro Temporal e Intervalo com Comprovação Determinística:**
+   - Comprovação estrita de lançamentos que devem aparecer e ficar fora do resultado:
+     - Conta a pagar cadastrada com vencimento no mês corrente.
+     - Ao acionar o filtro para o mês anterior (`chevron_left`), a asserção `expect(..., findsNothing)` comprova formalmente que o lançamento fica fora do resultado filtrado ([`ios_homolog_11b_payables_filtered_out_previous_month.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_11b_payables_filtered_out_previous_month.png) e [`android_homolog_11b_payables_filtered_out_previous_month.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_11b_payables_filtered_out_previous_month.png)).
+     - Ao retornar ao mês atual (`chevron_right`), a asserção `expect(..., findsWidgets)` comprova o reaparecimento do lançamento ([`ios_homolog_11c_payables_reappearing_current_month.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_11c_payables_reappearing_current_month.png) e [`android_homolog_11c_payables_reappearing_current_month.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_11c_payables_reappearing_current_month.png)).
+3. **Validação Obrigatória de Conta Bancária nas Baixas:**
+   - Em Contas a Pagar: tentativa de liquidação sem seleção de conta aciona e valida a mensagem `'Selecione uma conta bancária para debitar o pagamento.'`.
+   - Em Contas a Receber: tentativa de baixa sem seleção de conta aciona e valida a mensagem `'Selecione uma conta bancária de destino para o recebimento.'`.
+4. **Fluxo Completo de Estorno de Pagamento:**
+   - Liquidação de conta de energia elétrica realizada com sucesso no Nubank PF.
+   - Abertura dos detalhes da conta liquidada, acionamento do botão `Estornar` no histórico de pagamentos.
+   - Diálogo `AlertDialog` com título `Estornar pagamento`, preenchimento da justificativa auditada e confirmação.
+   - Comprovação contábil: reabertura automática da conta a pagar para o status *Em aberto* e recomposição integral do saldo disponível no Dashboard e no Extrato.
+5. **Prevenção de Overflow Visual (Zero RenderFlex Overflow):**
+   - Criação e renderização de compromissos com descrição longa (104+ caracteres) sem quebras ou oclusões de layout.
+6. **Ajuste de Abertura com Saldo Negativo/Devedor:**
+   - Abertura de `OpeningAdjustmentScreen` para conta bancária na Carteira de Contas.
+   - Seleção do segmento `Saldo negativo / devedor (-)`, definição de saldo inicial devedor (-R$ 500,00), preenchimento do motivo, tela de revisão contábil e confirmação.
+   - Restauração subsequente para preservação do ambiente de teste limpo.
+7. **Aviso Explícito de Governança Pix na Transferência Cross-Space:**
+   - Tela de revisão exige e valida a presença do texto oficial: *"Registro contábil de movimentação: não executa Pix no banco."*.
+   - Navegação pós-transferência realizada 100% via `NavigationBar` da interface real, conferindo débito em PF e crédito em PJ.
 
 ---
 
-## 3. Matriz Rigorosa de Homologação por Plataforma
+## 3. Matriz de Homologação por Plataforma e Fluxo de Negócio
 
-| # | Fluxo de Negócio | Desktop & Mobile Web | Android Nativo (Emulador API 37) | iOS Nativo (CoreSimulator Headless) | Evidências Diretas / Notas Técnicas |
+| # | Fluxo de Negócio | iOS (iPhone 18 Pro) | Android (API 37) | Web (Desktop/Mobile) | Evidências Canônicas |
 |---|---|:---:|:---:|:---:|---|
-| **1** | **Ícones Oficiais Instalados** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | Web: `manifest.json`, `favicon.png`.<br>Android: `android_launcher_new_icon.png` (Adaptive Icon com safe zone).<br>iOS: `ios_app_homescreen_new_icon.png` (AppIcon.appiconset 100% opaco). |
-| **2** | **Login e Alternância de Espaços (PF / PJ)** | ✅ Aprovado | ✅ Aprovado | ⚠️ Parcial *(Renderiza tela de login)* | Web: `web_desktop_login.png`, `web_desktop_dashboard_pj.png`.<br>Android: `android_app_dashboard_pf.png` (PF: R$ 5.000,00) e `android_app_dashboard_pj.png` (PJ: R$ 15.000,00).<br>iOS: `ios_app_login_verified.png`. Interação travada por ausência do app GUI `Simulator.app` no host macOS. |
-| **3** | **Listagem de Contas a Pagar e Filtros** | ✅ Aprovado | ✅ Aprovado | ⏸️ Não Testado no Nativo | Android: `android_app_payables_list.png` (Mês corrente Novembro/2026 e alerta de vencida) e `android_app_payables_vencidas.png` (Filtro Vencidas exibindo R$ 220,00). |
-| **4** | **Liquidação / Pagamento com Atualização de Saldo** | ✅ Aprovado | ✅ Aprovado | ⏸️ Não Testado no Nativo | Android: `android_app_payment_modal.png` (modal sem conta pré-selecionada), `android_app_payable_paid_success.png` (baixa com retorno suave) e `android_app_dashboard_after_payment.png` (saldo atualizado exatamente para R$ 4.780,00). |
-| **5** | **Extrato e Movimentações Realizadas** | ✅ Aprovado | ✅ Aprovado | ⏸️ Não Testado no Nativo | Android: `android_app_statement.png` (filtro padrão "Todos", sem situação indevida "Em aberto", listando o débito de R$ 220,00 em 16/11/2026). |
-| **6** | **Carteira de Contas e Visualização Multi-Conta** | ✅ Aprovado | ✅ Aprovado | ⏸️ Não Testado no Nativo | Android: `android_app_accounts_list.png` exibindo `Nubank PF` (R$ 4.780,00) e `Carteira Dinheiro` (R$ 0,00). |
-| **7** | **Transferência entre Contas e Aviso de Governança Pix** | ✅ Aprovado | ✅ Aprovado | ⏸️ Não Testado no Nativo | Android: `android_app_transfer_screen.png` comprovando a renderização explícita do aviso: *"Registro contábil de movimentação: não executa Pix no banco."*. Transferência PF $\rightarrow$ PJ refletida nos extratos (`android_app_statement_pf_after_transfer.png`, `android_app_statement_pj_after_transfer.png`). |
-| **8** | **Liquidação de Recebimento de Conta a Receber** | ✅ Aprovado | ✅ Aprovado | ⏸️ Não Testado no Nativo | Android: `android_app_dashboard_pf_after_receipt.png` (saldo elevado para R$ 7.980,00 com recebimento de R$ 3.500,00) e `android_app_statement_pf_after_receipt.png` (crédito no extrato). |
-| **9** | **Formulários e Modais com Teclado Aberto** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado *(Widget Tests)* | Android: `android_app_form_keyboard_open.png`.<br>Suíte: testes de widget dedicados em `login_screen_test.dart` e `payable_form_screen_test.dart`. |
+| **1** | **Ícone Oficial Instalado** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_00_homescreen_icon.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_00_homescreen_icon.png)<br>[`android_homolog_00_homescreen_icon.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_00_homescreen_icon.png) |
+| **2** | **Login Autenticado** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_01_login.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_01_login.png)<br>[`android_homolog_01_login.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_01_login.png)<br>[`web_desktop_login.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/web_desktop_login.png)<br>[`web_mobile_login.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/web_mobile_login.png) |
+| **3** | **Dashboard PF (Saldo vs. Previstos)** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_03_dashboard_pf.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_03_dashboard_pf.png)<br>[`android_homolog_03_dashboard_pf.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_03_dashboard_pf.png) |
+| **4** | **Alternância entre Espaços (PF $\leftrightarrow$ PJ)** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_04_dashboard_pj.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_04_dashboard_pj.png)<br>[`android_homolog_04_dashboard_pj.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_04_dashboard_pj.png) |
+| **5** | **Contas a Pagar: Filtros e Chips** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_06_payables_list.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_06_payables_list.png)<br>[`android_homolog_07_payables_vencidas.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_07_payables_vencidas.png) |
+| **6** | **Intervalo Personalizado e Filtro Temporal** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_08_payables_custom_period_picker.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_08_payables_custom_period_picker.png)<br>[`ios_homolog_11b_payables_filtered_out_previous_month.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_11b_payables_filtered_out_previous_month.png)<br>[`ios_homolog_11c_payables_reappearing_current_month.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_11c_payables_reappearing_current_month.png) |
+| **7** | **Formulários e Teclado Virtual** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_09_payable_form_empty.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_09_payable_form_empty.png)<br>[`android_homolog_10_payable_form_filled.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_10_payable_form_filled.png) |
+| **8** | **Contas a Pagar: Criação e Edição (Double-Check)** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_11_payables_after_creation.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_11_payables_after_creation.png)<br>[`android_homolog_13_payable_edited_modal.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_13_payable_edited_modal.png) |
+| **9** | **Contas a Pagar: Cancelamento com Justificativa** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_14_payables_after_cancellation.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_14_payables_after_cancellation.png)<br>[`android_homolog_14_payables_after_cancellation.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_14_payables_after_cancellation.png) |
+| **10**| **Validação de Conta Obrigatória na Baixa** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_15b_payment_validation_error.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_15b_payment_validation_error.png)<br>[`android_homolog_15b_payment_validation_error.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_15b_payment_validation_error.png) |
+| **11**| **Baixa de Conta a Pagar (Débito e Extrato)** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_16_payment_success.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_16_payment_success.png)<br>[`android_homolog_18_statement_after_payment.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_18_statement_after_payment.png) |
+| **12**| **Estorno de Pagamento e Recomposição Contábil** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_16b_revert_payment_dialog.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_16b_revert_payment_dialog.png)<br>[`android_homolog_16d_dashboard_after_reversal.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_16d_dashboard_after_reversal.png) |
+| **13**| **Contas a Receber: Fluxo Completo e Sem Overflow** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_21_receivables_after_creation.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_21_receivables_after_creation.png)<br>[`android_homolog_24b_receivable_long_description_modal.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_24b_receivable_long_description_modal.png) |
+| **14**| **Validação Obrigatória e Baixa de Recebimento** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_25b_receipt_validation_error.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_25b_receipt_validation_error.png)<br>[`android_homolog_28_statement_after_receipt.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_28_statement_after_receipt.png) |
+| **15**| **Ajuste de Abertura com Saldo Devedor (-)** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_29c_opening_adjustment_negative_form.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_29c_opening_adjustment_negative_form.png)<br>[`android_homolog_29e_account_screen_negative_opening.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_29e_account_screen_negative_opening.png) |
+| **16**| **Transferência Cross-Space com Aviso Pix** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_31_transfer_review_pix_warning.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_31_transfer_review_pix_warning.png)<br>[`android_homolog_31_transfer_review_pix_warning.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_31_transfer_review_pix_warning.png) |
+| **17**| **Navegação UI Nativa e Extratos PF/PJ** | ✅ Aprovado | ✅ Aprovado | ✅ Aprovado | [`ios_homolog_32_statement_pf_transfer_out.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/ios_homolog_32_statement_pf_transfer_out.png)<br>[`android_homolog_34_statement_pj_transfer_in.png`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/evidence/android_homolog_34_statement_pj_transfer_in.png) |
 
 ---
 
-## 4. Estado Git e Verificação Remota do CI
+## 4. Estado de Qualidade e Governança Local
 
-- **Branch de Trabalho:** `feature/icones-nativos-mobile-e-ux-multiplataforma` (commit `d28216c`).
-- **Merge Local Integrado:** Commit `809c089` na branch `dev`.
-- **Pre-Push Hook:** Executado com sucesso via `./scripts/check.sh --full`.
-- **Push Remoto:** `git push origin dev` concluído para `origin/dev`.
-- **GitHub Actions Quality Gate:**
-  - Workflow `CI` (`43950499425`): **SUCCESS** (100% verde).
-  - Workflow `Verify DefectDojo Access` (`43950499483`): **SUCCESS** (100% verde).
+- **Branch Dedicada:** `task/auditoria-e-homologacao-multiplataforma`.
+- **Backpressure Pré-Push (`./scripts/check.sh --full`):**
+  1. Domínio Financeiro: 15/15 PASS (0 falhas).
+  2. Linter PHP (Laravel Pint): 167 arquivos auditados, PASS.
+  3. Tipagem e Análise Dart (`flutter analyze`): 0 issues (No issues found).
+  4. Formatação Dart (`dart format`): 162 arquivos formatados (0 changed).
+  5. Suíte Flutter (`flutter test`): **332 testes PASS** (100% verde).
+  6. Suíte API Laravel (`php artisan test`): **203 testes PASS (1.931 asserções)** em PostgreSQL real.
+- **Isolamento de Segurança e Zero Credenciais:**
+  - Zero credenciais rastreadas ou expostas em logs/código.
+  - Nenhum acesso, leitura ou alteração em dados de produção.
+  - Base de dados de homologação isolada e redefinida com integridade referencial.
