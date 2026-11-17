@@ -266,6 +266,177 @@ void main() {
         expect(resAll.length, 2);
       },
     );
+
+    group('FinancialPeriodSelection e filtro por período', () {
+      final itemNov1 = TestItem(
+        id: 101,
+        title: 'Item Início de Novembro',
+        dueDate: '2026-11-01',
+        pendingAmount: const Money(10000),
+      );
+      final itemNov15 = TestItem(
+        id: 102,
+        title: 'Item Meio de Novembro',
+        dueDate: '2026-11-15',
+        pendingAmount: const Money(20000),
+      );
+      final itemNov30 = TestItem(
+        id: 103,
+        title: 'Item Fim de Novembro',
+        dueDate: '2026-11-30',
+        pendingAmount: const Money(30000),
+      );
+      final itemOut31 = TestItem(
+        id: 104,
+        title: 'Item Outubro',
+        dueDate: '2026-10-31',
+        pendingAmount: const Money(40000),
+        isOverdue: true,
+      );
+      final itemDez01 = TestItem(
+        id: 105,
+        title: 'Item Dezembro',
+        dueDate: '2026-12-01',
+        pendingAmount: const Money(50000),
+      );
+      final itemBissexto = TestItem(
+        id: 106,
+        title: 'Item 29 de Fev de 2028',
+        dueDate: '2028-02-29',
+        pendingAmount: const Money(60000),
+      );
+
+      final periodItems = [
+        itemNov1,
+        itemNov15,
+        itemNov30,
+        itemOut31,
+        itemDez01,
+        itemBissexto,
+      ];
+
+      test('filtra mês específico do 1º ao último dia', () {
+        final periodNov = FinancialPeriodSelection.month(2026, 11);
+        final res = filterAndSortFinancialItems(
+          periodItems,
+          periodSelection: periodNov,
+        );
+        expect(res.map((i) => i.id).toList(), [101, 102, 103]);
+      });
+
+      test('filtro vencidas retorna apenas itens vencidos em relação à data de referência', () {
+        const periodOverdue = FinancialPeriodSelection.overdue();
+        final res = filterAndSortFinancialItems(
+          periodItems,
+          periodSelection: periodOverdue,
+          now: DateTime(2026, 11, 1),
+        );
+        expect(res.length, 1);
+        expect(res.first.id, 104);
+      });
+
+      test('filtro todos retorna todos os itens', () {
+        const periodAll = FinancialPeriodSelection.all();
+        final res = filterAndSortFinancialItems(
+          periodItems,
+          periodSelection: periodAll,
+        );
+        expect(res.length, periodItems.length);
+      });
+
+      test('navegação de mês: nextMonth e previousMonth com virada de ano', () {
+        final dez2026 = FinancialPeriodSelection.month(2026, 12);
+        final jan2027 = dez2026.nextMonth();
+        expect(jan2027.referenceMonth!.year, 2027);
+        expect(jan2027.referenceMonth!.month, 1);
+
+        final backToDez = jan2027.previousMonth();
+        expect(backToDez.referenceMonth!.year, 2026);
+        expect(backToDez.referenceMonth!.month, 12);
+      });
+
+      test('navegação e cálculo de último dia em ano bissexto (fevereiro)', () {
+        final fev2028 = FinancialPeriodSelection.month(2028, 2);
+        expect(fev2028.endDate!.day, 29);
+
+        final fev2026 = FinancialPeriodSelection.month(2026, 2);
+        expect(fev2026.endDate!.day, 28);
+      });
+
+      test('formatMonthYearBr formata mês e ano em português por extenso', () {
+        expect(formatMonthYearBr(DateTime(2026, 11, 1)), 'Novembro de 2026');
+        expect(formatMonthYearBr(DateTime(2027, 1, 15)), 'Janeiro de 2027');
+        expect(formatMonthYearBr(DateTime(2028, 2, 29)), 'Fevereiro de 2028');
+      });
+
+      test(
+        'intervalo personalizado filtra itens estritamente dentro do intervalo',
+        () {
+          final customSel = FinancialPeriodSelection.custom(
+            DateTime(2026, 11, 5),
+            DateTime(2026, 11, 20),
+          );
+          expect(customSel.type, FinancialPeriodType.custom);
+          expect(customSel.startDate, DateTime(2026, 11, 5));
+          expect(customSel.endDate, DateTime(2026, 11, 20));
+          expect(customSel.label, '05/11/2026 a 20/11/2026');
+
+          final res = filterAndSortFinancialItems(
+            periodItems,
+            periodSelection: customSel,
+          );
+          expect(res.map((i) => i.id).toList(), [
+            102,
+          ]); // Apenas itemNov15 (2026-11-15)
+        },
+      );
+
+      test(
+        'intervalo personalizado com datas invertidas valida e normaliza ordem',
+        () {
+          final customInverted = FinancialPeriodSelection.custom(
+            DateTime(2026, 11, 20),
+            DateTime(2026, 11, 5),
+          );
+          expect(customInverted.startDate, DateTime(2026, 11, 5));
+          expect(customInverted.endDate, DateTime(2026, 11, 20));
+        },
+      );
+
+      test(
+        'intervalo personalizado sem itens correspondentes retorna lista vazia',
+        () {
+          final customEmpty = FinancialPeriodSelection.custom(
+            DateTime(2026, 7, 1),
+            DateTime(2026, 7, 31),
+          );
+          final res = filterAndSortFinancialItems(
+            periodItems,
+            periodSelection: customEmpty,
+          );
+          expect(res, isEmpty);
+        },
+      );
+
+      test('igualdade e hashCode de FinancialPeriodSelection.custom', () {
+        final sel1 = FinancialPeriodSelection.custom(
+          DateTime(2026, 11, 1),
+          DateTime(2026, 11, 30),
+        );
+        final sel2 = FinancialPeriodSelection.custom(
+          DateTime(2026, 11, 1),
+          DateTime(2026, 11, 30),
+        );
+        final sel3 = FinancialPeriodSelection.custom(
+          DateTime(2026, 11, 1),
+          DateTime(2026, 11, 15),
+        );
+
+        expect(sel1, equals(sel2));
+        expect(sel1.hashCode, equals(sel2.hashCode));
+        expect(sel1, isNot(equals(sel3)));
+      });
+    });
   });
 }
 

@@ -288,8 +288,27 @@ void main() {
       // Deve exibir a tela unificada de recebimento em lote
       expect(find.text('Receber 2 parcelas'), findsOneWidget);
       expect(find.text('Confirmar recebimento das 2 parcelas'), findsOneWidget);
+      expect(find.text('Selecione uma conta'), findsOneWidget);
 
-      // Confirma o recebimento em lote
+      // Tenta confirmar sem selecionar conta: deve ser barrado com validação
+      await tester.tap(find.text('Confirmar recebimento das 2 parcelas'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'Selecione uma conta bancária de destino para o recebimento.',
+        ),
+        findsOneWidget,
+      );
+      expect(requests.where((r) => r.url.path.contains('/receipts')).length, 0);
+
+      // Agora seleciona a conta no dropdown
+      await tester.tap(find.byType(DropdownButtonFormField<int>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('NUBANK (R\$ 1.500,00)').last);
+      await tester.pumpAndSettle();
+
+      // Confirma o recebimento em lote com a conta selecionada
       await tester.tap(find.text('Confirmar recebimento das 2 parcelas'));
       await tester.pump();
       await tester.pump(const Duration(seconds: 2));
@@ -300,6 +319,197 @@ void main() {
           .where((r) => r.url.path.contains('/receipts'))
           .toList();
       expect(receiptRequests.length, 2);
+    },
+  );
+
+  testWidgets(
+    'AgreementActionModal exige seleção explícita de conta bancária na baixa individual',
+    (tester) async {
+      tester.view.physicalSize = const Size(1080, 1920);
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.reset);
+
+      final client = MockClient((request) async {
+        requests.add(request);
+        if (request.url.path.contains('/agreements/5')) {
+          return http.Response(jsonEncode(agreementResponse), 200);
+        }
+        if (request.url.path.contains('/accounts')) {
+          return http.Response(jsonEncode(accountsResponse), 200);
+        }
+        if (request.url.path.contains('/receipts')) {
+          return http.Response(
+            jsonEncode({
+              'data': {
+                'receipt': {
+                  'id': 999,
+                  'installment_id': 101,
+                  'account_id': 10,
+                  'amount': '1000.00',
+                  'received_on': '2026-03-10',
+                  'kind': 'pix',
+                },
+                'installment': {
+                  'id': 101,
+                  'agreement_id': 5,
+                  'number': 1,
+                  'due_date': '2026-03-10',
+                  'amount': '1000.00',
+                  'received': '1000.00',
+                  'remaining': '0.00',
+                  'status': 'paid',
+                  'overdue': false,
+                },
+                'agreement': {'remaining': '1000.00'},
+                'account': {'id': 10, 'balance': '2500.00'},
+                'replayed': false,
+              },
+            }),
+            201,
+          );
+        }
+        return http.Response('{"message": "Not found"}', 404);
+      });
+
+      final api = ApiClient(baseUrl: 'http://api.test/api', client: client);
+
+      await tester.pumpWidget(
+        buildTestWidget(
+          api: api,
+          child: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () =>
+                  showAgreementModal(context, space: pf, agreementId: 5),
+              child: const Text('Abrir Modal'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Abrir Modal'));
+      await tester.pumpAndSettle();
+
+      final baixaButtons = find.text('Registrar recebimento');
+      await tester.tap(baixaButtons.first);
+      await tester.pumpAndSettle();
+
+      // Confere que começa com "Selecione uma conta"
+      expect(find.text('Selecione uma conta'), findsOneWidget);
+
+      // Tenta confirmar sem selecionar conta
+      await tester.tap(find.text('Confirmar recebimento'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'Selecione uma conta bancária de destino para o recebimento.',
+        ),
+        findsOneWidget,
+      );
+      expect(requests.where((r) => r.url.path.contains('/receipts')).length, 0);
+
+      // Seleciona a conta
+      await tester.tap(find.byType(DropdownButtonFormField<int>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('NUBANK (R\$ 1.500,00)').last);
+      await tester.pumpAndSettle();
+
+      // Agora confirma com sucesso
+      await tester.tap(find.text('Confirmar recebimento'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+
+      expect(requests.where((r) => r.url.path.contains('/receipts')).length, 1);
+    },
+  );
+
+  testWidgets(
+    'AgreementActionModal com initialInstallmentId fecha o modal e emite feedback visual ao confirmar',
+    (tester) async {
+      final client = MockClient((request) async {
+        requests.add(request);
+        if (request.url.path.contains('/agreements/5')) {
+          return http.Response(jsonEncode(agreementResponse), 200);
+        }
+        if (request.url.path.contains('/accounts')) {
+          return http.Response(jsonEncode(accountsResponse), 200);
+        }
+        if (request.url.path.contains('/receipts')) {
+          return http.Response(
+            jsonEncode({
+              'data': {
+                'receipt': {
+                  'id': 1,
+                  'installment_id': 101,
+                  'account_id': 10,
+                  'amount': '1000.00',
+                  'received_on': '2026-03-10',
+                  'kind': 'pix',
+                },
+                'installment': {
+                  'id': 101,
+                  'agreement_id': 5,
+                  'number': 1,
+                  'due_date': '2026-03-10',
+                  'amount': '1000.00',
+                  'received': '1000.00',
+                  'remaining': '0.00',
+                  'status': 'paid',
+                  'overdue': false,
+                },
+                'agreement': {'remaining': '1000.00'},
+                'account': {'id': 10, 'balance': '2500.00'},
+                'replayed': false,
+              },
+            }),
+            201,
+          );
+        }
+        return http.Response('{"message": "Not found"}', 404);
+      });
+
+      final api = ApiClient(baseUrl: 'http://api.test/api', client: client);
+
+      await tester.pumpWidget(
+        buildTestWidget(
+          api: api,
+          child: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () => showAgreementModal(
+                context,
+                space: pf,
+                agreementId: 5,
+                initialInstallmentId: 101,
+              ),
+              child: const Text('Abrir Receber Direto'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Abrir Receber Direto'));
+      await tester.pumpAndSettle();
+
+      // Já abre diretamente no formulário de baixa da parcela 101
+      expect(find.text('Confirmar recebimento'), findsOneWidget);
+
+      // Seleciona a conta
+      await tester.tap(find.byType(DropdownButtonFormField<int>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('NUBANK (R\$ 1.500,00)').last);
+      await tester.pumpAndSettle();
+
+      // Confirma recebimento
+      await tester.tap(find.text('Confirmar recebimento'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 800));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Modal fechou e retornou à tela principal
+      expect(find.text('Abrir Receber Direto'), findsOneWidget);
+      expect(find.text('Confirmar recebimento'), findsNothing);
+      expect(find.text('Recebimento registrado com sucesso.'), findsOneWidget);
     },
   );
 }

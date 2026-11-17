@@ -1032,7 +1032,7 @@ void main() {
         await pump(
           tester,
           const Scaffold(body: PayablesTab(space: pf)),
-          physicalSize: const Size(1200, 1800),
+          physicalSize: const Size(1200, 2400),
         );
         await tester.pumpAndSettle();
 
@@ -1062,7 +1062,16 @@ void main() {
         expect(find.text('Pagar 2 contas'), findsOneWidget);
         expect(find.text('Confirmar pagamento de 2 contas'), findsOneWidget);
 
-        // Confirma o pagamento em lote
+        // O campo inicia sem conta selecionada
+        expect(find.text('Selecione uma conta'), findsOneWidget);
+
+        // Seleciona a conta bancária no dropdown
+        await tester.tap(find.byType(DropdownButtonFormField<int>));
+        await tester.pumpAndSettle();
+        await tester.tap(find.textContaining('BANCO PF').last);
+        await tester.pumpAndSettle();
+
+        // Confirma o pagamento em lote com a conta selecionada
         await tester.tap(find.text('Confirmar pagamento de 2 contas'));
         await tester.pump();
         await tester.pump(const Duration(seconds: 2));

@@ -35,8 +35,11 @@ class OpeningAdjustmentScreen extends StatefulWidget {
 
 class _OpeningAdjustmentScreenState extends State<OpeningAdjustmentScreen> {
   final _form = GlobalKey<FormState>();
+  late bool _isNegative = widget.account.openingBalance.isNegative;
   late final _balance = TextEditingController(
-    text: widget.account.openingBalance.plain,
+    text: widget.account.openingBalance.cents == 0
+        ? '0,00'
+        : Money(widget.account.openingBalance.cents.abs()).plain,
   );
   final _reason = TextEditingController();
   late DateTime _date = parseApiDate(widget.account.openingBalanceDate);
@@ -54,10 +57,15 @@ class _OpeningAdjustmentScreenState extends State<OpeningAdjustmentScreen> {
       ? null
       : parseApiDate(widget.account.firstMovementDate!);
 
-  Money get _newBalance =>
-      _attempt?.openingBalance ??
-      Money.fromInput(_balance.text) ??
-      const Money(0);
+  Money get _newBalance {
+    if (_attempt != null) return _attempt!.openingBalance;
+    final parsed = Money.fromInput(_balance.text);
+    if (parsed == null) return const Money(0);
+    return Money(
+      _isNegative && parsed.cents > 0 ? -parsed.cents : parsed.cents,
+    );
+  }
+
   String get _newDate => _attempt?.openingDate ?? toApiDate(_date);
 
   @override
@@ -192,11 +200,29 @@ class _OpeningAdjustmentScreenState extends State<OpeningAdjustmentScreen> {
             FormErrorBanner(banner),
             const SizedBox(height: 16),
           ],
+          SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment<bool>(
+                value: false,
+                label: Text('Saldo positivo (+)'),
+                icon: Icon(Icons.add_circle_outline),
+              ),
+              ButtonSegment<bool>(
+                value: true,
+                label: Text('Saldo negativo / devedor (-)'),
+                icon: Icon(Icons.remove_circle_outline),
+              ),
+            ],
+            selected: {_isNegative},
+            onSelectionChanged: (set) =>
+                setState(() => _isNegative = set.first),
+          ),
+          const SizedBox(height: 16),
           TextFormField(
             controller: _balance,
             decoration: InputDecoration(
               labelText: 'Saldo inicial correto',
-              prefixText: r'R$ ',
+              prefixText: _isNegative ? r'-R$ ' : r'R$ ',
               errorText: fieldErrors['opening_balance'],
             ),
             keyboardType: TextInputType.number,
@@ -204,7 +230,10 @@ class _OpeningAdjustmentScreenState extends State<OpeningAdjustmentScreen> {
             validator: (value) {
               final amount = Money.fromInput(value ?? '');
               if (amount == null) return 'Informe o saldo inicial.';
-              if (amount.cents == account.openingBalance.cents &&
+              final signedCents = _isNegative && amount.cents > 0
+                  ? -amount.cents
+                  : amount.cents;
+              if (signedCents == account.openingBalance.cents &&
                   toApiDate(_date) == account.openingBalanceDate) {
                 return 'Altere o saldo inicial ou a data de abertura.';
               }

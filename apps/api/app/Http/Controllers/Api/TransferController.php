@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Actions\Receivables\IdempotentOperations;
+use App\Actions\Transfers\ReverseTransfer;
 use App\Actions\Transfers\TransferFunds;
 use App\Domain\Receivables\Money;
 use App\Http\Controllers\Api\Concerns\HandlesIdempotency;
@@ -23,7 +24,17 @@ class TransferController extends Controller
     {
         $space = $this->space($request, $space);
         $transfers = Transfer::query()
-            ->where('space_id', $space->id)
+            ->where(function ($q) use ($space) {
+                $q->where('space_id', $space->id)
+                    ->orWhere('destination_space_id', $space->id);
+            })
+            ->with([
+                'reversal',
+                'sourceAccount',
+                'destinationAccount',
+                'space',
+                'destinationSpace',
+            ])
             ->orderByDesc('transferred_at')
             ->orderByDesc('id')
             ->get();
@@ -43,10 +54,16 @@ class TransferController extends Controller
             $space->ensureDateNotClosed($request->input('transferred_at'), 'transferência entre contas');
         }
 
+        $destinationSpaceId = $request->input('destination_space_id');
+        $destinationSpace = $destinationSpaceId !== null
+            ? $request->user()->spaces()->findOrFail($destinationSpaceId)
+            : $space;
+
         $key = $this->idempotencyKey($request);
 
         $rules = [
             'source_account_id' => ['required', 'integer'],
+            'destination_space_id' => ['nullable', 'integer'],
             'destination_account_id' => ['required', 'integer', 'different:source_account_id'],
             'amount' => ['required', new MoneyAmount(positive: true)],
             'transferred_at' => ['required', 'date_format:Y-m-d'],
@@ -65,7 +82,9 @@ class TransferController extends Controller
                 (int) $request->input('destination_account_id'),
                 $request->input('amount'),
                 (string) $request->input('transferred_at'),
-                $request->input('notes')
+                $request->input('notes'),
+                $space->id,
+                $destinationSpace->id
             );
 
             return $this->rejection($key, $keys->reject(
@@ -82,7 +101,7 @@ class TransferController extends Controller
 
         // Validação de espaço e prevenção contra IDOR (404 Not Found)
         $space->accounts()->findOrFail($data['source_account_id']);
-        $space->accounts()->findOrFail($data['destination_account_id']);
+        $destinationSpace->accounts()->findOrFail($data['destination_account_id']);
 
         $result = $transferFunds->handle(
             $request->user(),
@@ -92,14 +111,21 @@ class TransferController extends Controller
             Money::toCents($data['amount']),
             $data['transferred_at'],
             $data['notes'] ?? null,
-            $key
+            $key,
+            $destinationSpace
         );
 
         if ($result->rejected()) {
             return $this->rejection($key, $result);
         }
 
-        $transfer = Transfer::query()->where('space_id', $space->id)->findOrFail($result->ref('transfer_id'));
+        $transfer = Transfer::query()
+            ->where(function ($q) use ($space) {
+                $q->where('space_id', $space->id)
+                    ->orWhere('destination_space_id', $space->id);
+            })
+            ->with(['reversal', 'sourceAccount', 'destinationAccount', 'space', 'destinationSpace'])
+            ->findOrFail($result->ref('transfer_id'));
 
         return response()->json([
             'data' => (new TransferResource($transfer))->resolve(),
@@ -111,8 +137,78 @@ class TransferController extends Controller
     public function show(Request $request, string $space, string $transfer): JsonResponse
     {
         $space = $this->space($request, $space);
-        $model = Transfer::query()->where('space_id', $space->id)->findOrFail($transfer);
+        $model = Transfer::query()
+            ->where(function ($q) use ($space) {
+                $q->where('space_id', $space->id)
+                    ->orWhere('destination_space_id', $space->id);
+            })
+            ->with(['reversal', 'sourceAccount', 'destinationAccount', 'space', 'destinationSpace'])
+            ->findOrFail($transfer);
 
         return (new TransferResource($model))->response();
+    }
+
+    public function reverse(
+        Request $request,
+        string $space,
+        string $transfer,
+        ReverseTransfer $reverseTransfer,
+        IdempotentOperations $keys
+    ): JsonResponse {
+        $space = $this->space($request, $space);
+        $space->ensureCan($request->user(), 'reverse_transfer');
+
+        $transferModel = Transfer::query()
+            ->where(function ($q) use ($space) {
+                $q->where('space_id', $space->id)
+                    ->orWhere('destination_space_id', $space->id);
+            })
+            ->findOrFail($transfer);
+
+        $key = $this->idempotencyKey($request);
+
+        $rules = [
+            'reason' => ['required', 'string', 'min:3', 'max:500'],
+        ];
+
+        $validator = Validator::make($request->all(), $rules);
+
+        if ($validator->fails()) {
+            $fingerprint = ReverseTransfer::fingerprint(
+                $transferModel->id,
+                $request->input('reason')
+            );
+
+            return $this->rejection($key, $keys->reject(
+                $request->user(),
+                $space,
+                $key,
+                IdempotentOperations::TRANSFER_REVERSAL,
+                $fingerprint,
+                $validator->errors()->toArray()
+            ));
+        }
+
+        $data = $validator->validated();
+
+        $result = $reverseTransfer->handle(
+            $request->user(),
+            $space,
+            $transferModel->id,
+            $data['reason'],
+            $key
+        );
+
+        if ($result->rejected()) {
+            return $this->rejection($key, $result);
+        }
+
+        $transferModel->refresh()->load(['reversal', 'sourceAccount', 'destinationAccount', 'space', 'destinationSpace']);
+
+        return response()->json([
+            'data' => (new TransferResource($transferModel))->resolve(),
+            'idempotency' => $this->idempotency($key, $result),
+            'replayed' => $result->replayed,
+        ], $result->replayed ? 200 : 201);
     }
 }

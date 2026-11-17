@@ -138,7 +138,7 @@ class AccountManagementTest extends TestCase
             ->assertStatus(422)->assertJsonValidationErrors('opening_balance_date')->assertJsonPath('idempotency.status', 'rejected');
         $this->adjust($this->a, '1200.00', '2026-02-10', 'Igual', 'igual')->assertStatus(422)->assertJsonValidationErrors('opening_balance');
         $this->adjust($this->a, '999999999999.99', '2026-02-10', 'Limite', 'limite')->assertStatus(422)->assertJsonValidationErrors('opening_balance');
-        $this->adjust($this->a, '-1.00', '2026-02-10', 'Negativo', 'negativo')->assertStatus(422)->assertJsonValidationErrors('opening_balance');
+        $this->adjust($this->a, '-1.001', '2026-02-10', 'Formato invalido', 'invalido')->assertStatus(422)->assertJsonValidationErrors('opening_balance');
         $this->adjust($this->a, '1300.00', '2026-02-10', '', 'sem-motivo')->assertStatus(422)->assertJsonValidationErrors('reason');
 
         $account = Account::query()->findOrFail($this->a);
@@ -159,6 +159,46 @@ class AccountManagementTest extends TestCase
 
         $this->assertSame(1, AccountOpeningAdjustment::query()->where('account_id', $this->a)->count());
         $this->assertBalance($this->a, '1100.00');
+    }
+
+    public function test_opening_adjustment_accepts_negative_positive_and_zero_values_reflecting_in_balance(): void
+    {
+        // 1. Ajuste para valor negativo: -995.98
+        $this->adjust($this->b, '-995.98', '2026-01-01', 'Cheque especial utilizado', 'ajuste-negativo')
+            ->assertCreated()
+            ->assertJsonPath('data.account.opening_balance', '-995.98')
+            ->assertJsonPath('data.account.balance', '-995.98')
+            ->assertJsonPath('data.adjustment.previous_opening_balance', '0.00')
+            ->assertJsonPath('data.adjustment.new_opening_balance', '-995.98')
+            ->assertJsonPath('idempotency.status', 'completed');
+
+        $account = Account::query()->findOrFail($this->b);
+        $this->assertSame(-99598, $account->opening_balance_cents);
+        $this->assertSame(-99598, $account->balanceCents());
+
+        // 2. Ajuste para zero: 0.00
+        $this->adjust($this->b, '0.00', '2026-01-01', 'Zerando abertura', 'ajuste-zero')
+            ->assertCreated()
+            ->assertJsonPath('data.account.opening_balance', '0.00')
+            ->assertJsonPath('data.account.balance', '0.00')
+            ->assertJsonPath('data.adjustment.previous_opening_balance', '-995.98')
+            ->assertJsonPath('data.adjustment.new_opening_balance', '0.00');
+
+        $account->refresh();
+        $this->assertSame(0, $account->opening_balance_cents);
+        $this->assertSame(0, $account->balanceCents());
+
+        // 3. Ajuste para positivo: 1500.50
+        $this->adjust($this->b, '1500.50', '2026-01-01', 'Saldo positivo', 'ajuste-positivo')
+            ->assertCreated()
+            ->assertJsonPath('data.account.opening_balance', '1500.50')
+            ->assertJsonPath('data.account.balance', '1500.50')
+            ->assertJsonPath('data.adjustment.previous_opening_balance', '0.00')
+            ->assertJsonPath('data.adjustment.new_opening_balance', '1500.50');
+
+        $account->refresh();
+        $this->assertSame(150050, $account->opening_balance_cents);
+        $this->assertSame(150050, $account->balanceCents());
     }
 
     public function test_opening_adjustment_is_rejected_if_resulting_balance_would_underflow_max_cents(): void

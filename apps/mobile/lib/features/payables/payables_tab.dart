@@ -33,10 +33,12 @@ class PayablesTab extends StatefulWidget {
     super.key,
     required this.space,
     this.initialFilter = 'open',
+    this.initialPeriod,
   });
 
   final Space space;
   final String initialFilter;
+  final FinancialPeriodSelection? initialPeriod;
 
   @override
   State<PayablesTab> createState() => _PayablesTabState();
@@ -52,14 +54,20 @@ class _PayablesTabState extends State<PayablesTab> {
     'all': 'Todas',
   };
 
-  late String _filter = widget.initialFilter;
+  late String _filter = widget.initialFilter == 'overdue'
+      ? 'open'
+      : widget.initialFilter;
   int? _selectedCategoryId;
   PendingCreation? _pending;
   bool _selectionMode = false;
   final Set<int> _selectedPayableIds = {};
   String _searchQuery = '';
   FinancialSortOption _sortOption = FinancialSortOption.dueDateAsc;
-  FinancialPeriodFilter _periodFilter = FinancialPeriodFilter.all;
+  late FinancialPeriodSelection _periodSelection =
+      widget.initialPeriod ??
+      (widget.initialFilter == 'overdue'
+          ? FinancialPeriodSelection.overdue()
+          : FinancialPeriodSelection.currentMonth());
   final Set<FinancialDueDateGroup> _expandedGroups = {
     FinancialDueDateGroup.overdue,
     FinancialDueDateGroup.today,
@@ -79,6 +87,19 @@ class _PayablesTabState extends State<PayablesTab> {
     return Money(
       selected.fold<int>(0, (sum, p) => sum + (p.remaining?.cents ?? 0)),
     );
+  }
+
+  void _selectFilter(String newFilter) {
+    setState(() {
+      _filter = newFilter;
+      if (newFilter == 'overdue') {
+        _periodSelection = FinancialPeriodSelection.overdue();
+      } else if (newFilter == 'all') {
+        _periodSelection = FinancialPeriodSelection.all();
+      } else if (newFilter == 'open') {
+        _periodSelection = FinancialPeriodSelection.currentMonth();
+      }
+    });
   }
 
   void _toggleSelect(int payableId) {
@@ -109,6 +130,24 @@ class _PayablesTabState extends State<PayablesTab> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadPending());
+  }
+
+  @override
+  void didUpdateWidget(covariant PayablesTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialFilter != oldWidget.initialFilter ||
+        widget.initialPeriod != oldWidget.initialPeriod) {
+      setState(() {
+        if (widget.initialPeriod != null) {
+          _periodSelection = widget.initialPeriod!;
+        } else if (widget.initialFilter == 'overdue') {
+          _periodSelection = FinancialPeriodSelection.overdue();
+        }
+        _filter = widget.initialFilter == 'overdue'
+            ? 'open'
+            : widget.initialFilter;
+      });
+    }
   }
 
   /// Cadastro sem confirmação deste usuário e espaço; não bloqueia pagamentos.
@@ -209,7 +248,7 @@ class _PayablesTabState extends State<PayablesTab> {
                   child: ChoiceChip(
                     label: Text(label),
                     selected: _filter == value,
-                    onSelected: (_) => setState(() => _filter = value),
+                    onSelected: (_) => _selectFilter(value),
                   ),
                 ),
               CategoryFilterChip(
@@ -255,11 +294,27 @@ class _PayablesTabState extends State<PayablesTab> {
               final isDesktop = MediaQuery.sizeOf(context).width >= 840;
 
               final adapters = items.map(PayableItemAdapter.new).toList();
+              final now = DateTime.now();
+              final startOfRefMonth =
+                  _periodSelection.type == FinancialPeriodType.month &&
+                      _periodSelection.referenceMonth != null
+                  ? DateTime(
+                      _periodSelection.referenceMonth!.year,
+                      _periodSelection.referenceMonth!.month,
+                      1,
+                    )
+                  : DateTime(now.year, now.month, 1);
+              final overdueCount = adapters.where((a) {
+                if (a.isSettled) return false;
+                final due = parseApiDate(a.dueDate);
+                return due.isBefore(startOfRefMonth);
+              }).length;
+
               final filteredAdapters = filterAndSortFinancialItems(
                 adapters,
                 query: _searchQuery,
                 sort: _sortOption,
-                period: _periodFilter,
+                periodSelection: _periodSelection,
                 categoryId: _selectedCategoryId,
               );
 
@@ -288,19 +343,41 @@ class _PayablesTabState extends State<PayablesTab> {
                                   spacing: 8,
                                   runSpacing: 4,
                                   children: [
-                                    Text(
-                                      items.length == 1
-                                          ? '1 conta a pagar'
-                                          : '${items.length} contas a pagar',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .onSurfaceVariant,
-                                            fontWeight: FontWeight.w500,
+                                    Wrap(
+                                      crossAxisAlignment:
+                                          WrapCrossAlignment.center,
+                                      spacing: 8,
+                                      runSpacing: 2,
+                                      children: [
+                                        Text(
+                                          items.length == 1
+                                              ? '1 conta a pagar'
+                                              : '${items.length} contas a pagar',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                        ),
+                                        if (filteredAdapters.length !=
+                                            adapters.length)
+                                          Text(
+                                            '• ${filteredAdapters.length} no período',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .primary,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
                                           ),
+                                      ],
                                     ),
                                     if (eligibleItems.isNotEmpty) ...[
                                       if (!isSelectionActive)
@@ -368,6 +445,29 @@ class _PayablesTabState extends State<PayablesTab> {
                                 ),
                               ),
                               Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: FinancialPeriodBar(
+                                  selection: _periodSelection,
+                                  overdueCount: overdueCount,
+                                  onChanged: (sel) =>
+                                      setState(() => _periodSelection = sel),
+                                ),
+                              ),
+                              FinancialOverdueBanner(
+                                overdueCount: overdueCount,
+                                isOverdueMode:
+                                    _periodSelection.type ==
+                                    FinancialPeriodType.overdue,
+                                onViewOverdue: () => setState(
+                                  () => _periodSelection =
+                                      FinancialPeriodSelection.overdue(),
+                                ),
+                                onReturnToMonth: () => setState(
+                                  () => _periodSelection =
+                                      FinancialPeriodSelection.currentMonth(),
+                                ),
+                              ),
+                              Padding(
                                 padding: const EdgeInsets.only(bottom: 12),
                                 child: FinancialSearchBar(
                                   query: _searchQuery,
@@ -381,53 +481,46 @@ class _PayablesTabState extends State<PayablesTab> {
                                   activeFiltersCount:
                                       (_searchQuery.isNotEmpty ? 1 : 0) +
                                       (_filter != 'open' ? 1 : 0) +
-                                      (_periodFilter !=
-                                              FinancialPeriodFilter.all
+                                      (!_periodSelection.isCurrentMonth()
                                           ? 1
                                           : 0) +
                                       (_selectedCategoryId != null ? 1 : 0),
-                                  onOpenFilters: () =>
-                                      showFinancialFiltersSheet(
-                                        context: context,
-                                        currentStatus: _filter,
-                                        statusOptions: _filters,
-                                        onStatusSelected: (s) =>
-                                            setState(() => _filter = s),
-                                        currentPeriod: _periodFilter,
-                                        onPeriodSelected: (p) =>
-                                            setState(() => _periodFilter = p),
-                                        currentCategoryId: _selectedCategoryId,
-                                        onCategorySelected: (c) => setState(
-                                          () => _selectedCategoryId = c,
-                                        ),
-                                        spaceId: space.id,
-                                        categoryType: 'expense',
-                                        onClearAll: () => setState(() {
-                                          _filter = 'open';
-                                          _periodFilter =
-                                              FinancialPeriodFilter.all;
-                                          _selectedCategoryId = null;
-                                        }),
-                                      ),
+                                  onOpenFilters: () => showFinancialFiltersSheet(
+                                    context: context,
+                                    currentStatus: _filter,
+                                    statusOptions: _filters,
+                                    onStatusSelected: _selectFilter,
+                                    currentPeriod: FinancialPeriodFilter.all,
+                                    onPeriodSelected: (p) {},
+                                    currentCategoryId: _selectedCategoryId,
+                                    onCategorySelected: (c) =>
+                                        setState(() => _selectedCategoryId = c),
+                                    spaceId: space.id,
+                                    categoryType: 'expense',
+                                    onClearAll: () => setState(() {
+                                      _filter = 'open';
+                                      _periodSelection =
+                                          FinancialPeriodSelection.currentMonth();
+                                      _selectedCategoryId = null;
+                                    }),
+                                  ),
                                   activeFilterChips: [
                                     if (_filter != 'open')
                                       InputChip(
                                         label: Text(
                                           'Situação: ${_filters[_filter] ?? _filter}',
                                         ),
-                                        onDeleted: () =>
-                                            setState(() => _filter = 'open'),
+                                        onDeleted: () => _selectFilter('open'),
                                         visualDensity: VisualDensity.compact,
                                       ),
-                                    if (_periodFilter !=
-                                        FinancialPeriodFilter.all)
+                                    if (!_periodSelection.isCurrentMonth())
                                       InputChip(
                                         label: Text(
-                                          'Período: ${_periodFilter.label}',
+                                          'Período: ${_periodSelection.label}',
                                         ),
                                         onDeleted: () => setState(
-                                          () => _periodFilter =
-                                              FinancialPeriodFilter.all,
+                                          () => _periodSelection =
+                                              FinancialPeriodSelection.currentMonth(),
                                         ),
                                         visualDensity: VisualDensity.compact,
                                       ),
@@ -443,7 +536,8 @@ class _PayablesTabState extends State<PayablesTab> {
                                   onClearAllFilters: () => setState(() {
                                     _searchQuery = '';
                                     _filter = 'open';
-                                    _periodFilter = FinancialPeriodFilter.all;
+                                    _periodSelection =
+                                        FinancialPeriodSelection.currentMonth();
                                     _selectedCategoryId = null;
                                     _sortOption =
                                         FinancialSortOption.dueDateAsc;
@@ -478,6 +572,7 @@ class _PayablesTabState extends State<PayablesTab> {
                                     context,
                                     space: space,
                                     payableId: adapter.payable.id,
+                                    initialPaying: true,
                                     onUpdated: refresh,
                                   ),
                                   singularLabel: 'conta a pagar',

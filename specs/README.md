@@ -22,7 +22,7 @@ specs/
 ├── README.md               # Este guia da camada de especificações
 ├── TEMPLATE.md             # Modelo oficial para novas especificações
 └── financeiro/             # Capability de gestão patrimonial e motor financeiro
-    └── financeiro.md       # Especificação permanente com AC-FIN-001 a AC-FIN-016
+    └── financeiro.md       # Especificação permanente com AC-FIN-001 a AC-FIN-024
 ```
 
 ---

@@ -25,10 +25,12 @@ class AgreementsTab extends StatefulWidget {
     super.key,
     required this.space,
     this.initialFilter = 'open',
+    this.initialPeriod,
   });
 
   final Space space;
   final String initialFilter;
+  final FinancialPeriodSelection? initialPeriod;
 
   @override
   State<AgreementsTab> createState() => _AgreementsTabState();
@@ -55,7 +57,11 @@ class _AgreementsTabState extends State<AgreementsTab> {
   bool _canScrollRight = false;
   String _searchQuery = '';
   FinancialSortOption _sortOption = FinancialSortOption.dueDateAsc;
-  FinancialPeriodFilter _periodFilter = FinancialPeriodFilter.all;
+  late FinancialPeriodSelection _periodSelection =
+      widget.initialPeriod ??
+      (widget.initialFilter == 'overdue'
+          ? FinancialPeriodSelection.overdue()
+          : FinancialPeriodSelection.currentMonth());
   final Set<FinancialDueDateGroup> _expandedGroups = {
     FinancialDueDateGroup.overdue,
     FinancialDueDateGroup.today,
@@ -67,7 +73,16 @@ class _AgreementsTabState extends State<AgreementsTab> {
   @override
   void initState() {
     super.initState();
-    _filter = widget.initialFilter;
+    if (widget.initialFilter == 'overdue') {
+      _filter = 'open';
+      _periodSelection =
+          widget.initialPeriod ?? FinancialPeriodSelection.overdue();
+    } else {
+      _filter = widget.initialFilter;
+      if (widget.initialPeriod != null) {
+        _periodSelection = widget.initialPeriod!;
+      }
+    }
     _chipsScrollController.addListener(_updateScrollIndicators);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateScrollIndicators();
@@ -78,8 +93,18 @@ class _AgreementsTabState extends State<AgreementsTab> {
   @override
   void didUpdateWidget(covariant AgreementsTab oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.initialFilter != oldWidget.initialFilter) {
-      setState(() => _filter = widget.initialFilter);
+    if (widget.initialFilter != oldWidget.initialFilter ||
+        widget.initialPeriod != oldWidget.initialPeriod) {
+      setState(() {
+        if (widget.initialPeriod != null) {
+          _periodSelection = widget.initialPeriod!;
+        } else if (widget.initialFilter == 'overdue') {
+          _periodSelection = FinancialPeriodSelection.overdue();
+        }
+        _filter = widget.initialFilter == 'overdue'
+            ? 'open'
+            : widget.initialFilter;
+      });
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _ensureSelectedChipVisible();
       });
@@ -122,7 +147,16 @@ class _AgreementsTabState extends State<AgreementsTab> {
   }
 
   void _selectFilter(String newFilter) {
-    setState(() => _filter = newFilter);
+    setState(() {
+      _filter = newFilter;
+      if (newFilter == 'overdue') {
+        _periodSelection = FinancialPeriodSelection.overdue();
+      } else if (newFilter == 'all') {
+        _periodSelection = FinancialPeriodSelection.all();
+      } else if (newFilter == 'open') {
+        _periodSelection = FinancialPeriodSelection.currentMonth();
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _ensureSelectedChipVisible();
     });
@@ -329,11 +363,27 @@ class _AgreementsTabState extends State<AgreementsTab> {
                 }
               }
 
+              final now = DateTime.now();
+              final startOfRefMonth =
+                  _periodSelection.type == FinancialPeriodType.month &&
+                      _periodSelection.referenceMonth != null
+                  ? DateTime(
+                      _periodSelection.referenceMonth!.year,
+                      _periodSelection.referenceMonth!.month,
+                      1,
+                    )
+                  : DateTime(now.year, now.month, 1);
+              final overdueCount = installmentAdapters.where((a) {
+                if (a.isSettled) return false;
+                final due = parseApiDate(a.dueDate);
+                return due.isBefore(startOfRefMonth);
+              }).length;
+
               final filteredAdapters = filterAndSortFinancialItems(
                 installmentAdapters,
                 query: _searchQuery,
                 sort: _sortOption,
-                period: _periodFilter,
+                periodSelection: _periodSelection,
                 categoryId: _selectedCategoryId,
               );
 
@@ -354,14 +404,54 @@ class _AgreementsTabState extends State<AgreementsTab> {
                         children: [
                           Padding(
                             padding: const EdgeInsets.only(bottom: 8),
-                            child: Text(
-                              agreements.length == 1
-                                  ? '1 conta a receber'
-                                  : '${agreements.length} contas a receber',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                                fontWeight: FontWeight.w500,
-                              ),
+                            child: Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8,
+                              runSpacing: 4,
+                              children: [
+                                Text(
+                                  agreements.length == 1
+                                      ? '1 conta a receber'
+                                      : '${agreements.length} contas a receber',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                if (filteredAdapters.length !=
+                                    installmentAdapters.length)
+                                  Text(
+                                    '${filteredAdapters.length} no período',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.primary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: FinancialPeriodBar(
+                              selection: _periodSelection,
+                              overdueCount: overdueCount,
+                              onChanged: (sel) =>
+                                  setState(() => _periodSelection = sel),
+                            ),
+                          ),
+                          FinancialOverdueBanner(
+                            overdueCount: overdueCount,
+                            isOverdueMode:
+                                _periodSelection.type ==
+                                FinancialPeriodType.overdue,
+                            onViewOverdue: () => setState(
+                              () => _periodSelection =
+                                  FinancialPeriodSelection.overdue(),
+                            ),
+                            onReturnToMonth: () => setState(
+                              () => _periodSelection =
+                                  FinancialPeriodSelection.currentMonth(),
                             ),
                           ),
                           Padding(
@@ -377,18 +467,15 @@ class _AgreementsTabState extends State<AgreementsTab> {
                               activeFiltersCount:
                                   (_searchQuery.isNotEmpty ? 1 : 0) +
                                   (_filter != 'open' ? 1 : 0) +
-                                  (_periodFilter != FinancialPeriodFilter.all
-                                      ? 1
-                                      : 0) +
+                                  (!_periodSelection.isCurrentMonth() ? 1 : 0) +
                                   (_selectedCategoryId != null ? 1 : 0),
                               onOpenFilters: () => showFinancialFiltersSheet(
                                 context: context,
                                 currentStatus: _filter,
                                 statusOptions: _filters,
                                 onStatusSelected: _selectFilter,
-                                currentPeriod: _periodFilter,
-                                onPeriodSelected: (p) =>
-                                    setState(() => _periodFilter = p),
+                                currentPeriod: FinancialPeriodFilter.all,
+                                onPeriodSelected: (p) {},
                                 currentCategoryId: _selectedCategoryId,
                                 onCategorySelected: (c) =>
                                     setState(() => _selectedCategoryId = c),
@@ -396,7 +483,8 @@ class _AgreementsTabState extends State<AgreementsTab> {
                                 categoryType: 'income',
                                 onClearAll: () => setState(() {
                                   _filter = 'open';
-                                  _periodFilter = FinancialPeriodFilter.all;
+                                  _periodSelection =
+                                      FinancialPeriodSelection.currentMonth();
                                   _selectedCategoryId = null;
                                 }),
                               ),
@@ -409,14 +497,14 @@ class _AgreementsTabState extends State<AgreementsTab> {
                                     onDeleted: () => _selectFilter('open'),
                                     visualDensity: VisualDensity.compact,
                                   ),
-                                if (_periodFilter != FinancialPeriodFilter.all)
+                                if (!_periodSelection.isCurrentMonth())
                                   InputChip(
                                     label: Text(
-                                      'Período: ${_periodFilter.label}',
+                                      'Período: ${_periodSelection.label}',
                                     ),
                                     onDeleted: () => setState(
-                                      () => _periodFilter =
-                                          FinancialPeriodFilter.all,
+                                      () => _periodSelection =
+                                          FinancialPeriodSelection.currentMonth(),
                                     ),
                                     visualDensity: VisualDensity.compact,
                                   ),
@@ -432,7 +520,8 @@ class _AgreementsTabState extends State<AgreementsTab> {
                               onClearAllFilters: () => setState(() {
                                 _searchQuery = '';
                                 _filter = 'open';
-                                _periodFilter = FinancialPeriodFilter.all;
+                                _periodSelection =
+                                    FinancialPeriodSelection.currentMonth();
                                 _selectedCategoryId = null;
                                 _sortOption = FinancialSortOption.dueDateAsc;
                               }),

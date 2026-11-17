@@ -38,7 +38,7 @@ class AccountController extends Controller
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:80'],
-            'opening_balance' => ['required', new MoneyAmount(positive: false)],
+            'opening_balance' => ['required', new MoneyAmount(positive: false, allowNegative: true)],
             'opening_balance_date' => ['required', 'date_format:Y-m-d'],
         ]);
 
@@ -46,7 +46,7 @@ class AccountController extends Controller
 
         $account = $space->accounts()->create([
             'name' => $data['name'],
-            'opening_balance_cents' => Money::toCents($data['opening_balance']),
+            'opening_balance_cents' => Money::toCents($data['opening_balance'], allowNegative: true),
             'opening_balance_date' => $data['opening_balance_date'],
         ]);
 
@@ -112,7 +112,7 @@ class AccountController extends Controller
         $key = $this->idempotencyKey($request);
 
         $validator = Validator::make($request->all(), [
-            'opening_balance' => ['required', new MoneyAmount(positive: false)],
+            'opening_balance' => ['required', new MoneyAmount(positive: false, allowNegative: true)],
             'opening_balance_date' => ['required', 'date_format:Y-m-d'],
             'reason' => ['required', 'string', 'min:3', 'max:500'],
         ], [
@@ -126,7 +126,7 @@ class AccountController extends Controller
         }
         $data = $validator->validated();
 
-        $result = $adjust->handle($request->user(), $space, $model->id, Money::toCents($data['opening_balance']), $data['opening_balance_date'], $data['reason'], $key);
+        $result = $adjust->handle($request->user(), $space, $model->id, Money::toCents($data['opening_balance'], allowNegative: true), $data['opening_balance_date'], $data['reason'], $key);
         if ($result->rejected()) {
             return $this->rejection($key, $result);
         }

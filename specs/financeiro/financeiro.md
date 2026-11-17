@@ -23,8 +23,8 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
 - **AC-FIN-004 [Limites Máximos Individuais vs. Totais Agregados]:**
   - **Limite Individual (`Money::MAX_CENTS`):** O valor monetário unitário máximo suportado por cada conta, movimentação, pagamento, recebimento, obrigação ou acordo individual é `999999999999.99` (representado por `99999999999999` centavos = R$ 999 bilhões), protegido por restrições `CHECK` no banco de dados e validações de domínio.
   - **Totais Agregados Exatos:** Agregações de múltiplas entidades (saldo consolidado do espaço no Dashboard, totalizador de compromissos abertos/vencidos, prévias de recorrências de múltiplos ciclos) podem ultrapassar o limite unitário de R$ 999 bilhões, sendo processados e formatados via `Money::formatAggregate(int|string $cents)` e lidos no Flutter até o teto de inteiros de 64 bits (`PHP_INT_MAX` / Dart int64 = ~92 quadrilhões de reais), sem truncamento, sem float e sem estouro de exceção.
-  - Valores informados em formulários e cadastros são obrigatoriamente positivos (`> 0` ou `>= 0` para saldo de abertura).
-  - Saldos de contas podem tornar-se negativos exclusivamente após pagamentos efetivados superiores ao disponível, representados com sinal negativo (ex.: `"-250.00"`).
+  - **Valores Permitidos na Abertura e Correção de Contas:** No cadastro inicial e na correção auditada de abertura de conta bancária, são permitidos valores positivos, zero e negativos (ex.: cheque especial utilizado antes do início do controle ou saldo inicial devedor), respeitando o intervalo $-999.999.999.999,99 \le \text{saldo inicial} \le 999.999.999.999,99$ (em centavos de 64 bits de $-99999999999999$ a $99999999999999$), refletindo exatamente no saldo disponível da conta bancária. Demais valores informados em pagamentos e recebimentos são obrigatoriamente positivos ($> 0$).
+  - Saldos de contas podem tornar-se negativos tanto por saldo de abertura negativo quanto após pagamentos efetivados superiores ao disponível, representados com sinal negativo (ex.: `"-250.00"`, `"-995.98"`).
 
 ---
 
@@ -194,6 +194,44 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
 
 ---
 
+### 2.8. Seleção Explícita de Contas nas Liquidações (AC-FIN-024)
+
+- **AC-FIN-024 [Seleção Explícita Obrigatória de Conta Bancária nas Baixas]:**
+  - Nos fluxos de liquidação de contas a pagar (`PayableActionModal`, `BatchPayableModal`, `PaymentFormScreen`) e de contas a receber (`AgreementActionModal`, `ReceiptFormScreen`), unitários ou em lote:
+    1. O campo de conta bancária inicia obrigatoriamente sem pré-seleção, exibindo o hint orientativo `"Selecione uma conta"`.
+    2. É expressamente proibida a auto-seleção da primeira conta cadastrada da lista, prevenindo débitos ou créditos acidentais na conta bancária errada por desatenção.
+    3. A tentativa de confirmação sem seleção prévia de conta é bloqueada com mensagem de validação clara (`"Selecione uma conta bancária para debitar o pagamento."` / `"Selecione uma conta bancária de destino para o recebimento."`).
+    4. O comportamento é perfeitamente uniforme e consistente entre recebimentos e pagamentos, fluxos individuais e em lote, inclusive quando existir apenas uma única conta cadastrada no espaço ativo.
+    5. Apenas contas ativas e pertencentes ao espaço autenticado são listadas e aceitas na operação.
+
+---
+
+### 2.9. Experiência Multiplataforma, Ergonomia e Acessibilidade (AC-UI)
+
+- **AC-UI-001 [Retorno Coerente e Sem Empilhamento na Criação, Pagamento e Recebimento]:**
+  - Ao cadastrar uma nova conta a receber via `AgreementFormScreen` (desktop modal ou mobile bottom sheet), o salvamento bem-sucedido emite feedback instantâneo via `SnackBar`, aciona `SessionController.dataChanged()` para recarregamento reativo e executa `Navigator.of(context).pop(agreement)`.
+  - Ao acionar o recebimento de parcela via ação rápida ("Receber") em `AgreementModal`, a confirmação bem-sucedida emite feedback visual breve (700ms), fecha o modal reativamente com `Navigator.of(context).pop()` e exibe `SnackBar('Recebimento registrado com sucesso.')`, evitando empilhamento sucessivo de modais.
+  - De forma estritamente análoga, em Contas a Pagar (`PayablesTab`), a ação rápida "Pagar" abre `PayableModal` em modo de liquidação direta (`initialPaying: true`); após confirmação bem-sucedida, o modal é fechado reativamente com emissão de `SnackBar`, mantendo o usuário na lista de origem com filtros e posição preservados.
+- **AC-UI-002 [Filtro de Período Padrão no Mês Corrente e Intervalo Personalizado]:**
+  - As listagens de Contas a Pagar (`PayablesTab`) e Contas a Receber (`AgreementsTab`) iniciam por padrão com a situação "Em aberto" selecionada e período restrito ao **mês corrente completo** (do 1º ao último dia do mês corrente, ex.: 1º a 30 de novembro) com base na data de vencimento.
+  - O Extrato (`StatementTab`) lista exclusivamente movimentações financeiras efetivamente realizadas e liquidadas, iniciando por padrão no **mês corrente completo**, com todas as direções (`direction: all`), todas as contas bancárias e todas as categorias.
+  - O seletor de períodos suporta a opção "Intervalo personalizado...", abrindo o diálogo nativo `showDateRangePicker` com validação de datas, limites de mês, virada de ano e ordenação cronológica estrita (`start <= end`), permitindo consultar qualquer janela temporal arbitrária.
+- **AC-UI-003 [Navegação Mensal Fluida, Tratamento de Bordas e Igualdade de Seleção]:**
+  - O componente `FinancialPeriodBar` oferece navegação mensal instantânea pelos botões chevron (`<` e `>`), permitindo alternar meses sem recarregar a aplicação.
+  - O cálculo de intervalo preserva virada de ano (dezembro $\leftrightarrow$ janeiro) e calcula o último dia de forma exata para meses curtos e anos bissextos (28 vs. 29 de fevereiro).
+  - A classe `FinancialPeriodSelection` implementa normalização automática, correspondência estrita por intervalo (`contains(dueDate)` / `matchesCustom(dueDate)`) e operadores `==` e `hashCode` para estabilidade de estado reativo.
+- **AC-UI-004 [Alerta Contextual de Contas Vencidas Fora do Mês Ativo]:**
+  - Quando houver contas em aberto com vencimento anterior ao início do mês em exibição, a interface apresenta o componente `FinancialOverdueBanner` alertando sobre a existência de pendências vencidas e disponibilizando atalho de 1 toque ("Ver vencidas") para visualização imediata.
+- **AC-UI-005 [Alinhamento Numérico Contábil e Leitura Responsiva]:**
+  - Em visualização desktop em tabela (`FinancialDesktopTableRow`), as colunas de valor e saldo devido utilizam alinhamento estrito à direita (`TextAlign.right`, `Alignment.centerRight`) para conferência contábil vertical imediata.
+  - Títulos e descrições longas contam com `Tooltip` no desktop e exibição adaptativa fluida no mobile (`Wrap` e `FinancialMobileCard`), prevenindo cortes inacessíveis e estouramento de layout.
+- **AC-UI-006 [Extrato com Filtros Compostos, Limpeza Rápida e Contenção Widescreen]:**
+  - As telas de Dashboard (`SummaryTab`) e Extrato (`StatementTab`) possuem contenção de largura máxima (`maxWidth: 1040`) centralizada em monitores widescreen desktop, eliminando campos dispersos e esticados.
+  - O Extrato (`StatementTab`) integra barra de período canônica (`FinancialPeriodBar`), filtros por direção (Todos, Entradas, Saídas), conta bancária e categoria, chips visuais de filtros ativos com remoção individual, botão de limpeza rápida ("Limpar filtros") e estado vazio contextual com ação de restauração.
+  - Lançamentos no Extrato utilizam obrigatoriamente a formatação brasileira de datas (`formatDateBr`, `dd/MM/yyyy`) e distinção visual nítida de sinal e cor entre entradas (`+ R$`) e saídas (`- R$`).
+
+---
+
 ## 3. Matriz de Rastreabilidade (Spec ↔ Código ↔ Testes)
 
 | Critério | Implementação Backend / Mobile | Testes Automatizados |
@@ -224,3 +262,10 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
 | **AC-PAY-REV-001..006** | `ReversePayment.php`, `PaymentController.php`, `payable_modal.dart`, `payment_fix_screen.dart` | `PayablesTest.php`, `payable_modal_reversal_test.dart` |
 | **AC-PAY-CAT-001..006** | `PayableController.php`, `ChangeObligations.php`, `payable_modal.dart`, `payable_edit_screen.dart` | `PayableCategoryEditTest.php`, `payable_category_edit_widget_test.dart` |
 | **AC-PAY-INT-001..007** | `PayPayable.php`, `Payment.php`, `PaymentController.php`, `payable_modal.dart`, `payment_form_screen.dart` | `domain.php`, `PayableChargesAndDiscountsTest.php`, `payment_charges_widget_test.dart` |
+| **AC-FIN-024** | `payable_modal.dart`, `batch_payable_modal.dart`, `agreement_modal.dart`, `payment_form_screen.dart`, `receipt_form_screen.dart` | `payable_modal_test.dart`, `agreement_modal_test.dart`, `payables_test.dart`, `payable_charges_widget_test.dart` |
+| **AC-UI-001** | `agreement_form_screen.dart`, `agreement_modal.dart`, `payable_modal.dart`, `payables_tab.dart` | `agreements_tab_test.dart`, `agreement_modal_test.dart`, `payable_modal_test.dart` |
+| **AC-UI-002** | `financial_search_bar.dart`, `payables_tab.dart`, `agreements_tab.dart`, `statement_tab.dart` | `financial_search_and_sort_test.dart`, `financial_agenda_test.dart` |
+| **AC-UI-003** | `FinancialPeriodBar`, `FinancialPeriodSelection` (suporte a `custom` e `showDateRangePicker`) | `financial_search_and_sort_test.dart`, `financial_agenda_test.dart` |
+| **AC-UI-004** | `FinancialOverdueBanner`, `payables_tab.dart`, `agreements_tab.dart` | `agreements_tab_test.dart`, `payables_test.dart` |
+| **AC-UI-005** | `FinancialDesktopTableRow`, `MoneyText`, `Tooltip` | `financial_desktop_table_test.dart`, `agreements_tab_test.dart` |
+| **AC-UI-006** | `statement_tab.dart`, `summary_tab.dart`, `FinancialPeriodBar`, filtros por direção/conta/categoria | `statement_tab_test.dart`, `summary_test.dart` |

@@ -54,9 +54,10 @@ class AccountsRepository {
         as Map<String, dynamic>,
   );
 
-  /// Realiza uma transferência atômica entre duas contas do mesmo espaço.
+  /// Realiza uma transferência atômica entre contas (do mesmo espaço ou entre espaços distintos).
   Future<({int id, bool replayed})> transfer(
     int spaceId, {
+    int? destinationSpaceId,
     required int sourceAccountId,
     required int destinationAccountId,
     required Money amount,
@@ -65,12 +66,31 @@ class AccountsRepository {
     required String idempotencyKey,
   }) async {
     final response = await _api.post('/spaces/$spaceId/transfers', {
+      if (destinationSpaceId != null && destinationSpaceId != spaceId)
+        'destination_space_id': destinationSpaceId,
       'source_account_id': sourceAccountId,
       'destination_account_id': destinationAccountId,
       'amount': amount.toApi(),
       'transferred_at': date,
       if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
     }, idempotencyKey: idempotencyKey);
+    final data = response['data'] as Map<String, dynamic>;
+    final replayed = response['replayed'] == true;
+    return (id: data['id'] as int, replayed: replayed);
+  }
+
+  /// Estorna uma transferência bilateral de forma coordenada e auditada.
+  Future<({int id, bool replayed})> reverseTransfer(
+    int spaceId,
+    int transferId, {
+    required String reason,
+    required String idempotencyKey,
+  }) async {
+    final response = await _api.post(
+      '/spaces/$spaceId/transfers/$transferId/reversal',
+      {'reason': reason.trim()},
+      idempotencyKey: idempotencyKey,
+    );
     final data = response['data'] as Map<String, dynamic>;
     final replayed = response['replayed'] == true;
     return (id: data['id'] as int, replayed: replayed);

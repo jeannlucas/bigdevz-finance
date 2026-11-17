@@ -40,13 +40,20 @@ class Money {
   /// Lê especificamente valores agregados da API.
   static Money parseAggregate(String value) => Money.parse(value);
 
-  /// Lê o texto digitado no formato brasileiro ("1.500,00").
-  static Money? fromInput(String text) {
-    final digits = text.replaceAll(RegExp(r'[^0-9]'), '');
+  /// Lê o texto digitado no formato brasileiro ("1.500,00" ou "-995,98").
+  static Money? fromInput(String text, {bool allowNegative = false}) {
+    final trimmed = text.trim();
+    final isNeg = allowNegative && trimmed.startsWith('-');
+    final digits = trimmed.replaceAll(RegExp(r'[^0-9]'), '');
     if (digits.isEmpty) return null;
     final cents = int.parse(digits);
-    return cents > maxCents ? null : Money(cents);
+    if (cents > maxCents) return null;
+    return Money(isNeg && cents > 0 ? -cents : cents);
   }
+
+  /// Lê o texto permitindo explicitamente valores negativos com sinal.
+  static Money? fromSignedInput(String text) =>
+      fromInput(text, allowNegative: true);
 
   String toApi() {
     final absQuotient = (cents ~/ 100).abs();

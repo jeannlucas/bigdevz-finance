@@ -30,6 +30,7 @@ Future<void> showPayableModal(
   BuildContext context, {
   required Space space,
   required int payableId,
+  bool initialPaying = false,
   VoidCallback? onUpdated,
 }) async {
   final isDesktop = MediaQuery.sizeOf(context).width >= 840;
@@ -52,6 +53,7 @@ Future<void> showPayableModal(
           child: _PayableModalContent(
             space: space,
             payableId: payableId,
+            initialPaying: initialPaying,
             onUpdated: onUpdated,
           ),
         ),
@@ -68,14 +70,20 @@ Future<void> showPayableModal(
           top: Radius.circular(AppTokens.r24),
         ),
       ),
-      builder: (sheetContext) => ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.9,
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
         ),
-        child: _PayableModalContent(
-          space: space,
-          payableId: payableId,
-          onUpdated: onUpdated,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.9,
+          ),
+          child: _PayableModalContent(
+            space: space,
+            payableId: payableId,
+            initialPaying: initialPaying,
+            onUpdated: onUpdated,
+          ),
         ),
       ),
     );
@@ -86,11 +94,13 @@ class _PayableModalContent extends StatefulWidget {
   const _PayableModalContent({
     required this.space,
     required this.payableId,
+    this.initialPaying = false,
     this.onUpdated,
   });
 
   final Space space;
   final int payableId;
+  final bool initialPaying;
   final VoidCallback? onUpdated;
 
   @override
@@ -102,6 +112,7 @@ class _PayableModalContentState extends State<_PayableModalContent> {
   List<Account> _accounts = [];
   bool _loading = true;
   String? _error;
+  bool _hasInitializedPayment = false;
 
   bool _isPaying = false;
   bool _isEditingBill = false;
@@ -172,6 +183,12 @@ class _PayableModalContentState extends State<_PayableModalContent> {
               .toList();
           _loading = false;
         });
+        if (widget.initialPaying &&
+            !_hasInitializedPayment &&
+            (_payable?.canPay ?? false)) {
+          _hasInitializedPayment = true;
+          _startPayment();
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -194,7 +211,7 @@ class _PayableModalContentState extends State<_PayableModalContent> {
       _discountController.clear();
       _showCharges = false;
       _selectedDate = DateUtils.dateOnly(DateTime.now());
-      _selectedAccountId = _accounts.isNotEmpty ? _accounts.first.id : null;
+      _selectedAccountId = null;
       _submitError = null;
       _success = false;
     });
@@ -1065,7 +1082,8 @@ class _PayableModalContentState extends State<_PayableModalContent> {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedAccountId == null) {
       setState(
-        () => _submitError = 'Selecione uma conta de saída para debitar.',
+        () => _submitError =
+            'Selecione uma conta bancária para debitar o pagamento.',
       );
       return;
     }
@@ -1079,7 +1097,15 @@ class _PayableModalContentState extends State<_PayableModalContent> {
     final payable = _payable;
     if (payable == null) return;
 
-    final account = _accounts.firstWhere((a) => a.id == _selectedAccountId);
+    final account = _accounts
+        .where((a) => a.id == _selectedAccountId)
+        .firstOrNull;
+    if (account == null) {
+      setState(
+        () => _submitError = 'Selecione uma conta válida do espaço ativo.',
+      );
+      return;
+    }
 
     final principal = Money.fromInput(_amountController.text.trim());
     if (principal == null || principal.cents <= 0) {
@@ -1149,14 +1175,29 @@ class _PayableModalContentState extends State<_PayableModalContent> {
                 'Pagamento de ${totalDebited.brl} registrado com sucesso!';
           });
           widget.onUpdated?.call();
-          await _loadData();
-          await Future.delayed(const Duration(milliseconds: 1000));
-          if (mounted) {
-            setState(() {
-              _isPaying = false;
-              _success = false;
-              _successMessage = null;
-            });
+          if (widget.initialPaying) {
+            await Future.delayed(const Duration(milliseconds: 700));
+            if (mounted) {
+              final messenger = ScaffoldMessenger.of(context);
+              Navigator.of(context).pop();
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Pagamento de ${totalDebited.brl} registrado com sucesso!',
+                  ),
+                ),
+              );
+            }
+          } else {
+            await _loadData();
+            await Future.delayed(const Duration(milliseconds: 800));
+            if (mounted) {
+              setState(() {
+                _isPaying = false;
+                _success = false;
+                _successMessage = null;
+              });
+            }
           }
         }
       }
@@ -1395,6 +1436,7 @@ class _PayableModalContentState extends State<_PayableModalContent> {
         // Conteúdo
         Flexible(
           child: ListView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             shrinkWrap: true,
             padding: const EdgeInsets.all(AppTokens.p20),
             children: [
@@ -1872,6 +1914,7 @@ class _PayableModalContentState extends State<_PayableModalContent> {
         // Formulário
         Flexible(
           child: ListView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             shrinkWrap: true,
             padding: const EdgeInsets.all(AppTokens.p20),
             children: [
@@ -2073,6 +2116,7 @@ class _PayableModalContentState extends State<_PayableModalContent> {
           child: Form(
             key: _formKey,
             child: ListView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               shrinkWrap: true,
               padding: const EdgeInsets.all(AppTokens.p20),
               children: [
@@ -2461,7 +2505,9 @@ class _PayableModalContentState extends State<_PayableModalContent> {
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<int>(
+                  isExpanded: true,
                   initialValue: _selectedAccountId,
+                  hint: const Text('Selecione uma conta'),
                   decoration: InputDecoration(
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(AppTokens.r12),
@@ -2481,7 +2527,9 @@ class _PayableModalContentState extends State<_PayableModalContent> {
                       ),
                   ],
                   onChanged: (id) => setState(() => _selectedAccountId = id),
-                  validator: (id) => id == null ? 'Selecione a conta' : null,
+                  validator: (id) => id == null
+                      ? 'Selecione uma conta bancária para debitar o pagamento.'
+                      : null,
                 ),
 
                 const SizedBox(height: 16),

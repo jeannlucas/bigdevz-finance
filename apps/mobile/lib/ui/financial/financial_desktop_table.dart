@@ -253,14 +253,18 @@ class FinancialDesktopTableRow<T extends FinancialItemView>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        toFinancialUpper(item.title),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                      Tooltip(
+                        message: item.title,
+                        waitDuration: const Duration(milliseconds: 300),
+                        child: Text(
+                          toFinancialUpper(item.title),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                       if (item.counterparty != null &&
                           item.counterparty!.trim().isNotEmpty) ...[
@@ -330,29 +334,33 @@ class FinancialDesktopTableRow<T extends FinancialItemView>
                 // Valor
                 SizedBox(
                   width: 120,
-                  child: item.isAwaitingAmount
-                      ? Text(
-                          'A informar',
-                          textAlign: TextAlign.right,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppTokens.warning,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: item.isAwaitingAmount
+                        ? Text(
+                            'A informar',
+                            textAlign: TextAlign.right,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppTokens.warning,
+                            ),
+                          )
+                        : MoneyText(
+                            item.pendingAmount ??
+                                item.totalAmount ??
+                                const Money(0),
+                            obscure: obscure,
+                            textAlign: TextAlign.right,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: item.isOverdue && !item.isSettled
+                                  ? AppTokens.expense
+                                  : null,
+                            ),
                           ),
-                        )
-                      : MoneyText(
-                          item.pendingAmount ??
-                              item.totalAmount ??
-                              const Money(0),
-                          obscure: obscure,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            color: item.isOverdue && !item.isSettled
-                                ? AppTokens.expense
-                                : null,
-                          ),
-                        ),
+                  ),
                 ),
 
                 // Ações Rápidas
