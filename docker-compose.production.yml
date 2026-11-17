@@ -1,4 +1,4 @@
-name: bigdevz-finance
+name: ${COMPOSE_PROJECT_NAME:-finance-prod}
 
 # Configuração de produção alinhada à topologia real da VPS (Caddy no host + Postgres 17 Alpine)
 services:

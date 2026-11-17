@@ -46,9 +46,14 @@ if [ "$RESTORE_DB" = false ] && [ "$RESTORE_CODE" = false ]; then
     RESTORE_CODE=true
 fi
 
+PROJECT_NAME="${COMPOSE_PROJECT_NAME:-finance-prod}"
+CONTAINER_API=$(docker ps --format '{{.Names}}' | grep -E 'finance-prod-api-1|bigdevz-finance-api-1|api' | head -n1 || true)
+CONTAINER_SCHEDULER=$(docker ps --format '{{.Names}}' | grep -E 'finance-prod-scheduler-1|bigdevz-finance-scheduler-1|scheduler' | head -n1 || true)
+CONTAINER_PG=$(docker ps --format '{{.Names}}' | grep -E 'finance-prod-postgres-1|bigdevz-finance-postgres-1|postgres' | head -n1 || true)
+
 echo "=== [1/4] Interrompendo Containers da Aplicação (api e scheduler) ==="
-if docker ps --format '{{.Names}}' | grep -q '^bigdevz-finance-api-1$'; then
-    docker stop bigdevz-finance-api-1 bigdevz-finance-scheduler-1 || true
+if [ -n "$CONTAINER_API" ]; then
+    docker stop "$CONTAINER_API" ${CONTAINER_SCHEDULER:+"$CONTAINER_SCHEDULER"} || true
 fi
 
 if [ "$RESTORE_CODE" = true ]; then
@@ -103,7 +108,12 @@ if [ "$RESTORE_DB" = true ]; then
         echo "AVISO OPERACIONAL: Checksum não localizado. Prosseguindo com o dump informado."
     fi
 
-    CONTAINER_PG="bigdevz-finance-postgres-1"
+    if [ -z "$CONTAINER_PG" ]; then
+        CONTAINER_PG=$(docker ps --format '{{.Names}}' | grep -E 'finance-prod-postgres-1|bigdevz-finance-postgres-1|postgres' | head -n1 || true)
+    fi
+    if [ -z "$CONTAINER_PG" ]; then
+        CONTAINER_PG="${PROJECT_NAME}-postgres-1"
+    fi
     DB_USER="bigdevz"
     DB_NAME="bigdevz_finance"
 
@@ -125,11 +135,19 @@ else
 fi
 
 echo "=== [4/4] Reinicializando Containers e Validando Saúde ==="
-if [ -d "$APP_DIR" ] && [ -f "${APP_DIR}/docker-compose.yml" ]; then
+COMPOSE_FILE=""
+if [ -f "${APP_DIR}/docker-compose.production.yml" ]; then
+    COMPOSE_FILE="${APP_DIR}/docker-compose.production.yml"
+elif [ -f "${APP_DIR}/docker-compose.yml" ]; then
+    COMPOSE_FILE="${APP_DIR}/docker-compose.yml"
+fi
+
+if [ -n "$COMPOSE_FILE" ]; then
     cd "$APP_DIR"
-    docker compose up -d --build api scheduler
-else
-    docker start bigdevz-finance-api-1 bigdevz-finance-scheduler-1 2>/dev/null || true
+    docker compose -p "$PROJECT_NAME" -f "$COMPOSE_FILE" up -d --no-build api scheduler 2>/dev/null || \
+    docker compose -p "$PROJECT_NAME" -f "$COMPOSE_FILE" up -d api scheduler
+elif [ -n "$CONTAINER_API" ]; then
+    docker start "$CONTAINER_API" ${CONTAINER_SCHEDULER:+"$CONTAINER_SCHEDULER"} 2>/dev/null || true
 fi
 
 echo "Aguardando inicialização da API..."

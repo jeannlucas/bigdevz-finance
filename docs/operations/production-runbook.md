@@ -11,9 +11,9 @@
 
 | Serviço / Container | Imagem | Porta Host | Dependências | Função Operacional |
 |---|---|---|---|---|
-| **bigdevz-finance-postgres-1** | `postgres:17-alpine` | Nenhuma (Interna 5432) | Nenhuma | Banco transacional PostgreSQL (base `bigdevz_finance`, volume `postgres-data`). |
-| **bigdevz-finance-api-1** | `bigdevz/finance-api:prod` | `127.0.0.1:8510` | `postgres` | Monólito modular Laravel 13 (Actions, regras de negócio e autenticação). |
-| **bigdevz-finance-scheduler-1** | `bigdevz/finance-api:prod` | Nenhuma (Interna) | `api`, `postgres` | Agendador do Laravel executando geração horária de recorrências (`payables:generate`). |
+| **finance-prod-postgres-1** | `postgres:17-alpine` | Nenhuma (Interna 5432) | Nenhuma | Banco transacional PostgreSQL (base `bigdevz_finance`, volume `postgres-data`). |
+| **finance-prod-api-1** | `ghcr.io/jeannlucas/bigdevz-finance-api@sha256:...` | `127.0.0.1:8510` | `postgres` | Monólito modular Laravel 13 (Actions, regras de negócio e autenticação). |
+| **finance-prod-scheduler-1** | `ghcr.io/jeannlucas/bigdevz-finance-api@sha256:...` | Nenhuma (Interna) | `api`, `postgres` | Agendador do Laravel executando geração horária de recorrências (`payables:generate`). |
 | **caddy (Host systemd)** | Nativo Linux | `80/tcp`, `443/tcp` | `api`, `/srv/finance/web` | Terminador TLS, proxy reverso de `/api/*` para `127.0.0.1:8510` e SPA file server. |
 
 ---
@@ -185,6 +185,32 @@ Exemplo de resposta operacional saudável:
 3. **Compilação Segura do Frontend Web:**
    - Todo build deve ser gerado pelo script canônico: `./scripts/build-web.sh --env=production`.
    - O runtime valida o endpoint contra o host atual através de `resolveApiBaseUrl()`, bloqueando automaticamente tentativas de acesso cruzado.
+
+---
+
+### INC-07: Diagnóstico de Pré-Voo de Deploy (Permissões e Rede Compose)
+
+Se o pipeline de deploy fail-closed abortar durante a fase de pré-voo:
+
+1. **Permissões em Marcadores (`/var/lib/vps-deploy/<projeto>`):**
+   ```bash
+   ls -la /var/lib/vps-deploy/
+   # Caso algum marcador pertença a root:root e impeça escrita do usuário deployer:
+   sudo chown -R $(id -un):$(id -gn) /var/lib/vps-deploy/
+   chmod 755 /var/lib/vps-deploy/ /var/lib/vps-deploy/*
+   ```
+2. **Verificar Projeto Compose e Containers Ativos:**
+   ```bash
+   docker compose -p finance-prod ps
+   # Confirmar conectividade na rede Compose:
+   docker exec -it finance-prod-api-1 php -r 'echo "API OK\n";'
+   docker exec -it finance-prod-postgres-1 pg_isready -U bigdevz -d bigdevz_finance
+   ```
+3. **Limpeza de Trava Pendente Órfã (`recuperacao_pendente`):**
+   ```bash
+   # APENAS após certificar que a base está íntegra e sem migrações corrompidas:
+   rm -f /var/lib/vps-deploy/*/recuperacao_pendente
+   ```
 
 ---
 

@@ -8,11 +8,21 @@ semver='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
 tag=""
 digest=""
 
-# Suporta chamada direta via SSH:
+# Suporta chamada direta via SSH (SSH_ORIGINAL_COMMAND) ou argumentos posicionais ($@):
 # - v1.0.1 bigdevz/finance-api@sha256:...
 # - --tag v1.0.1 --digest bigdevz/finance-api@sha256:...
+# - -- v1.0.1 bigdevz/finance-api@sha256:...
 # - v1.0.1 (repassado para que o vps-deploy.sh aplique o fail-closed exigindo digest)
-read -r -a args <<< "$cmd"
+if [ -n "$cmd" ]; then
+  read -r -a args <<< "$cmd"
+else
+  args=("$@")
+fi
+
+# Descartar separador '--' se presente no início
+if [ ${#args[@]} -gt 0 ] && [ "${args[0]}" = "--" ]; then
+  args=("${args[@]:1}")
+fi
 
 if [ ${#args[@]} -eq 1 ]; then
   tag="${args[0]}"
