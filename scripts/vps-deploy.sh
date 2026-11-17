@@ -5,22 +5,25 @@
 # ==============================================================================
 set -euo pipefail
 
-PROJECT_NAME="bigdevz-finance"
+PROJECT_NAME="${COMPOSE_PROJECT_NAME:-${PROJECT_NAME:-finance-prod}}"
+export COMPOSE_PROJECT_NAME="$PROJECT_NAME"
 TARGET_DIR="${TARGET_DIR:-/srv/finance}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.production.yml}"
 COMPOSE_ENV_FILE="${COMPOSE_ENV_FILE:-.env.production}"
 BACKUP_DIR="${BACKUP_DIR:-$TARGET_DIR/backups/db}"
 LOCK_FILE="${LOCK_FILE:-/var/lock/vps-deploy-finance.lock}"
 VAR_LIB_DIR="${VAR_LIB_DIR:-/var/lib/vps-deploy/bigdevz-finance}"
+
 API_PORT="${API_PORT:-8510}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-30}"
-CONTAINER_PG="${CONTAINER_PG:-finance-postgres-prod}"
-CONTAINER_API="${CONTAINER_API:-finance-api-prod}"
+CONTAINER_PG="${CONTAINER_PG:-}"
+CONTAINER_API="${CONTAINER_API:-}"
 DB_USER="${DB_USER:-bigdevz}"
 DB_NAME="${DB_NAME:-bigdevz_finance}"
 DEPLOY_TAG="${DEPLOY_TAG:-}"
 FINANCE_IMAGE_DIGEST="${FINANCE_IMAGE_DIGEST:-}"
 SKIP_GIT_CHECKOUT="${SKIP_GIT_CHECKOUT:-0}"
+DEPLOY_HEALTH_PASSED=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -32,12 +35,17 @@ while [ $# -gt 0 ]; do
       FINANCE_IMAGE_DIGEST="$2"
       shift 2
       ;;
+    --project|-p)
+      PROJECT_NAME="$2"
+      export COMPOSE_PROJECT_NAME="$PROJECT_NAME"
+      shift 2
+      ;;
     --skip-checkout)
       SKIP_GIT_CHECKOUT=1
       shift
       ;;
     --help|-h)
-      echo "Uso: $0 [--tag vX.Y.Z] [--digest imagem@sha256:...] [--skip-checkout]"
+      echo "Uso: $0 [--tag vX.Y.Z] [--digest imagem@sha256:...] [--project nome] [--skip-checkout]"
       exit 0
       ;;
     *)
@@ -63,6 +71,128 @@ if command -v flock >/dev/null 2>&1; then
 fi
 
 cd "$TARGET_DIR" || exit 1
+
+# ==============================================================================
+# Funções Auxiliares de Execução e Pré-Voo
+# ==============================================================================
+
+run_compose() {
+  docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" "$@"
+}
+
+safe_write_marker() {
+  local target_file="$1"
+  local content="$2"
+  local target_dir
+  target_dir="$(dirname "$target_file")"
+  mkdir -p "$target_dir"
+  local tmp_file
+  tmp_file=$(mktemp "${target_dir}/.marker_tmp_XXXXXX")
+  printf '%s\n' "$content" > "$tmp_file"
+  chmod 644 "$tmp_file" 2>/dev/null || true
+  mv -f "$tmp_file" "$target_file"
+}
+
+get_service_container() {
+  local service="$1"
+  local cid=""
+  cid=$(run_compose ps -q "$service" 2>/dev/null | head -n 1 || true)
+  if [ -n "$cid" ]; then
+    docker inspect --format '{{.Name}}' "$cid" 2>/dev/null | sed 's|^/||' || true
+  fi
+}
+
+resolve_containers() {
+  if [ -z "$CONTAINER_PG" ]; then
+    if docker inspect "finance-prod-postgres-1" >/dev/null 2>&1; then
+      CONTAINER_PG="finance-prod-postgres-1"
+    elif docker inspect "bigdevz-finance-postgres-1" >/dev/null 2>&1; then
+      CONTAINER_PG="bigdevz-finance-postgres-1"
+    else
+      local discovered_pg
+      discovered_pg=$(get_service_container "postgres")
+      if [ -n "$discovered_pg" ]; then
+        CONTAINER_PG="$discovered_pg"
+      else
+        CONTAINER_PG="${PROJECT_NAME}-postgres-1"
+      fi
+    fi
+  fi
+
+  if [ -z "$CONTAINER_API" ]; then
+    if docker inspect "finance-prod-api-1" >/dev/null 2>&1; then
+      CONTAINER_API="finance-prod-api-1"
+    elif docker inspect "bigdevz-finance-api-1" >/dev/null 2>&1; then
+      CONTAINER_API="bigdevz-finance-api-1"
+    else
+      local discovered_api
+      discovered_api=$(get_service_container "api")
+      if [ -n "$discovered_api" ]; then
+        CONTAINER_API="$discovered_api"
+      else
+        CONTAINER_API="${PROJECT_NAME}-api-1"
+      fi
+    fi
+  fi
+}
+
+check_permissions_preflight() {
+  if ! mkdir -p "$VAR_LIB_DIR" 2>/dev/null; then
+    echo "❌ ERRO DE PRÉ-VOO: Impossível criar ou acessar diretório de marcadores: $VAR_LIB_DIR" >&2
+    exit 1
+  fi
+  if [ ! -w "$VAR_LIB_DIR" ]; then
+    echo "❌ ERRO DE PRÉ-VOO: Sem permissão de escrita no diretório de marcadores: $VAR_LIB_DIR" >&2
+    exit 1
+  fi
+
+  local test_file
+  test_file=$(mktemp "$VAR_LIB_DIR/.preflight_test_XXXXXX" 2>/dev/null || true)
+  if [ -z "$test_file" ] || [ ! -f "$test_file" ]; then
+    echo "❌ ERRO DE PRÉ-VOO: Falha ao criar arquivo de teste no diretório de marcadores: $VAR_LIB_DIR" >&2
+    exit 1
+  fi
+  rm -f "$test_file"
+
+  for marker in "$MARCADOR_TAG" "$MARCADOR_COMMIT" "$MARCADOR_DIGEST" "$RECOVERY_PENDING"; do
+    if [ -e "$marker" ] && [ ! -w "$marker" ]; then
+      echo "❌ ERRO DE PRÉ-VOO: Marcador '$marker' existe mas não possui permissão de escrita para o usuário atual ($(id -un))." >&2
+      echo "   Execute no servidor: sudo chown $(id -un):$(id -gn) $marker && sudo chmod 644 $marker" >&2
+      exit 1
+    fi
+  done
+
+  if ! mkdir -p "$BACKUP_DIR" 2>/dev/null; then
+    echo "❌ ERRO DE PRÉ-VOO: Impossível criar ou acessar diretório de backup: $BACKUP_DIR" >&2
+    exit 1
+  fi
+  if [ ! -w "$BACKUP_DIR" ]; then
+    echo "❌ ERRO DE PRÉ-VOO: Sem permissão de escrita no diretório de backup: $BACKUP_DIR" >&2
+    exit 1
+  fi
+}
+
+check_infra_preflight() {
+  resolve_containers
+
+  if ! docker inspect "$CONTAINER_PG" >/dev/null 2>&1; then
+    echo "❌ ERRO DE PRÉ-VOO: Container de banco de dados '$CONTAINER_PG' não existe no Docker." >&2
+    exit 1
+  fi
+
+  local pg_running
+  pg_running=$(docker inspect --format '{{.State.Running}}' "$CONTAINER_PG" 2>/dev/null || true)
+  if [ "$pg_running" = "false" ]; then
+    echo "❌ ERRO DE PRÉ-VOO: Container de banco de dados '$CONTAINER_PG' não está em execução." >&2
+    exit 1
+  fi
+
+  echo "✅ Pré-voo de infraestrutura aprovado: Container de banco '$CONTAINER_PG' disponível."
+}
+
+# ==============================================================================
+# Execução Principal do Pipeline de Deploy
+# ==============================================================================
 
 # 1. Consulta / Fetch de tags SemVer isoladas se for repositório Git
 if [ -d "$TARGET_DIR/.git" ] && [ "$SKIP_GIT_CHECKOUT" -eq 0 ]; then
@@ -93,16 +223,21 @@ fi
 
 # 4. Obtenção do commit alvo e validação de merge commit
 if [ -d "$TARGET_DIR/.git" ]; then
-  TARGET_SHA=$(git rev-parse -q --verify "refs/remotes/origin/tags/${DEPLOY_TAG}^{commit}" 2>/dev/null || true)
+  TARGET_SHA=$(git rev-parse -q --verify "refs/remotes/origin/tags/${DEPLOY_TAG}^{commit}" 2>/dev/null || git rev-parse -q --verify "refs/tags/${DEPLOY_TAG}^{commit}" 2>/dev/null || true)
   if [ -z "$TARGET_SHA" ]; then
     echo "❌ ERRO DE GOVERNANÇA: Tag '$DEPLOY_TAG' não encontrada no repositório." >&2
     exit 1
   fi
 
-  # Validar ancestralidade na origin/main
+  # Validar ancestralidade na origin/main ou main
   if git rev-parse --verify refs/remotes/origin/main >/dev/null 2>&1; then
     if ! git merge-base --is-ancestor "$TARGET_SHA" refs/remotes/origin/main; then
       echo "❌ ERRO DE GOVERNANÇA: O commit $TARGET_SHA apontado pela tag não pertence a origin/main!" >&2
+      exit 1
+    fi
+  elif git rev-parse --verify refs/heads/main >/dev/null 2>&1; then
+    if ! git merge-base --is-ancestor "$TARGET_SHA" refs/heads/main; then
+      echo "❌ ERRO DE GOVERNANÇA: O commit $TARGET_SHA apontado pela tag não pertence a main!" >&2
       exit 1
     fi
   fi
@@ -118,11 +253,14 @@ else
   exit 1
 fi
 
-# 5. Verificação de Marcadores
+# 5. Verificação de Marcadores e Pré-Voo de Permissões
 MARCADOR_TAG="$VAR_LIB_DIR/implantado_tag"
 MARCADOR_COMMIT="$VAR_LIB_DIR/implantado"
-mkdir -p "$VAR_LIB_DIR"
+MARCADOR_DIGEST="$VAR_LIB_DIR/implantado_digest"
 RECOVERY_PENDING="$VAR_LIB_DIR/recuperacao_pendente"
+
+check_permissions_preflight
+
 if [ -e "$RECOVERY_PENDING" ]; then
   echo "Recuperação pendente em $RECOVERY_PENDING. Deploy bloqueado." >&2
   exit 1
@@ -138,7 +276,7 @@ fi
 
 if [ -n "$IMPLANTADO_COMMIT" ] && [ "$IMPLANTADO_COMMIT" = "$TARGET_SHA" ] && [ "$TARGET_SHA" != "static-version" ]; then
   echo "ℹ️ [vps-deploy] Commit $TARGET_SHA da tag $DEPLOY_TAG já está em execução. Sincronizando marcador de tag."
-  printf '%s\n' "$DEPLOY_TAG" > "$MARCADOR_TAG"
+  safe_write_marker "$MARCADOR_TAG" "$DEPLOY_TAG"
   exit 0
 fi
 
@@ -148,9 +286,9 @@ if [ -z "$PREVIOUS_COMMIT" ] || ! git cat-file -e "${PREVIOUS_COMMIT}^{commit}";
   exit 1
 fi
 
-MARCADOR_DIGEST="$VAR_LIB_DIR/implantado_digest"
 PREVIOUS_DIGEST=$(cat "$MARCADOR_DIGEST" 2>/dev/null || true)
 if [ -z "$PREVIOUS_DIGEST" ] && command -v docker >/dev/null 2>&1; then
+  resolve_containers
   PREVIOUS_DIGEST=$(docker inspect "$CONTAINER_API" --format '{{.Image}}' 2>/dev/null || true)
 fi
 
@@ -168,8 +306,6 @@ if [ -n "$PREVIOUS_DIGEST" ] && command -v docker >/dev/null 2>&1; then
 fi
 
 # 6. Validação Estrita de Referência do Registro por Digest (Fail-Closed antes de qualquer alteração)
-# Exige formato: <repositório>@sha256:<64 hex chars>
-# Rejeita: referência vazia, tag isolada, sha256 puro sem repositório e repositório não autorizado.
 AUTHORIZED_REPO_REGEX='^(bigdevz/finance-api|ghcr\.io/[a-zA-Z0-9._-]+/(bigdevz-)?finance-api)'
 STRICT_DIGEST_REGEX="^(${AUTHORIZED_REPO_REGEX})@sha256:[a-fA-F0-9]{64}$"
 
@@ -208,6 +344,9 @@ if ! docker inspect "$FINANCE_IMAGE_DIGEST" >/dev/null 2>&1; then
   fi
 fi
 
+# Pré-voo de conectividade e infraestrutura do banco de dados antes de parar qualquer escritor
+check_infra_preflight
+
 umask 077
 mkdir -p "$BACKUP_DIR"
 BACKUP_FILE=$(mktemp "$BACKUP_DIR/pre_deploy_XXXXXXXX")
@@ -220,20 +359,29 @@ perform_rollback() {
   if [ "$exit_code" -eq 0 ]; then
     return
   fi
+
+  if [ "$DEPLOY_HEALTH_PASSED" -eq 1 ]; then
+    echo "⚠️ [vps-deploy] ATENÇÃO: Falha ocorreu APÓS o healthcheck ser aprovado com sucesso." >&2
+    echo "   Os serviços da aplicação (API e Scheduler) permanecem ATIVOS e SAUDÁVEIS." >&2
+    echo "   Verifique permissões de marcadores ou serviços de notificação." >&2
+    return
+  fi
+
   if [ "$MIGRATIONS_RAN" -eq 1 ]; then
-    if ! docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" stop api scheduler; then
+    if ! run_compose stop api scheduler; then
       echo "Falha ao parar os serviços após o erro de deploy." >&2
     fi
     echo "O banco pode ter sido alterado. Snapshot preservado em $BACKUP_FILE." >&2
     echo "Recuperação manual necessária. Novos deploys permanecem bloqueados." >&2
     return
   fi
+
   if [ "$WRITERS_STOPPED" -eq 1 ]; then
     if [ -n "$PREVIOUS_DIGEST" ]; then
       export FINANCE_API_IMAGE="$PREVIOUS_DIGEST"
     fi
     if ! git reset --hard "$PREVIOUS_COMMIT" -q ||
-       ! docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" up -d --no-build api scheduler; then
+       ! run_compose up -d --no-build api scheduler; then
       echo "Falha ao retomar a versão anterior. Intervenção necessária." >&2
     else
       rm -f "$RECOVERY_PENDING"
@@ -242,10 +390,10 @@ perform_rollback() {
 }
 trap perform_rollback EXIT
 
-# Parar os escritores antes de criar o snapshot.
+# Parar os escritores antes de criar o snapshot
 WRITERS_STOPPED=1
-docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" stop api scheduler
-if ! running_writers=$(docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" ps --status running -q api scheduler) || [ -n "$running_writers" ]; then
+run_compose stop api scheduler
+if ! running_writers=$(run_compose ps --status running -q api scheduler) || [ -n "$running_writers" ]; then
   echo "Não foi possível confirmar a parada dos escritores. Deploy bloqueado." >&2
   exit 1
 fi
@@ -262,8 +410,8 @@ else
   shasum -a 256 "$BACKUP_FILE" > "$SHA_FILE"
 fi
 
-# Persistir o estado antes de iniciar qualquer etapa que possa alterar o banco.
-printf 'SHA=%s\nBACKUP=%s\nCHECKSUM=%s\n' "$PREVIOUS_COMMIT" "$BACKUP_FILE" "$SHA_FILE" > "$RECOVERY_PENDING"
+# Persistir o estado de recuperação antes de iniciar qualquer etapa que possa alterar o banco
+safe_write_marker "$RECOVERY_PENDING" "$(printf 'SHA=%s\nBACKUP=%s\nCHECKSUM=%s\n' "$PREVIOUS_COMMIT" "$BACKUP_FILE" "$SHA_FILE")"
 
 # 7. Atualização do Código para a Versão Alvo
 if [ -d "$TARGET_DIR/.git" ] && [ "$SKIP_GIT_CHECKOUT" -eq 0 ]; then
@@ -280,10 +428,11 @@ fi
 export FINANCE_API_IMAGE="$FINANCE_IMAGE_DIGEST"
 echo "📦 Imagem digest imutável homologada para implantação: $FINANCE_API_IMAGE"
 
+# 9. Execução das migrações de banco
 MIGRATIONS_RAN=1
 echo "🚀 Executando migrações de banco (seeds de usuários estritamente desativadas)..."
-docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" run --rm -T --no-deps api php artisan migrate --force
-docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" up -d --no-build api scheduler
+run_compose run --rm -T --no-deps api php artisan migrate --force
+run_compose up -d --no-build api scheduler
 
 # 10. Validação de Saúde (Healthcheck)
 echo "🩺 Executando healthcheck pós-deploy..."
@@ -302,10 +451,22 @@ if [ "$HEALTH_OK" -ne 1 ]; then
   exit 1
 fi
 
+# Sincronização e transição atômica de Frontend Web se houver staging preparado
+if [ -d "$TARGET_DIR/web_staging" ]; then
+  echo "🌐 Promovendo Frontend Web coordenado (staging -> web)..."
+  mkdir -p "$TARGET_DIR/web"
+  rsync -ac --delete "$TARGET_DIR/web_staging/" "$TARGET_DIR/web/"
+  rm -rf "$TARGET_DIR/web_staging"
+  echo "✅ Frontend Web atualizado com sucesso após healthcheck positivo da API."
+fi
+
+# Marcação de saúde aprovada
+DEPLOY_HEALTH_PASSED=1
+
 # 11. Atualização dos Marcadores de Sucesso
-printf '%s\n' "$DEPLOY_TAG" > "$MARCADOR_TAG"
-printf '%s\n' "$TARGET_SHA" > "$MARCADOR_COMMIT"
-printf '%s\n' "$FINANCE_IMAGE_DIGEST" > "$MARCADOR_DIGEST"
+safe_write_marker "$MARCADOR_TAG" "$DEPLOY_TAG"
+safe_write_marker "$MARCADOR_COMMIT" "$TARGET_SHA"
+safe_write_marker "$MARCADOR_DIGEST" "$FINANCE_IMAGE_DIGEST"
 rm -f "$RECOVERY_PENDING"
 
 if command -v notify-deploy >/dev/null 2>&1; then

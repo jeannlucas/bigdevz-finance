@@ -21,12 +21,7 @@ DB_USER="${DB_USERNAME:-bigdevz}"
 DB_NAME="${DB_DATABASE:-bigdevz_finance}"
 
 # Localiza o container ativo (seja por nome direto ou via compose)
-CONTAINER_PG=""
-if docker ps --format '{{.Names}}' | grep -q '^bigdevz-finance-postgres-1$'; then
-    CONTAINER_PG="bigdevz-finance-postgres-1"
-elif docker ps --format '{{.Names}}' | grep -q 'postgres'; then
-    CONTAINER_PG=$(docker ps --format '{{.Names}}' | grep 'postgres' | head -n1)
-fi
+CONTAINER_PG=$(docker ps --format '{{.Names}}' | grep -E 'finance-prod-postgres-1|bigdevz-finance-postgres-1|postgres' | head -n1 || true)
 
 if [ -z "$CONTAINER_PG" ]; then
     echo "ERRO FATAL: Container PostgreSQL não está em execução!" >&2
