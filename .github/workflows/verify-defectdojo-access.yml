@@ -2,9 +2,6 @@ name: Verify DefectDojo Access (Private Tailscale)
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - dev
 
 concurrency:
   group: verify-defectdojo-access

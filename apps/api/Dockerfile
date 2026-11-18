@@ -21,6 +21,9 @@ RUN chmod +x /usr/local/bin/bigdevz-entrypoint
 
 USER appuser
 
+ARG FINANCE_RELEASE_SHA
+ENV FINANCE_RELEASE_SHA=$FINANCE_RELEASE_SHA
+
 EXPOSE 8000
 ENTRYPOINT ["bigdevz-entrypoint"]
 CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]

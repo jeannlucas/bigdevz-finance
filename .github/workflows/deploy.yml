@@ -16,6 +16,8 @@ jobs:
     environment: production
     permissions:
       contents: read
+      pull-requests: read
+      actions: read
       packages: write
       id-token: write
     steps:
@@ -30,6 +32,50 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ./scripts/validate-deploy-governance.sh
+          echo "RELEASE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Conferir CI do merge publicado
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method GET "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs" \
+            -f branch=main -f head_sha="$RELEASE_SHA" -f status=success \
+            --jq '.workflow_runs[] | select(.event == "push" or .event == "workflow_dispatch") | .head_sha' |
+            grep -Fx "$RELEASE_SHA" || { echo "::error::Aguarde o CI aprovado na main para o SHA da tag."; exit 1; }
+
+      - name: Validar credenciais do Finance
+        env:
+          AUTH_KEY: ${{ secrets.TAILSCALE_AUTHKEY }}
+          CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          [[ -n "$SSH_KEY" && ( -n "$AUTH_KEY" || ( -n "$CLIENT_ID" && -n "$CLIENT_SECRET" ) ) ]]
+
+      - name: Conectar à Tailscale
+        timeout-minutes: 2
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          oauth-client-id: ${{ !secrets.TAILSCALE_AUTHKEY && secrets.TS_OAUTH_CLIENT_ID || '' }}
+          oauth-secret: ${{ !secrets.TAILSCALE_AUTHKEY && secrets.TS_OAUTH_SECRET || '' }}
+          tags: tag:ci-deploy
+
+      - name: Autenticar SSH antes do build
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_USER: ${{ secrets.VPS_SSH_USER }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          umask 077
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/finance_key
+          trap 'rm -f ~/.ssh/finance_key' EXIT
+          echo "finance-prod ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOttXCeXd5LtLDJ6XRhW948AIus1NvbuUJyeYAD7KMW4" > ~/.ssh/finance_hosts
+          ssh -MNf -S "$RUNNER_TEMP/finance.sock" -o HostKeyAlias=finance-prod -o UserKnownHostsFile=~/.ssh/finance_hosts \
+            -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=10 \
+            -i ~/.ssh/finance_key -p "${VPS_SSH_PORT:-22}" "${VPS_SSH_USER:-jeann}@${VPS_HOST:-100.90.8.15}"
 
       - name: Configurar Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -47,6 +93,7 @@ jobs:
         with:
           context: apps/api
           file: apps/api/Dockerfile
+          build-args: FINANCE_RELEASE_SHA=${{ env.RELEASE_SHA }}
           platforms: linux/amd64
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/bigdevz-finance-api:${{ github.ref_name }}
@@ -88,70 +135,15 @@ jobs:
             --mode audit \
             --output-summary $GITHUB_STEP_SUMMARY
 
-      - name: Verificar Configuração de Conectividade
-        id: check_config
+      - name: Implantar digest aprovado na VPS
         env:
-          TAILSCALE_KEY: ${{ secrets.TAILSCALE_AUTHKEY }}
-          TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
-          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-        run: |
-          if { [ -n "$TAILSCALE_KEY" ] || [ -n "$TS_OAUTH_SECRET" ]; } && [ -n "$SSH_KEY" ]; then
-            echo "has_secrets=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_secrets=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Registrar Status de Deploy Pendente
-        if: steps.check_config.outputs.has_secrets != 'true'
-        shell: bash
-        env:
-          IMAGE_DIGEST: ${{ steps.image_digest.outputs.registry_ref }}
-        run: |
-          echo "::warning::Deploy em produção pendente de configuração de secrets SSH/Tailscale."
-          {
-            echo "## ⏸️ Status: Tag Validada e Imagem Homologada — Deploy Remoto Pendente"
-            echo "> **Aviso:** A tag \`${GITHUB_REF_NAME}\` passou com 100% de sucesso por todas as validações de governança e proveniência."
-            echo "> A imagem \`linux/amd64\` foi publicada e escaneada com sucesso no registro: \`${IMAGE_DIGEST}\`."
-            echo "> O disparo automático via SSH para a VPS **NÃO foi executado** nesta rodada porque os secrets de conectividade privada (\`TAILSCALE_AUTHKEY\` ou \`TS_OAUTH_SECRET\`) e SSH (\`VPS_SSH_KEY\`) ainda não foram configurados no repositório."
-            echo ""
-            echo "### Próximos Passos para Execução"
-            echo "1. **Para Deploy Automatizado:** Configurar os secrets \`TAILSCALE_AUTHKEY\` e \`VPS_SSH_KEY\` no GitHub Actions."
-            echo "2. **Para Execução Manual Autorizada na VPS:**"
-            echo "   \`\`\`bash"
-            echo "   ssh bigdevz \"cd /srv/finance && ./scripts/vps-deploy.sh --tag ${GITHUB_REF_NAME} --digest ${IMAGE_DIGEST}\""
-            echo "   \`\`\`"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Conectar à Tailscale (Rede Privada)
-        if: steps.check_config.outputs.has_secrets == 'true'
-        uses: tailscale/github-action@v3
-        with:
-          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:ci-deploy
-
-      - name: Executar Deploy na VPS via SSH
-        if: steps.check_config.outputs.has_secrets == 'true'
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-          VPS_SSH_USER: ${{ secrets.VPS_SSH_USER }}
-          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
           TAG_NAME: ${{ github.ref_name }}
           IMAGE_DIGEST: ${{ steps.image_digest.outputs.registry_ref }}
-        shell: bash
         run: |
-          set -euo pipefail
-          VPS_HOST="${VPS_HOST:-100.90.8.15}"
-          VPS_SSH_USER="${VPS_SSH_USER:-deployer}"
-          VPS_SSH_PORT="${VPS_SSH_PORT:-22}"
+          ssh -S "$RUNNER_TEMP/finance.sock" -o ProxyCommand=false finance-prod -- "$TAG_NAME" "$IMAGE_DIGEST"
 
-          mkdir -p ~/.ssh
-          echo "$VPS_SSH_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          echo "100.90.8.15 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOttXCeXd5LtLDJ6XRhW948AIus1NvbuUJyeYAD7KMW4" >> ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
-
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -p "$VPS_SSH_PORT" "$VPS_SSH_USER@$VPS_HOST" \
-            -- "$TAG_NAME" "$IMAGE_DIGEST"
+      - name: Confirmar revisão pública
+        run: |
+          curl --fail --silent --show-error --max-time 15 --retry 4 --retry-delay 2 --retry-max-time 30 \
+            https://finance.bigdevz.com/api/health |
+            jq -e --arg sha "$RELEASE_SHA" '.status == "ok" and .revision == $sha'

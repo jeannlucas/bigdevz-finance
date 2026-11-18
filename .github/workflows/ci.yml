@@ -4,8 +4,9 @@ name: CI
 # Não comprova build nem execução em iOS ou Android.
 
 on:
+  workflow_dispatch:
   push:
-    branches: [dev, main]
+    branches: [main]
   pull_request:
 
 permissions:
