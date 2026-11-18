@@ -107,3 +107,11 @@ Restaura imediatamente as versões de `web_previous` e `api_previous` e reinicia
 ssh bigdevz "/srv/finance/scripts/rollback-production.sh --with-db-restore /srv/finance/backups/db/pre_deploy_<TIMESTAMP>.dump"
 ```
 O script encerra conexões ativas na base `bigdevz_finance`, valida o checksum SHA-256 e executa `pg_restore --clean`.
+
+## Publicação pelo GitHub Actions
+
+O push para `dev` compartilha o trabalho. PRs abertos continuam executando CI quando recebem atualizações. O diagnóstico do DefectDojo pode ser iniciado manualmente.
+
+Promova por PR de `dev` para `main`. Aguarde o CI verde na `main` para o commit de merge antes de publicar a tag SemVer nesse commit. A tag dispara o deploy. O job confere o SHA homologado e autentica o SSH com as credenciais do ambiente `production` do Finance antes de construir a imagem.
+
+O Trivy inspeciona a imagem pelo digest enviado à VPS. Após a implantação, o job compara a revisão devolvida por `https://finance.bigdevz.com/api/health` com o SHA da tag. Se essa consulta falhar, confira a revisão pública e os marcadores da VPS antes de repetir o deploy.

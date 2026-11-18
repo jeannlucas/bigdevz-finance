@@ -55,6 +55,7 @@ Route::get('/health', function () {
 
     return response()->json([
         'status' => $status,
+        'revision' => getenv('FINANCE_RELEASE_SHA') ?: null,
         'timestamp' => now()->toIso8601String(),
         'services' => [
             'database' => [
