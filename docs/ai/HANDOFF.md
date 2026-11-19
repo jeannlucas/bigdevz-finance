@@ -1,85 +1,77 @@
 # BigDev.Z Finance — Transição Operacional (Handoff)
 
-> **Data de Atualização:** 17/11/2026 10:40 (UTC-03:00)  
-> **Versão em Produção:** `v1.2.0` (commit [`7af3d2d49b41836911acd9e7740ece015f9b7e86`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/))  
-> **Branch Ativa de Trabalho:** `fix/deploy-pipeline-hardening`  
-> **Status Operacional:** ✅ HARDENING E RESILIÊNCIA DO PIPELINE DE DEPLOY E RECUPERAÇÃO CONCLUÍDOS COM 100% DE TESTES AUTOMATIZADOS VERDES  
-> **Soberania Git:** Commits, pushes e tags sob autoridade exclusiva de Jeann Lucas. Nenhuma alteração em produção realizada.
+> **Atualizado em:** 2026-11-18
+> **Última versão de produção registrada:** `v1.2.1` (commit `4153d43a571b0d9197544682c981d8c66d2455fb`)
+> **Digest Homologado em Produção:** `ghcr.io/jeannlucas/bigdevz-finance-api@sha256:799e4b8998f117a8c078d8872db53a44b3b4728b2ea60c70c21e48d02c926f5a`
+> **Branch ativa:** `dev`; a atualização deste handoff será publicada somente em `dev`
+> **Status Operacional:** ✅ RELEASE v1.2.1 PUBLICADA E IMPLANTADA EM PRODUÇÃO COM 100% DE SUCESSO E BACKPRESSURE TOTAL
+> **Soberania Git:** Commits, pushes e tags sob autoridade exclusiva de Jeann Lucas. Produção validada e íntegra.
 
 ---
 
-## 1. Contexto e Diagnóstico das Falhas Corrigidas
+## 1. O que foi feito nesta sessão
 
-Durante o incidente de deploy da release `v1.2.0`, foram identificadas vulnerabilidades operacionais na orquestração:
-1. **Divergência de Projeto Compose:** Scripts esperavam o nome de projeto `bigdevz-finance`, enquanto a VPS executa os containers sob o projeto `finance-prod` (rede `finance-prod_default`, containers `finance-prod-*-1`), causando falha de resolução de hostname do banco de dados (`postgres`) em comandos efêmeros.
-2. **Invocação de Opções no Cliente SSH:** O workflow do GitHub Actions (`deploy.yml`) executava `ssh ... "--tag $TAG --digest $DIGEST"` sem o separador `--`, fazendo o cliente OpenSSH interpretar incorretamente argumentos como switches do próprio cliente SSH (`exit code 255`).
-3. **Permissão de Escrita em Marcadores:** O arquivo `/var/lib/vps-deploy/bigdevz-finance/implantado_digest` pertencia a `root:root` (modo 0644), gerando `Permission denied` ao final do deploy sob usuário operacional (`jeann`).
-4. **Acoplamento Indevido de Trap Pós-Healthcheck:** A trap de rollback `perform_rollback` em `scripts/vps-deploy.sh` interrompia serviços saudáveis caso ocorresse qualquer erro em metadados secundários mesmo após o healthcheck `/up` já ter sido aprovado.
-5. **Publicação Antecipada do Bundle Web:** A sincronização de `/srv/finance/web` ocorria antes da validação do backend, expondo o novo frontend a usuários antes que a API estivesse funcional.
+1. **Confirmação do Merge e Proveniência do PR #11:**
+   - PR [#11](https://github.com/jeannlucas/bigdevz-finance/pull/11) integrado com sucesso na `main` por Jeann Lucas via "Create a merge commit".
+   - Commit de merge: `4153d43a571b0d9197544682c981d8c66d2455fb` (pais: `7af3d2d` e `144ae05`).
+   - Checks de CI da `main` no GitHub Actions 100% aprovados.
 
----
+2. **Quality Gate Local Completo:**
+   - Executado `./scripts/check.sh --full` no Mac: 10/10 etapas aprovadas (Domínio PHP, Pint, Dart format, Flutter analyze, Flutter test com 332 testes, Laravel API com 203 testes em PostgreSQL real, 7 testes de governança SemVer, 3 testes de transição, 8 testes de hardening e simulação integrada E2E).
 
-## 2. Hardening e Soluções Implementadas
+3. **Atualização Prévia e Segura na VPS:**
+   - Sincronizado o repositório em `/srv/finance` na VPS com a nova `main` (`4153d43`) via `git fetch origin main && git pull origin main`, garantindo a presença dos scripts corrigidos (`finance-prod`, `--` no wrapper, pré-voo fail-closed de permissões) antes do acionamento.
 
-1. **Scripts de Deploy Canônico (`scripts/vps-deploy.sh`):**
-   - **Resolução Consistente de Projeto:** Exportação padronizada de `COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-${PROJECT_NAME:-finance-prod}}"`.
-   - **Descoberta Dinâmica de Containers:** Funções auxiliares `resolve_containers` e `get_service_container` para identificar automaticamente os containers reais de banco e API (`finance-prod-postgres-1`, `finance-prod-api-1` ou convenções do projeto).
-   - **Pré-Voo Fail-Closed de Permissões:** Função `check_permissions_preflight` que valida permissão de escrita atômica em `/var/lib/vps-deploy/<projeto>` e nos marcadores (`implantado_tag`, `implantado`, `implantado_digest`, `recuperacao_pendente`) antes de parar qualquer escritor ou iniciar migrações.
-   - **Pré-Voo de Infraestrutura:** Valida a presença e o status de execução do container PostgreSQL antes do snapshot.
-   - **Escrita Atômica Segura:** Função `safe_write_marker` que cria arquivos temporários com `mktemp`, define permissão `0644` e executa substituição atômica (`mv -f`).
-   - **Desacoplamento de Rollback Pós-Healthcheck:** Flag `DEPLOY_HEALTH_PASSED=1` protege os containers saudáveis contra parada acidental na trap `perform_rollback`.
-   - **Estadiamento Coordenado da Web:** Suporte a `/srv/finance/web_staging/`, promovendo para `/srv/finance/web/` somente após confirmação 200 OK do endpoint `/up`.
-2. **Wrapper SSH (`scripts/vps-deploy-wrapper.sh`):**
-   - Suporte transparente a argumentos posicionais (`$1` como tag, `$2` como digest), flags nomeadas (`--tag`, `--digest`) e descarte seguro de separadores `--` passados pelo OpenSSH.
-   - Suporte a execução tanto via `SSH_ORIGINAL_COMMAND` quanto por linha de comando direta.
-3. **Workflow GitHub Actions (`.github/workflows/deploy.yml`):**
-   - Linha de invocação SSH corrigida com `--` explícito para neutralizar parsing ambíguo de opções:
-     `ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -p "$VPS_SSH_PORT" "$VPS_SSH_USER@$VPS_HOST" -- "$TAG_NAME" "$IMAGE_DIGEST"`
-4. **Scripts de Suporte Operacional (`scripts/deploy-production.sh`, `scripts/rollback-production.sh`, `scripts/backup-production.sh`):**
-   - Alinhamento de todos os scripts ao projeto `finance-prod`.
-   - Remoção de nomes hardcoded estáticos em favor de resolução dinâmica resiliente.
-   - Sincronização web direcionada a `web_staging` no `deploy-production.sh`, com swap atômico somente pós-healthcheck.
-5. **Configuração Docker Compose (`docker-compose.production.yml`):**
-   - Nome do projeto configurado como `name: ${COMPOSE_PROJECT_NAME:-finance-prod}`.
-6. **Nova Suíte de Testes Automatizados (`tests/infra/test-deploy-hardening-preflight.sh`):**
-   - Valida suporte do wrapper a argumentos com e sem `--`.
-   - Valida bloqueio fail-closed no pré-voo quando marcadores não possuem permissão de escrita.
-   - Valida que a trap não derruba serviços pós-healthcheck.
-   - Valida sintaxe segura do workflow `deploy.yml`.
-   - Integrada à suíte de qualidade obrigatória em `scripts/check.sh --full`.
-7. **Documentação e Runbooks Atualizados:**
-   - [`docs/operations/production-deployment.md`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/operations/production-deployment.md): Arquitetura, regras de pré-voo, projeto Compose e fluxo de staging web.
-   - [`docs/operations/production-runbook.md`](file:///Users/jeannlucasdev/Documents/Projetos/Desenvolvimento/bigdevz-finance/docs/operations/production-runbook.md): Inventário de serviços atualizado e playbook `INC-07` para diagnóstico de permissões e rede Compose.
+4. **Publicação da Tag `v1.2.1`:**
+   - Criada tag anotada `v1.2.1` apontando para o commit de merge `4153d43a571b0d9197544682c981d8c66d2455fb`.
+   - Barreira Git pré-push executou `./scripts/check.sh --full` e liberou o push.
+   - Tag publicada com sucesso para `origin`.
+
+5. **Deploy Canônico Concluído na VPS:**
+   - Imagem imutável `ghcr.io/jeannlucas/bigdevz-finance-api@sha256:799e4b8998f117a8c078d8872db53a44b3b4728b2ea60c70c21e48d02c926f5a` construída pelo GitHub Actions e baixada na VPS.
+   - Pré-voo de permissões e de infraestrutura PostgreSQL aprovados.
+   - Parada controlada dos escritores (`api` e `scheduler`).
+   - Snapshot preventivo binário consistente gerado em `/srv/finance/backups/db/pre_deploy_OpxKeyZG` (169KB) com validação `pg_restore --list` (349 TOC entries) e checksum SHA-256 verificado.
+   - Migrations executadas sem pendências ("Nothing to migrate").
+   - Containers recriados com a nova imagem sob o projeto `finance-prod`.
+   - Healthcheck `/up` aprovado com 200 OK.
+   - Marcadores atômicos atualizados para `v1.2.1`, commit `4153d43` e digest imutável.
+   - Trava de recuperação removida com sucesso.
 
 ---
 
-## 3. Comprovação de Backpressure e Testes Automatizados
+## 2. Onde paramos exatamente
 
-Comando executado: `./scripts/check.sh --full`
-- **Domínio Financeiro Puro (PHP):** 15/15 PASS (0 falhas).
-- **Linter e Estilo PHP (Laravel Pint):** 167 arquivos auditados, PASS.
-- **Tipagem e Análise Dart (`flutter analyze`):** 0 issues (No issues found).
-- **Formatação Dart (`dart format`):** 162 arquivos formatados (0 changed).
-- **Suíte Flutter (`flutter test`):** **332 testes PASS** (100% verde).
-- **Suíte API Laravel (`php artisan test`):** **203 testes PASS (1.931 asserções)** em PostgreSQL real.
-- **Testes de Governança SemVer (`tests/infra/test-deploy-governance.sh`):** **7/7 cenários PASS**.
-- **Testes de Transição de Deploy SemVer (`tests/infra/test-vps-deploy-transition.sh`):** **3/3 cenários PASS**.
-- **Testes de Hardening e Pré-Voo (`tests/infra/test-deploy-hardening-preflight.sh`):** **4/4 cenários PASS**.
-- **Status Geral:** **100% VERDE (ZERO ERROS)**.
-
----
-
-## 4. Estado da Produção e Salvaguardas
-
-- **Produção Atual (`srv1884441`):** Permanece 100% intacta, ativa e saudável servindo `v1.2.0` (commit `7af3d2d49b41836911acd9e7740ece015f9b7e86`).
-- **Nenhum Deploy Executado:** Nenhuma alteração foi aplicada na VPS durante esta sessão.
-- **Segurança de Credenciais:** Zero credenciais lidas, impressas ou commitadas. Nenhum arquivo `.env` real tocado.
+- **Versão Ativa em Produção:** `v1.2.1`.
+- **Commit Ativo em Produção:** `4153d43a571b0d9197544682c981d8c66d2455fb`.
+- **Digest Ativo em Produção:** `ghcr.io/jeannlucas/bigdevz-finance-api@sha256:799e4b8998f117a8c078d8872db53a44b3b4728b2ea60c70c21e48d02c926f5a`.
+- **Status dos Serviços:**
+  * `finance-prod-api-1`: Ativo e Saudável (`Up`, `healthy`, porta `8510->8000`).
+  * `finance-prod-scheduler-1`: Ativo (`Up`, comando `php artisan schedule:work`).
+  * `finance-prod-postgres-1`: Ativo e Saudável (`Up 10 hours`, `healthy`, porta `5432`).
+  * `Caddy`: Servindo HTTPS em `https://finance.bigdevz.com/` com HTTP 200.
+- **Integridade Contábil Auditada:**
+  * 2 espaços, 1 usuário, 8 contas, 255 contas a pagar, 21 acordos, 78 movimentações de conta, 75 parcelas, 52 pagamentos, 21 recebimentos e 2 transferências preservados integralmente.
+- **CI econômico:** PRs para `dev` usam o gate pré-push local; a promoção para `main` e o SHA final continuam validados no GitHub Actions (run `44433081350`).
 
 ---
 
-## 5. Próximos Passos Imediatos
+## 3. Próximos Passos Imediatos
 
-1. Apresentar os resultados, arquivos alterados e comprovação de testes a Jeann Lucas.
-2. Aguardar revisão humana e autorização prévia e explícita para:
-   - Criação do commit na branch `fix/deploy-pipeline-hardening`.
-   - Merge na branch `dev` e publicação.
+1. Planejar as próximas tarefas de negócio/produto a partir da `dev`.
+
+---
+
+## 4. Comandos para Auditoria e Conferência
+
+```bash
+# Conferir status e integridade do Git
+git status
+git log -n 3 --oneline
+
+# Conferir o CI do commit publicado na main
+gh run list --branch main --limit 3
+
+# Executar a validação local completa
+./scripts/check.sh --full
+```
