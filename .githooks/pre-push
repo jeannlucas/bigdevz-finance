@@ -3,6 +3,10 @@
 # Aplica-se a main repo, worktrees e checkouts secundários.
 set -euo pipefail
 
+# O Git exporta variáveis locais aos hooks. Flutter e testes sandbox criam
+# repositórios próprios e devem descobrir metadados pelo diretório.
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX
+
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$REPO_ROOT"
 

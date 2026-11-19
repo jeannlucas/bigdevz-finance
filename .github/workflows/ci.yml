@@ -8,6 +8,12 @@ on:
   push:
     branches: [main]
   pull_request:
+    branches: [main]
+
+# O pre-push local valida dev; a nuvem valida a promocao e o SHA publicado.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
