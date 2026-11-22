@@ -38,6 +38,7 @@ class AccountController extends Controller
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:80'],
+            'bank_id' => ['nullable', 'string', 'max:32'],
             'opening_balance' => ['required', new MoneyAmount(positive: false, allowNegative: true)],
             'opening_balance_date' => ['required', 'date_format:Y-m-d'],
         ]);
@@ -46,6 +47,7 @@ class AccountController extends Controller
 
         $account = $space->accounts()->create([
             'name' => $data['name'],
+            'bank_id' => $data['bank_id'] ?? null,
             'opening_balance_cents' => Money::toCents($data['opening_balance'], allowNegative: true),
             'opening_balance_date' => $data['opening_balance_date'],
         ]);
@@ -68,6 +70,7 @@ class AccountController extends Controller
         $model = $space->accounts()->findOrFail($account);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:80'],
+            'bank_id' => ['nullable', 'string', 'max:32'],
             'space_id' => ['prohibited'],
             'opening_balance' => ['prohibited'],
             'opening_balance_date' => ['prohibited'],
@@ -76,7 +79,11 @@ class AccountController extends Controller
             'opening_balance.prohibited' => 'Use a correção de abertura para alterar o saldo inicial.',
             'opening_balance_date.prohibited' => 'Use a correção de abertura para alterar a data de abertura.',
         ]);
-        $model->update(['name' => $data['name']]);
+        $updates = ['name' => $data['name']];
+        if (array_key_exists('bank_id', $data)) {
+            $updates['bank_id'] = $data['bank_id'];
+        }
+        $model->update($updates);
 
         return new AccountResource($this->find($space, $model->id));
     }

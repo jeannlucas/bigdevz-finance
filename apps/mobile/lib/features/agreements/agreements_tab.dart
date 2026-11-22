@@ -68,6 +68,7 @@ class _AgreementsTabState extends State<AgreementsTab> {
     FinancialDueDateGroup.next7Days,
     FinancialDueDateGroup.thisMonth,
     FinancialDueDateGroup.future,
+    FinancialDueDateGroup.settled,
   };
 
   @override
@@ -155,6 +156,8 @@ class _AgreementsTabState extends State<AgreementsTab> {
         _periodSelection = FinancialPeriodSelection.all();
       } else if (newFilter == 'open') {
         _periodSelection = FinancialPeriodSelection.currentMonth();
+      } else if (newFilter == 'paid') {
+        _expandedGroups.add(FinancialDueDateGroup.settled);
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {

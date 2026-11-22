@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Actions\Payables\ChangeObligations;
 use App\Actions\Payables\CreatePayable;
 use App\Actions\Payables\GenerateObligations;
+use App\Actions\Payables\RegisterDirectExpense;
 use App\Actions\Receivables\IdempotentOperations;
 use App\Domain\Receivables\Money;
 use App\Http\Controllers\Api\Concerns\HandlesIdempotency;
@@ -106,7 +107,13 @@ class PayableController extends Controller
                 'first_due_date' => ['required', 'date_format:Y-m-d'],
             ]],
             'recurring' => [IdempotentOperations::RECURRENCE, $common + [
-                'amount' => ['required', new MoneyAmount],
+                'is_variable' => ['nullable', 'boolean'],
+                'amount' => [
+                    Rule::requiredIf(fn () => ! filter_var($request->input('is_variable'), FILTER_VALIDATE_BOOLEAN)),
+                    'nullable',
+                    new MoneyAmount,
+                ],
+                'estimated_amount' => ['nullable', new MoneyAmount],
                 'start_date' => ['required', 'date_format:Y-m-d'],
                 'end_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:start_date'],
                 // Período revisado na prévia: o conjunto criado é exatamente esse.
@@ -156,20 +163,78 @@ class PayableController extends Controller
     }
 
     /**
+     * Registra uma despesa paga à vista (compra no débito) com confirmação única:
+     * Cria a obrigação quitada, o pagamento debitando a conta e o movimento de saída
+     * de forma estritamente atômica e idempotente.
+     */
+    public function directExpense(Request $request, string $space, RegisterDirectExpense $action, IdempotentOperations $keys): JsonResponse
+    {
+        $space = $this->space($request, $space);
+        $space->ensureCan($request->user(), 'create_payable');
+
+        $key = $this->idempotencyKey($request);
+
+        $input = $request->all();
+        if (! isset($input['paid_on']) && isset($input['date'])) {
+            $input['paid_on'] = $input['date'];
+        }
+
+        $rules = [
+            'account_id' => ['required', 'integer'],
+            'amount' => ['required', new MoneyAmount],
+            'paid_on' => ['required', 'date_format:Y-m-d'],
+            'description' => ['required', 'string', 'max:120'],
+            'payee' => ['nullable', 'string', 'max:120'],
+            'category_id' => ['nullable', 'integer'],
+        ];
+
+        $raw = collect($input)->only(array_keys($rules))->toArray();
+        $fingerprint = RegisterDirectExpense::fingerprint($space, $raw);
+
+        $validator = Validator::make($input, $rules);
+        if ($validator->fails()) {
+            return $this->rejection($key, $keys->reject($request->user(), $space, $key, IdempotentOperations::PAYABLE, $fingerprint, $validator->errors()->toArray()));
+        }
+
+        $data = $validator->validated();
+        $result = $action->handle($request->user(), $space, $data, $key, $fingerprint);
+        if ($result->rejected()) {
+            return $this->rejection($key, $result);
+        }
+
+        $payable = Payable::query()->where('space_id', $space->id)->with(['category', 'payments'])->findOrFail($result->ref('payable_id'));
+
+        $status = $result->replayed ? 200 : 201;
+
+        return (new PayableResource($payable))
+            ->additional([
+                'replayed' => $result->replayed,
+                'idempotency' => $this->idempotency($key, $result),
+            ])
+            ->response()
+            ->setStatusCode($status);
+    }
+
+    /**
      * Prévia da recorrência, sem gravar: mesmas regras da geração, até o
      * horizonte atual. approved_until volta para o cadastro.
      */
     public function recurrencePreview(Request $request, string $space): JsonResponse
     {
         $this->space($request, $space);
+        $isVariable = $request->boolean('is_variable');
         $data = $request->validate([
-            'amount' => ['required', new MoneyAmount],
+            'amount' => [$isVariable ? 'nullable' : 'required', new MoneyAmount],
+            'is_variable' => ['nullable', 'boolean'],
+            'estimated_amount' => ['nullable', new MoneyAmount],
             'start_date' => ['required', 'date_format:Y-m-d'],
             'end_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:start_date'],
         ]);
         $horizon = GenerateObligations::horizon();
         $plan = CreatePayable::initialPlan($data['start_date'], $data['end_date'] ?? null, $horizon);
-        $amount = Money::toCents($data['amount']);
+        $amount = isset($data['amount']) && $data['amount'] !== null
+            ? Money::toCents($data['amount'])
+            : (isset($data['estimated_amount']) && $data['estimated_amount'] !== null ? Money::toCents($data['estimated_amount']) : 0);
         $past = CreatePayable::pastOf($plan, $amount);
         $today = GenerateObligations::today();
 
@@ -186,8 +251,12 @@ class PayableController extends Controller
             'past_count' => $past['count'],
             'past_total' => Money::formatAggregate($past['total_cents']),
             'total' => Money::formatAggregate(count($plan) * $amount),
-            'items' => array_map(static fn (array $cycle) => $cycle + ['amount' => Money::fromCents($amount), 'past' => $cycle['due_date'] < $today],
-                array_slice($plan, 0, CreatePayable::PREVIEW_ITEMS)),
+            'is_variable' => $isVariable,
+            'items' => array_map(static fn (array $cycle) => $cycle + [
+                'amount' => $isVariable && (! isset($data['amount']) || $data['amount'] === null) ? null : Money::fromCents($amount),
+                'past' => $cycle['due_date'] < $today,
+                'is_variable' => $isVariable,
+            ], array_slice($plan, 0, CreatePayable::PREVIEW_ITEMS)),
             'items_shown' => min(count($plan), CreatePayable::PREVIEW_ITEMS),
         ]]);
     }

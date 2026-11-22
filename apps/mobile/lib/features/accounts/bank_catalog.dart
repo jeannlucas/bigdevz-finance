@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'account.dart';
+
 /// Informações institucionais e visuais padronizadas de um banco ou instituição de pagamento.
 class BankInfo {
   const BankInfo({
@@ -167,6 +169,24 @@ class BankCatalog {
     color: Color(0xFF00A868),
   );
 
+  static const BankInfo wise = BankInfo(
+    id: 'wise',
+    name: 'Wise',
+    code: '362',
+    assetPath: '$_basePath/wise.png',
+    color: Color(0xFF163300),
+    initialNameSuggestion: 'Wise',
+  );
+
+  static const BankInfo ducz = BankInfo(
+    id: 'ducz',
+    name: 'DUCZ Benefícios',
+    code: '---',
+    assetPath: '$_basePath/ducz.png',
+    color: Color(0xFF7B2CBF),
+    initialNameSuggestion: 'DUCZ Benefícios',
+  );
+
   static const BankInfo dinheiro = BankInfo(
     id: 'dinheiro',
     name: 'Dinheiro em Espécie',
@@ -202,6 +222,8 @@ class BankCatalog {
     pagbank,
     neon,
     stone,
+    wise,
+    ducz,
     dinheiro,
     outro,
   ];
@@ -213,6 +235,16 @@ class BankCatalog {
       if (bank.id == id) return bank;
     }
     return null;
+  }
+
+  /// Retorna as informações da instituição para a conta, priorizando o [bankId] persistido
+  /// e utilizando o nome da conta como fallback.
+  static BankInfo? resolveForAccount(Account account) {
+    if (account.bankId != null && account.bankId!.isNotEmpty) {
+      final bank = findById(account.bankId);
+      if (bank != null) return bank;
+    }
+    return findByAccountName(account.name);
   }
 
   /// Identifica automaticamente o banco a partir do nome da conta digitado pelo usuário.
@@ -318,6 +350,16 @@ class BankCatalog {
     // Stone
     if (lower.contains('stone')) {
       return stone;
+    }
+
+    // Wise
+    if (lower.contains('wise')) {
+      return wise;
+    }
+
+    // DUCZ Benefícios
+    if (lower.contains('ducz')) {
+      return ducz;
     }
 
     return null;

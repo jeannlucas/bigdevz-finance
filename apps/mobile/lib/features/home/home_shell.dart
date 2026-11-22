@@ -7,6 +7,7 @@ import '../../ui/app_tokens.dart';
 import '../../ui/theme.dart';
 import '../accounts/accounts_tab.dart';
 import '../agreements/agreements_tab.dart';
+import '../alerts/alerts_repository.dart';
 import '../auth/auth_models.dart';
 import '../auth/profile_edit_dialog.dart';
 import '../auth/session_controller.dart';
@@ -32,6 +33,7 @@ class _HomeShellState extends State<HomeShell> {
   String? _agreementsFilter;
   String? _payablesFilter;
   SpaceSummary? _summary;
+  int? _unreadAlertsCount;
   int? _lastDataVersion;
   int? _lastSpaceId;
 
@@ -52,9 +54,20 @@ class _HomeShellState extends State<HomeShell> {
     final space = session.activeSpace;
     if (space == null) return;
     try {
-      final summary = await context.read<SummaryRepository>().load(space.id);
+      final summaryFuture = context.read<SummaryRepository>().load(space.id);
+      final alertsRepo = context.read<AlertsRepository?>();
+      final alertsFuture = alertsRepo?.badge(space.id);
+
+      final summary = await summaryFuture;
+      final unreadAlerts = alertsFuture != null ? await alertsFuture : null;
+
       if (mounted) {
-        setState(() => _summary = summary);
+        setState(() {
+          _summary = summary;
+          if (unreadAlerts != null) {
+            _unreadAlertsCount = unreadAlerts;
+          }
+        });
       }
     } catch (_) {
       // Falha silenciosa
@@ -124,9 +137,10 @@ class _HomeShellState extends State<HomeShell> {
     );
 
     final notificationCount =
-        (_summary?.payables.overdueCount ?? 0) +
-        (_summary?.overdueInstallments ?? 0) +
-        ((_summary?.payables.awaitingAmountCount ?? 0) > 0 ? 1 : 0);
+        _unreadAlertsCount ??
+        ((_summary?.payables.overdueCount ?? 0) +
+            (_summary?.overdueInstallments ?? 0) +
+            ((_summary?.payables.awaitingAmountCount ?? 0) > 0 ? 1 : 0));
 
     // Cor e conteúdo vinculados ao espaço: a chave descarta todo estado do anterior.
     return Theme(
@@ -150,11 +164,16 @@ class _HomeShellState extends State<HomeShell> {
                         _payablesFilter = 'open';
                       }
                     }),
-                    onOpenNotifications: () => showNotificationsModal(
-                      context,
-                      summary: _summary,
-                      onNavigate: _handleNavigation,
-                    ),
+                    onOpenNotifications: () async {
+                      await showNotificationsModal(
+                        context,
+                        summary: _summary,
+                        onNavigate: _handleNavigation,
+                      );
+                      if (mounted) {
+                        _refreshSummary();
+                      }
+                    },
                     onOpenCategories: () =>
                         showCategoriesManagementModal(context, space: space),
                     onOpenLoans: () => Navigator.of(context).push(
@@ -201,11 +220,16 @@ class _HomeShellState extends State<HomeShell> {
               actions: [
                 _NotificationBellButton(
                   count: notificationCount,
-                  onTap: () => showNotificationsModal(
-                    context,
-                    summary: _summary,
-                    onNavigate: _handleNavigation,
-                  ),
+                  onTap: () async {
+                    await showNotificationsModal(
+                      context,
+                      summary: _summary,
+                      onNavigate: _handleNavigation,
+                    );
+                    if (mounted) {
+                      _refreshSummary();
+                    }
+                  },
                 ),
                 Padding(
                   padding: const EdgeInsets.only(right: 8),

@@ -9,6 +9,7 @@ import 'features/accounts/accounts_repository.dart';
 import 'features/accounts/opening_adjustments.dart';
 import 'features/agreements/agreements_repository.dart';
 import 'features/agreements/receipt_attempts.dart';
+import 'features/alerts/alerts_repository.dart';
 import 'features/auth/auth_repository.dart';
 import 'features/auth/session_controller.dart';
 import 'features/categories/categories_repository.dart';
@@ -55,6 +56,7 @@ Widget buildApp({
         ),
       ),
       Provider(create: (_) => SummaryRepository(api)),
+      Provider(create: (_) => AlertsRepository(api)),
       ChangeNotifierProvider(
         create: (_) => PreferencesController(storage: storage)..load(),
       ),

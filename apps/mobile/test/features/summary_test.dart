@@ -644,9 +644,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Rola para cobrir toda a interface sob fonte ampliada
-      await tester.drag(find.byType(ListView), const Offset(0, -400));
-      await tester.pumpAndSettle();
+      // Rola de forma determinística até o card garantindo que seja construído sob fonte ampliada
+      await tester.scrollUntilVisible(
+        find.text('Contas a Pagar e Faturas'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
 
       // Nenhuma exceção de overflow visual disparada
       expect(tester.takeException(), isNull);

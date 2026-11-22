@@ -117,9 +117,7 @@ class AccountCard extends StatelessWidget {
                         // Cabeçalho do cartão: Nome e Status
                         Builder(
                           builder: (context) {
-                            final bank = BankCatalog.findByAccountName(
-                              account.name,
-                            );
+                            final bank = BankCatalog.resolveForAccount(account);
                             return Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -157,6 +155,32 @@ class AccountCard extends StatelessWidget {
                                             width: 26,
                                             height: 26,
                                             fit: BoxFit.contain,
+                                            errorBuilder:
+                                                (context, error, stackTrace) {
+                                                  final initials = bank.name
+                                                      .split(' ')
+                                                      .where(
+                                                        (w) => w.isNotEmpty,
+                                                      )
+                                                      .map((w) => w[0])
+                                                      .take(2)
+                                                      .join();
+                                                  return Container(
+                                                    width: 26,
+                                                    height: 26,
+                                                    color: bank.color,
+                                                    alignment: Alignment.center,
+                                                    child: Text(
+                                                      initials,
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 10,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
                                           ),
                                         )
                                       : AppIcon(

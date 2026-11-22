@@ -75,6 +75,36 @@ class PayablesRepository {
     );
   }
 
+  /// Registra despesa já paga (débito em conta à vista) com confirmação única.
+  Future<({Payable payable, bool replayed})> registerDirectExpense(
+    int spaceId, {
+    required int accountId,
+    required Money amount,
+    required String date,
+    required String description,
+    int? categoryId,
+    required String idempotencyKey,
+  }) async {
+    final res = await _api.post('/spaces/$spaceId/payables/direct-expense', {
+      'account_id': accountId,
+      'amount': amount.toApi(),
+      'paid_on': date,
+      'date': date,
+      'description': description,
+      'category_id': ?categoryId,
+    }, idempotencyKey: idempotencyKey);
+
+    final data = res['data'] as Map<String, dynamic>;
+    final payableMap = data.containsKey('payable') && data['payable'] is Map
+        ? data['payable'] as Map<String, dynamic>
+        : data;
+
+    return (
+      payable: Payable.fromJson(payableMap),
+      replayed: res['replayed'] as bool? ?? data['replayed'] as bool? ?? false,
+    );
+  }
+
   /// Prévia da recorrência (sem gravar), com as regras da geração.
   Future<RecurrencePreview> recurrencePreview(
     int spaceId, {

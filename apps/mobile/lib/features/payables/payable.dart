@@ -43,6 +43,9 @@ class Payable {
     this.category,
     this.payments = const [],
     this.changes = const [],
+    this.isVariable = false,
+    this.estimatedAmount,
+    this.isDirectExpense = false,
   });
 
   factory Payable.fromJson(Map<String, dynamic> json, {List? changes}) {
@@ -56,13 +59,17 @@ class Payable {
       amount: json['amount'] == null
           ? null
           : Money.parse(json['amount'] as String),
-      paid: Money.parse(json['paid'] as String),
+      paid: json['paid'] != null
+          ? Money.parse(json['paid'] as String)
+          : const Money(0),
       remaining: json['remaining'] == null
           ? null
           : Money.parse(json['remaining'] as String),
-      dueDate: json['due_date'] as String,
-      status: PayableStatus.parse(json['status'] as String),
-      overdue: json['overdue'] as bool,
+      dueDate: json['due_date'] as String? ?? '',
+      status: json['status'] != null
+          ? PayableStatus.parse(json['status'] as String)
+          : PayableStatus.open,
+      overdue: json['overdue'] as bool? ?? false,
       installmentNumber: plan?['installment_number'] as int?,
       installmentCount: plan?['installment_count'] as int?,
       recurrenceId: json['recurrence_id'] as int?,
@@ -78,6 +85,11 @@ class Payable {
       changes: (changes ?? const [])
           .map((item) => PayableChange.fromJson(item as Map<String, dynamic>))
           .toList(),
+      isVariable: json['is_variable'] as bool? ?? false,
+      estimatedAmount: json['estimated_amount'] != null
+          ? Money.parse(json['estimated_amount'] as String)
+          : null,
+      isDirectExpense: json['is_direct_expense'] as bool? ?? false,
     );
   }
 
@@ -104,17 +116,26 @@ class Payable {
   final Category? category;
   final List<Payment> payments;
   final List<PayableChange> changes;
+  final bool isVariable;
+  final Money? estimatedAmount;
+  final bool isDirectExpense;
 
   bool get isCardBill => kind == 'card_bill';
   bool get isCancelled => status == PayableStatus.cancelled;
+  bool get isAwaitingAmount =>
+      amount == null || status == PayableStatus.awaitingAmount;
   bool get canPay =>
-      !isCancelled && amount != null && (remaining?.cents ?? 0) > 0;
+      !isCancelled &&
+      (amount != null
+          ? (remaining?.cents ?? 0) > 0
+          : (isVariable && kind == 'recurring'));
 
   String get detailedStatusLabel => switch (status) {
     PayableStatus.partial => 'Parcialmente pago',
     PayableStatus.paid => 'Paga',
     PayableStatus.cancelled => 'Cancelada',
-    PayableStatus.awaitingAmount => 'Valor a informar',
+    PayableStatus.awaitingAmount =>
+      isVariable ? 'Aguardando valor' : 'Valor a informar',
     PayableStatus.open => overdue ? 'Vencida' : 'Em aberto',
   };
 

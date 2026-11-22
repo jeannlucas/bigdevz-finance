@@ -23,12 +23,14 @@ class CategoriesRepository {
     required String type,
     String? icon,
     String? color,
+    int? parentId,
   }) async {
     final json = await _api.post('/spaces/$spaceId/categories', {
       'name': name,
       'type': type,
       'icon': ?icon,
       'color': ?color,
+      'parent_id': ?parentId,
     });
     return Category.fromJson(json['data'] as Map<String, dynamic>);
   }
@@ -39,11 +41,13 @@ class CategoriesRepository {
     String? name,
     String? icon,
     String? color,
+    int? parentId,
   }) async {
     final body = <String, Object?>{
       'name': ?name,
       'icon': ?icon,
       'color': ?color,
+      'parent_id': ?parentId,
     };
     final json = await _api.patch(
       '/spaces/$spaceId/categories/$categoryId',

@@ -22,8 +22,9 @@ class PayableResource extends JsonResource
             'kind' => $this->kind,
             'description' => $this->description,
             'payee' => $this->payee,
-            // Fatura sem total: nulo ("valor a informar"), nunca "0.00".
+            // Fatura sem total ou ocorrência variável: nulo ("valor a informar"), nunca "0.00".
             'amount' => $this->amount_cents === null ? null : Money::fromCents($this->amount_cents),
+            'estimated_amount' => $this->estimated_amount_cents === null ? null : Money::fromCents($this->estimated_amount_cents),
             'paid' => Money::fromCents($this->paid_cents),
             'remaining' => $remaining === null ? null : Money::fromCents($remaining),
             'due_date' => $this->due_date->toDateString(),

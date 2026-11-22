@@ -15,11 +15,13 @@ class AccountsRepository {
   Future<Account> create(
     int spaceId, {
     required String name,
+    String? bankId,
     required Money openingBalance,
     required String date,
   }) async => Account.fromJson(
     (await _api.post('/spaces/$spaceId/accounts', {
           'name': name,
+          'bank_id': ?bankId,
           'opening_balance': openingBalance.toApi(),
           'opening_balance_date': date,
         }))['data']
@@ -32,13 +34,18 @@ class AccountsRepository {
   );
 
   /// Só identificação: a abertura tem fluxo próprio ([adjustOpening]).
-  Future<Account> rename(int spaceId, int accountId, String name) async =>
-      Account.fromJson(
-        (await _api.patch('/spaces/$spaceId/accounts/$accountId', {
-              'name': name,
-            }))['data']
-            as Map<String, dynamic>,
-      );
+  Future<Account> rename(
+    int spaceId,
+    int accountId,
+    String name, {
+    String? bankId,
+  }) async => Account.fromJson(
+    (await _api.patch('/spaces/$spaceId/accounts/$accountId', {
+          'name': name,
+          'bank_id': ?bankId,
+        }))['data']
+        as Map<String, dynamic>,
+  );
 
   /// Arquivar não muda dinheiro; repetir o pedido não muda nada.
   Future<Account> setArchived(

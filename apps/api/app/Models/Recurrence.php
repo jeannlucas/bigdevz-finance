@@ -13,12 +13,17 @@ class Recurrence extends Model
 {
     use NormalizesFinancialText;
 
-    protected $fillable = ['space_id', 'description', 'payee', 'amount_cents', 'start_date', 'reference_day', 'end_date', 'initial_until', 'category_id'];
+    protected $fillable = [
+        'space_id', 'description', 'payee', 'is_variable', 'amount_cents', 'estimated_amount_cents',
+        'start_date', 'reference_day', 'end_date', 'initial_until', 'category_id',
+    ];
 
     protected function casts(): array
     {
         return [
+            'is_variable' => 'boolean',
             'amount_cents' => 'integer',
+            'estimated_amount_cents' => 'integer',
             'reference_day' => 'integer',
             'start_date' => 'date:Y-m-d',
             'end_date' => 'date:Y-m-d',

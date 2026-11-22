@@ -10,16 +10,19 @@ class CategoryBadge extends StatelessWidget {
     super.key,
     required this.category,
     this.compact = false,
+    this.showFullPath = false,
   });
 
   final Category category;
   final bool compact;
+  final bool showFullPath;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final catColor = category.colorValue;
+    final displayName = showFullPath ? category.fullName : category.name;
 
     if (compact) {
       return Container(
@@ -39,7 +42,7 @@ class CategoryBadge extends StatelessWidget {
             const SizedBox(width: 4),
             Flexible(
               child: Text(
-                toFinancialUpper(category.name),
+                toFinancialUpper(displayName),
                 style: TextStyle(
                   fontSize: 10.5,
                   fontWeight: FontWeight.w600,
@@ -78,7 +81,7 @@ class CategoryBadge extends StatelessWidget {
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              toFinancialUpper(category.name),
+              toFinancialUpper(displayName),
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,

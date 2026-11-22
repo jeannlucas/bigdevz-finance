@@ -8,6 +8,8 @@ import '../auth/auth_models.dart';
 import 'categories_repository.dart';
 import 'category.dart';
 import 'category_badge.dart';
+import 'category_icon_color_picker.dart';
+import 'category_style_catalog.dart';
 
 /// Abre o modal/tela de Gerenciamento de Categorias.
 Future<void> showCategoriesManagementModal(
@@ -73,45 +75,6 @@ class _CategoriesContentState extends State<_CategoriesContent> {
   bool _loading = true;
   String? _error;
 
-  static const _availableIcons = [
-    'shopping_cart',
-    'restaurant',
-    'home',
-    'directions_car',
-    'health_and_safety',
-    'school',
-    'movie',
-    'work',
-    'trending_up',
-    'receipt',
-    'payments',
-    'laptop',
-    'flight',
-    'phone_iphone',
-    'pets',
-    'build',
-    'local_gas_station',
-    'fitness_center',
-  ];
-
-  static const _availableColors = [
-    '#E57373', // Vermelho
-    '#F06292', // Rosa
-    '#BA68C8', // Roxo
-    '#9575CD', // Índigo
-    '#7986CB', // Azul escuro
-    '#64B5F6', // Azul claro
-    '#4DD0E1', // Ciano
-    '#4DB6AC', // Verde azulado
-    '#81C784', // Verde
-    '#AED581', // Lima
-    '#FFD54F', // Amarelo
-    '#FFB74D', // Laranja
-    '#FF8A65', // Coral
-    '#A1887F', // Marrom
-    '#90A4AE', // Cinza
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -143,17 +106,35 @@ class _CategoriesContentState extends State<_CategoriesContent> {
     }
   }
 
-  Future<void> _showCreateOrEditDialog({Category? existing}) async {
+  Future<void> _showCreateOrEditDialog({
+    Category? existing,
+    int? preselectedParentId,
+  }) async {
     final nameCtrl = TextEditingController(
       text: toFinancialUpper(existing?.name),
     );
     String selectedIcon =
-        existing?.icon ??
-        (_selectedType == 'income' ? 'trending_up' : 'shopping_cart');
+        existing?.icon ?? (_selectedType == 'income' ? 'trending_up' : 'home');
     String selectedColor =
-        existing?.color ?? (_selectedType == 'income' ? '#0F8A5F' : '#E57373');
+        existing?.color ??
+        CategoryStyleCatalog.getDefaultColorHex(
+          selectedIcon,
+          type: _selectedType,
+        );
+    int? selectedParentId = existing?.parentId ?? preselectedParentId;
     bool saving = false;
     String? dialogError;
+
+    final hasChildren =
+        existing != null && _categories.any((c) => c.parentId == existing.id);
+    final eligibleParents = _categories
+        .where(
+          (c) =>
+              !c.isSubcategory &&
+              c.type == _selectedType &&
+              (existing == null || c.id != existing.id),
+        )
+        .toList();
 
     await showDialog<void>(
       context: context,
@@ -191,96 +172,51 @@ class _CategoriesContentState extends State<_CategoriesContent> {
                   inputFormatters: const [UpperCaseTextFormatter()],
                   decoration: const InputDecoration(
                     labelText: 'Nome da Categoria *',
-                    hintText: 'Ex: Moradia, Salário, Marketing...',
+                    hintText: 'Ex: Moradia, Energia, Marketing...',
                   ),
                 ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Ícone',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final iconKey in _availableIcons)
-                      InkWell(
-                        onTap: () =>
-                            setDialogState(() => selectedIcon = iconKey),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: selectedIcon == iconKey
-                                ? Theme.of(ctx).colorScheme.primaryContainer
-                                : null,
-                            border: Border.all(
-                              color: selectedIcon == iconKey
-                                  ? Theme.of(ctx).colorScheme.primary
-                                  : Colors.grey.withValues(alpha: 0.3),
-                            ),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            Category.iconToMaterial(iconKey),
-                            size: 20,
-                            color: selectedIcon == iconKey
-                                ? Theme.of(ctx).colorScheme.primary
-                                : null,
+                if (!hasChildren) ...[
+                  const SizedBox(height: 14),
+                  DropdownButtonFormField<int?>(
+                    initialValue: selectedParentId,
+                    decoration: const InputDecoration(
+                      labelText: 'Categoria Principal (opcional)',
+                      hintText: 'Nenhuma (categoria principal)',
+                    ),
+                    items: [
+                      const DropdownMenuItem<int?>(
+                        value: null,
+                        child: Text('Nenhuma (categoria principal)'),
+                      ),
+                      for (final parent in eligibleParents)
+                        DropdownMenuItem<int?>(
+                          value: parent.id,
+                          child: Row(
+                            children: [
+                              Icon(
+                                parent.iconData,
+                                size: 16,
+                                color: parent.colorValue,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(toFinancialUpper(parent.name)),
+                            ],
                           ),
                         ),
-                      ),
-                  ],
-                ),
+                    ],
+                    onChanged: (val) =>
+                        setDialogState(() => selectedParentId = val),
+                  ),
+                ],
                 const SizedBox(height: 16),
-                const Text(
-                  'Cor',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final colHex in _availableColors)
-                      InkWell(
-                        onTap: () =>
-                            setDialogState(() => selectedColor = colHex),
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          width: 28,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            color: Category.colorHexToColor(colHex),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: selectedColor == colHex
-                                  ? Colors.white
-                                  : Colors.transparent,
-                              width: 2,
-                            ),
-                            boxShadow: selectedColor == colHex
-                                ? [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.3,
-                                      ),
-                                      blurRadius: 4,
-                                    ),
-                                  ]
-                                : null,
-                          ),
-                          child: selectedColor == colHex
-                              ? const Icon(
-                                  Icons.check,
-                                  size: 16,
-                                  color: Colors.white,
-                                )
-                              : null,
-                        ),
-                      ),
-                  ],
+                CategoryIconColorPicker(
+                  selectedIcon: selectedIcon,
+                  selectedColor: selectedColor,
+                  type: _selectedType,
+                  onIconChanged: (icon) =>
+                      setDialogState(() => selectedIcon = icon),
+                  onColorChanged: (col) =>
+                      setDialogState(() => selectedColor = col),
                 ),
               ],
             ),
@@ -313,6 +249,7 @@ class _CategoriesContentState extends State<_CategoriesContent> {
                             type: _selectedType,
                             icon: selectedIcon,
                             color: selectedColor,
+                            parentId: selectedParentId,
                           );
                         } else {
                           await repo.update(
@@ -321,6 +258,7 @@ class _CategoriesContentState extends State<_CategoriesContent> {
                             name: name,
                             icon: selectedIcon,
                             color: selectedColor,
+                            parentId: selectedParentId,
                           );
                         }
                         if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
@@ -557,84 +495,197 @@ class _CategoriesContentState extends State<_CategoriesContent> {
                     ),
                   ),
                 )
-              : ListView.separated(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.all(AppTokens.p20),
-                  itemCount: _categories.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final cat = _categories[index];
+              : Builder(
+                  builder: (context) {
+                    final parents = _categories
+                        .where((c) => !c.isSubcategory)
+                        .toList();
+                    final childrenByParent = <int, List<Category>>{};
+                    for (final cat in _categories.where(
+                      (c) => c.isSubcategory,
+                    )) {
+                      childrenByParent
+                          .putIfAbsent(cat.parentId!, () => [])
+                          .add(cat);
+                    }
 
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceContainerHighest
-                            .withValues(alpha: 0.35),
-                        borderRadius: BorderRadius.circular(AppTokens.r12),
-                        border: Border.all(
-                          color: theme.colorScheme.outlineVariant.withValues(
-                            alpha: 0.4,
+                    return ListView.separated(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.all(AppTokens.p20),
+                      itemCount: parents.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final parent = parents[index];
+                        final children =
+                            childrenByParent[parent.id] ?? const [];
+
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surfaceContainerHighest
+                                .withValues(alpha: 0.35),
+                            borderRadius: BorderRadius.circular(AppTokens.r12),
+                            border: Border.all(
+                              color: theme.colorScheme.outlineVariant
+                                  .withValues(alpha: 0.4),
+                            ),
                           ),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          CategoryBadge(category: cat),
-                          const Spacer(),
-                          if (cat.isDefault)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Linha da Categoria Principal
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                                child: Row(
+                                  children: [
+                                    CategoryBadge(category: parent),
+                                    const Spacer(),
+                                    // Botão para adicionar subcategoria rapidamente
+                                    TextButton.icon(
+                                      onPressed: () => _showCreateOrEditDialog(
+                                        preselectedParentId: parent.id,
+                                      ),
+                                      style: TextButton.styleFrom(
+                                        visualDensity: VisualDensity.compact,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                        ),
+                                      ),
+                                      icon: const Icon(Icons.add, size: 14),
+                                      label: const Text(
+                                        'Subcategoria',
+                                        style: TextStyle(fontSize: 11),
+                                      ),
+                                    ),
+                                    if (parent.isDefault)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 3,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: theme
+                                              .colorScheme
+                                              .surfaceContainerHigh,
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.lock_outline_rounded,
+                                              size: 12,
+                                              color: theme
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              'Padrão',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                                color: theme
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    else ...[
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.edit_outlined,
+                                          size: 18,
+                                        ),
+                                        tooltip: 'Editar categoria',
+                                        visualDensity: VisualDensity.compact,
+                                        onPressed: () =>
+                                            _showCreateOrEditDialog(
+                                              existing: parent,
+                                            ),
+                                      ),
+                                      IconButton(
+                                        icon: Icon(
+                                          Icons.delete_outline_rounded,
+                                          size: 18,
+                                          color: theme.colorScheme.error,
+                                        ),
+                                        tooltip: 'Excluir categoria',
+                                        visualDensity: VisualDensity.compact,
+                                        onPressed: () =>
+                                            _deleteCategory(parent),
+                                      ),
+                                    ],
+                                  ],
+                                ),
                               ),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.surfaceContainerHigh,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.lock_outline_rounded,
-                                    size: 12,
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Padrão',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: theme.colorScheme.onSurfaceVariant,
+
+                              // Subcategorias filhas indentadas
+                              if (children.isNotEmpty) ...[
+                                const Divider(
+                                  height: 1,
+                                  indent: 14,
+                                  endIndent: 14,
+                                ),
+                                for (final child in children)
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      28,
+                                      6,
+                                      14,
+                                      6,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons
+                                              .subdirectory_arrow_right_rounded,
+                                          size: 16,
+                                          color: theme.colorScheme.outline,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        CategoryBadge(
+                                          category: child,
+                                          compact: true,
+                                        ),
+                                        const Spacer(),
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.edit_outlined,
+                                            size: 16,
+                                          ),
+                                          tooltip: 'Editar subcategoria',
+                                          visualDensity: VisualDensity.compact,
+                                          onPressed: () =>
+                                              _showCreateOrEditDialog(
+                                                existing: child,
+                                              ),
+                                        ),
+                                        IconButton(
+                                          icon: Icon(
+                                            Icons.delete_outline_rounded,
+                                            size: 16,
+                                            color: theme.colorScheme.error,
+                                          ),
+                                          tooltip: 'Excluir subcategoria',
+                                          visualDensity: VisualDensity.compact,
+                                          onPressed: () =>
+                                              _deleteCategory(child),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                ],
-                              ),
-                            )
-                          else ...[
-                            IconButton(
-                              icon: const Icon(Icons.edit_outlined, size: 18),
-                              tooltip: 'Editar categoria',
-                              visualDensity: VisualDensity.compact,
-                              onPressed: () =>
-                                  _showCreateOrEditDialog(existing: cat),
-                            ),
-                            IconButton(
-                              icon: Icon(
-                                Icons.delete_outline_rounded,
-                                size: 18,
-                                color: theme.colorScheme.error,
-                              ),
-                              tooltip: 'Excluir categoria',
-                              visualDensity: VisualDensity.compact,
-                              onPressed: () => _deleteCategory(cat),
-                            ),
-                          ],
-                        ],
-                      ),
+                              ],
+                            ],
+                          ),
+                        );
+                      },
                     );
                   },
                 ),

@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../../core/text_formatters.dart';
 import 'categories_repository.dart';
 import 'category.dart';
+import 'category_icon_color_picker.dart';
+import 'category_style_catalog.dart';
 
 /// Campo de seleção de categoria financeira com suporte a listagem remota e criação rápida.
 class CategoryPickerField extends StatefulWidget {
@@ -37,7 +39,19 @@ class _CategoryPickerFieldState extends State<CategoryPickerField> {
 
   Future<void> _loadCategories() async {
     try {
-      final repo = context.read<CategoriesRepository>();
+      CategoriesRepository? repo;
+      try {
+        repo = Provider.of<CategoriesRepository?>(context, listen: false);
+      } catch (_) {}
+      if (repo == null) {
+        if (mounted) {
+          setState(() {
+            _categories = [];
+            _isLoading = false;
+          });
+        }
+        return;
+      }
       final list = await repo.list(widget.spaceId, type: widget.type);
       if (mounted) {
         setState(() {
@@ -57,43 +71,16 @@ class _CategoryPickerFieldState extends State<CategoryPickerField> {
 
   Future<void> _showCreateCategoryDialog() async {
     final nameCtrl = TextEditingController();
-    String selectedIcon = 'category';
-    String selectedColor = widget.type == 'income' ? '#0F8A5F' : '#E57373';
-
-    final availableIcons = [
-      'work',
-      'trending_up',
-      'monetization_on',
+    String selectedIcon = 'home';
+    String selectedColor = CategoryStyleCatalog.getDefaultColorHex(
       'home',
-      'restaurant',
-      'directions_car',
-      'health_and_safety',
-      'school',
-      'local_activity',
-      'shopping_cart',
-      'business_center',
-      'group',
-      'local_shipping',
-      'account_balance',
-      'cloud',
-      'campaign',
-      'fitness_center',
-      'local_gas_station',
-      'category',
-    ];
+      type: widget.type,
+    );
+    int? selectedParentId;
 
-    final availableColors = [
-      '#0F8A5F',
-      '#1E5BB8',
-      '#7C3AED',
-      '#D97706',
-      '#E57373',
-      '#EC4899',
-      '#06B6D4',
-      '#10B981',
-      '#6366F1',
-      '#64748B',
-    ];
+    final potentialParents = (_categories ?? [])
+        .where((c) => !c.isSubcategory && c.type == widget.type)
+        .toList();
 
     final created = await showDialog<Category>(
       context: context,
@@ -113,95 +100,49 @@ class _CategoryPickerFieldState extends State<CategoryPickerField> {
                       inputFormatters: const [UpperCaseTextFormatter()],
                       decoration: const InputDecoration(
                         labelText: 'Nome da Categoria',
-                        hintText: 'Ex: Consultoria, Combustível...',
+                        hintText: 'Ex: Energia, Mercado...',
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Ícone',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<int?>(
+                      initialValue: selectedParentId,
+                      decoration: const InputDecoration(
+                        labelText: 'Categoria Pai (opcional)',
+                        hintText: 'Nenhuma (categoria principal)',
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final iconKey in availableIcons)
-                          InkWell(
-                            onTap: () =>
-                                setDialogState(() => selectedIcon = iconKey),
-                            borderRadius: BorderRadius.circular(8),
-                            child: Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: selectedIcon == iconKey
-                                    ? Theme.of(ctx).colorScheme.primaryContainer
-                                    : null,
-                                border: Border.all(
-                                  color: selectedIcon == iconKey
-                                      ? Theme.of(ctx).colorScheme.primary
-                                      : Colors.grey.withValues(alpha: 0.3),
+                      items: [
+                        const DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text('Nenhuma (categoria principal)'),
+                        ),
+                        for (final parent in potentialParents)
+                          DropdownMenuItem<int?>(
+                            value: parent.id,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  parent.iconData,
+                                  size: 16,
+                                  color: parent.colorValue,
                                 ),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(
-                                Category.iconToMaterial(iconKey),
-                                size: 20,
-                                color: selectedIcon == iconKey
-                                    ? Theme.of(ctx).colorScheme.primary
-                                    : null,
-                              ),
+                                const SizedBox(width: 8),
+                                Text(toFinancialUpper(parent.name)),
+                              ],
                             ),
                           ),
                       ],
+                      onChanged: (val) =>
+                          setDialogState(() => selectedParentId = val),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      'Cor',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final colHex in availableColors)
-                          InkWell(
-                            onTap: () =>
-                                setDialogState(() => selectedColor = colHex),
-                            borderRadius: BorderRadius.circular(16),
-                            child: Container(
-                              width: 28,
-                              height: 28,
-                              decoration: BoxDecoration(
-                                color: _parseColor(colHex),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: selectedColor == colHex
-                                      ? Colors.white
-                                      : Colors.transparent,
-                                  width: 2.5,
-                                ),
-                                boxShadow: selectedColor == colHex
-                                    ? [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(
-                                            alpha: 0.4,
-                                          ),
-                                          blurRadius: 4,
-                                        ),
-                                      ]
-                                    : null,
-                              ),
-                            ),
-                          ),
-                      ],
+                    CategoryIconColorPicker(
+                      selectedIcon: selectedIcon,
+                      selectedColor: selectedColor,
+                      type: widget.type,
+                      onIconChanged: (icon) =>
+                          setDialogState(() => selectedIcon = icon),
+                      onColorChanged: (col) =>
+                          setDialogState(() => selectedColor = col),
                     ),
                   ],
                 ),
@@ -223,6 +164,7 @@ class _CategoryPickerFieldState extends State<CategoryPickerField> {
                         type: widget.type,
                         icon: selectedIcon,
                         color: selectedColor,
+                        parentId: selectedParentId,
                       );
                       if (ctx.mounted) Navigator.of(ctx).pop(cat);
                     } catch (e) {
@@ -245,15 +187,6 @@ class _CategoryPickerFieldState extends State<CategoryPickerField> {
     if (created != null) {
       await _loadCategories();
       widget.onChanged(created.id);
-    }
-  }
-
-  static Color _parseColor(String hex) {
-    try {
-      final clean = hex.replaceAll('#', '');
-      return Color(int.parse('FF$clean', radix: 16));
-    } catch (_) {
-      return Colors.blue;
     }
   }
 
@@ -340,6 +273,7 @@ class _CategoryPickerFieldState extends State<CategoryPickerField> {
                 value: cat.id,
                 child: Row(
                   children: [
+                    if (cat.isSubcategory) const SizedBox(width: 12),
                     Container(
                       width: 14,
                       height: 14,
@@ -353,7 +287,7 @@ class _CategoryPickerFieldState extends State<CategoryPickerField> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        toFinancialUpper(cat.name),
+                        toFinancialUpper(cat.fullName),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),

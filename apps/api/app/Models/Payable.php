@@ -25,14 +25,18 @@ class Payable extends Model
     public const CARD_BILL = 'card_bill';
 
     protected $fillable = [
-        'space_id', 'kind', 'description', 'payee', 'amount_cents', 'paid_cents', 'due_date',
+        'space_id', 'kind', 'is_direct_expense', 'description', 'payee', 'amount_cents', 'estimated_amount_cents', 'paid_cents', 'due_date',
         'plan_id', 'installment_number', 'recurrence_id', 'card_id', 'cycle', 'category_id',
     ];
+
+    protected $appends = ['status'];
 
     protected function casts(): array
     {
         return [
+            'is_direct_expense' => 'boolean',
             'amount_cents' => 'integer',
+            'estimated_amount_cents' => 'integer',
             'paid_cents' => 'integer',
             'installment_number' => 'integer',
             'due_date' => 'date:Y-m-d',
@@ -86,6 +90,11 @@ class Payable extends Model
     public function isCancelled(): bool
     {
         return $this->cancelled_at !== null;
+    }
+
+    public function getStatusAttribute(): string
+    {
+        return $this->status();
     }
 
     public function status(): string

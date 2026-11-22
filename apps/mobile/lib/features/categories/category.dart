@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'category_style_catalog.dart';
+
 /// Categoria financeira para classificação de receitas e despesas.
 class Category {
   const Category({
@@ -10,6 +12,8 @@ class Category {
     required this.icon,
     required this.color,
     this.isDefault = false,
+    this.parentId,
+    this.parentName,
   });
 
   factory Category.fromJson(Map<String, dynamic> json) {
@@ -21,6 +25,10 @@ class Category {
       icon: json['icon'] as String? ?? 'category',
       color: json['color'] as String? ?? '#1E5BB8',
       isDefault: json['is_default'] as bool? ?? false,
+      parentId: json['parent_id'] as int?,
+      parentName: json['parent'] != null
+          ? (json['parent']['name'] as String?)
+          : (json['parent_name'] as String?),
     );
   }
 
@@ -31,61 +39,27 @@ class Category {
   final String icon;
   final String color;
   final bool isDefault;
+  final int? parentId;
+  final String? parentName;
 
+  bool get isSubcategory => parentId != null;
   bool get isIncome => type == 'income';
   bool get isExpense => type == 'expense';
 
-  Color get colorValue => colorHexToColor(color, isIncome: isIncome);
+  String get fullName => parentName != null && parentName!.isNotEmpty
+      ? '$parentName > $name'
+      : name;
 
-  static Color colorHexToColor(String colorHex, {bool isIncome = false}) {
-    try {
-      final hex = colorHex.replaceAll('#', '');
-      if (hex.length == 6) {
-        return Color(int.parse('FF$hex', radix: 16));
-      }
-      if (hex.length == 8) {
-        return Color(int.parse(hex, radix: 16));
-      }
-    } catch (_) {}
-    return isIncome ? const Color(0xFF0F8A5F) : const Color(0xFFE57373);
-  }
+  Color get colorValue =>
+      CategoryStyleCatalog.colorFromHex(color, isIncome: isIncome);
 
-  IconData get iconData => iconToMaterial(icon);
+  static Color colorHexToColor(String colorHex, {bool isIncome = false}) =>
+      CategoryStyleCatalog.colorFromHex(colorHex, isIncome: isIncome);
 
-  static IconData iconToMaterial(String iconName) {
-    return switch (iconName) {
-      'work' => Icons.work_rounded,
-      'trending_up' => Icons.trending_up_rounded,
-      'monetization_on' => Icons.monetization_on_rounded,
-      'home' => Icons.home_rounded,
-      'restaurant' => Icons.restaurant_rounded,
-      'directions_car' => Icons.directions_car_rounded,
-      'health_and_safety' => Icons.health_and_safety_rounded,
-      'school' => Icons.school_rounded,
-      'local_activity' => Icons.local_activity_rounded,
-      'shopping_cart' => Icons.shopping_cart_rounded,
-      'business_center' => Icons.business_center_rounded,
-      'group' => Icons.group_rounded,
-      'local_shipping' => Icons.local_shipping_rounded,
-      'account_balance' => Icons.account_balance_rounded,
-      'cloud' => Icons.cloud_rounded,
-      'campaign' => Icons.campaign_rounded,
-      'pets' => Icons.pets_rounded,
-      'fitness_center' => Icons.fitness_center_rounded,
-      'palette' => Icons.palette_rounded,
-      'local_gas_station' => Icons.local_gas_station_rounded,
-      'receipt' => Icons.receipt_long_rounded,
-      'receipt_long' => Icons.receipt_long_rounded,
-      'add_circle' => Icons.add_circle_outline_rounded,
-      'more_horiz' => Icons.more_horiz_rounded,
-      'attach_money' => Icons.attach_money_rounded,
-      'payments' => Icons.payments_rounded,
-      'credit_card' => Icons.credit_card_rounded,
-      'savings' => Icons.savings_rounded,
-      'category' => Icons.category_rounded,
-      _ => Icons.category_rounded,
-    };
-  }
+  IconData get iconData => CategoryStyleCatalog.getIcon(icon);
+
+  static IconData iconToMaterial(String iconName) =>
+      CategoryStyleCatalog.getIcon(iconName);
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -95,5 +69,7 @@ class Category {
     'icon': icon,
     'color': color,
     'is_default': isDefault,
+    'parent_id': parentId,
+    'parent_name': parentName,
   };
 }

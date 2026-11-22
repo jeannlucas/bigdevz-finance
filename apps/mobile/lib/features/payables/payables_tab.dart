@@ -74,6 +74,7 @@ class _PayablesTabState extends State<PayablesTab> {
     FinancialDueDateGroup.next7Days,
     FinancialDueDateGroup.thisMonth,
     FinancialDueDateGroup.future,
+    FinancialDueDateGroup.settled,
   };
 
   bool _isEligible(Payable p) =>
@@ -98,6 +99,8 @@ class _PayablesTabState extends State<PayablesTab> {
         _periodSelection = FinancialPeriodSelection.all();
       } else if (newFilter == 'open') {
         _periodSelection = FinancialPeriodSelection.currentMonth();
+      } else if (newFilter == 'paid') {
+        _expandedGroups.add(FinancialDueDateGroup.settled);
       }
     });
   }
