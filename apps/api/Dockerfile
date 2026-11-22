@@ -19,6 +19,9 @@ WORKDIR /app
 COPY docker/entrypoint.sh /usr/local/bin/bigdevz-entrypoint
 RUN chmod +x /usr/local/bin/bigdevz-entrypoint
 
+# Empacota o bundle do frontend web da release homologada se disponível
+COPY public_web /opt/finance/web
+
 USER appuser
 
 ARG FINANCE_RELEASE_SHA

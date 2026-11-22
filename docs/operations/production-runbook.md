@@ -214,6 +214,71 @@ Se o pipeline de deploy fail-closed abortar durante a fase de pré-voo:
 
 ---
 
+### INC-08: Divergência de Hash do Frontend Web (Bundle Estagnado em Produção)
+
+Caso a verificação pós-deploy (`scripts/verify-production-release.sh`) falhe acusando divergência no SHA-256 do `main.dart.js` ou ausência de assets:
+
+1. **Mecanismo Arquitetural de Promoção Web Atômica e Imutável:**
+   - **Hash Obrigatório (`EXPECTED_WEB_HASH`):** O pipeline de deploy (`scripts/vps-deploy-wrapper.sh` e `scripts/vps-deploy.sh`) exige o argumento `--web-hash <64 hex chars>`. Caso ausente ou malformado, o deploy aborta *fail-closed* antes de parar writers, fazer backup do banco ou executar migrações.
+   - **Extração Segura e Exclusiva:** O bundle é extraído para um diretório temporário isolado (`mktemp -d /srv/finance/web_staging_XXXXXX`) diretamente do digest Docker aprovado (`/opt/finance/web/.`).
+   - **Validação Pré-Ativação:** Antes de qualquer alteração no banco ou nos arquivos servidos, o script valida a presença dos arquivos essenciais (`main.dart.js`, `index.html`, `flutter.js`, `manifest.json`) e confirma que `sha256sum main.dart.js` corresponde exatamente a `EXPECTED_WEB_HASH`.
+   - **Primeira Conversão com Troca Atômica no Kernel:** Para a primeira transição de `/srv/finance/web` (que é um diretório real), o script:
+     1. Valida previamente os pré-requisitos através de uma sonda (`.swap_probe_dir` e `.swap_probe_link`) em `web_releases/`. Se o sistema de arquivos ou o kernel não suportarem a troca atômica, aborta *fail-closed* antes de alterar o diretório ativo.
+     2. Prepara a release permanente em `web_releases/<tag>` e cria o symlink temporário `${target_web}_tmp_$$`.
+     3. Executa a permuta atômica no kernel via `atomic_exchange_paths` (`renameat2` com `RENAME_EXCHANGE` no Linux / `renamex_np` com `RENAME_SWAP` no macOS). O diretório real e o symlink trocam de caminho em uma operação indivisível, garantindo que em nenhum momento `/srv/finance/web` deixa de existir ou fica sem arquivos servidos, mesmo sob interrupções abruptas.
+     4. Move o diretório legado (agora em `${target_web}_tmp_$$`) para `/srv/finance/web_releases/legacy`, preservando o bundle anterior para auditoria e recuperação.
+   - **Deploys Subsequentes em Symlink:** Quando `/srv/finance/web` já é um symlink, a substituição atômica ocorre via `mv -Tf` (chamada atômica de `rename(2)` em nível de kernel).
+   - **Replay Idempotente:** Caso o deploy seja reexecutado com a mesma tag já ativa (`IMPLANTADA_TAG == DEPLOY_TAG`) e o hash do `main.dart.js` ativo for idêntico ao esperado, o script reconhece o estado como sucesso idempotente (exit 0) sem parar serviços, sem reexecutar migrações e sem alterar arquivos.
+
+2. **Compatibilidade dos Scripts na VPS antes do Disparo da Tag:**
+   Antes de publicar qualquer nova tag SemVer, certifique-se de que os scripts instalados na VPS possuem suporte aos novos argumentos:
+   ```bash
+   ssh finance-prod "grep -q 'web-hash' /srv/finance/scripts/vps-deploy-wrapper.sh && grep -q 'EXPECTED_WEB_HASH' /srv/finance/scripts/vps-deploy.sh && echo 'VPS scripts compativeis com web-hash' || echo 'VPS scripts PRECISAM ser atualizados antes da tag'"
+   ```
+   Caso necessário atualizar os scripts da VPS antes do release:
+   ```bash
+   scp scripts/vps-deploy-wrapper.sh scripts/vps-deploy.sh finance-prod:/srv/finance/scripts/
+   ssh finance-prod "chmod +x /srv/finance/scripts/vps-deploy*.sh"
+   ```
+
+3. **Inspecionar Hash Local vs. Remoto em Caso de Falha:**
+   ```bash
+   # Obter hash do main.dart.js em produção servido pelo Caddy:
+   curl -s https://finance.bigdevz.com/main.dart.js | sha256sum
+   # Obter marcador da última extração na VPS:
+   ssh finance-prod "cat /var/lib/vps-deploy/bigdevz-finance/implantado_web_hash"
+   ```
+
+4. **Forçar Sincronização e Re-extração Manual do Frontend Web (se necessário):**
+   Caso seja necessário re-promover manualmente o frontend a partir da imagem já implantada:
+   ```bash
+   ssh finance-prod "
+     cd /srv/finance
+     IMAGE_DIGEST=\$(cat /var/lib/vps-deploy/bigdevz-finance/implantado_digest)
+     DEPLOY_TAG=\$(cat /var/lib/vps-deploy/bigdevz-finance/implantada_tag)
+     CID=\$(docker create \"\$IMAGE_DIGEST\")
+     STAGING_DIR=\$(mktemp -d /srv/finance/web_staging_manual_XXXXXX)
+     docker cp \"\$CID:/opt/finance/web/.\" \"\$STAGING_DIR/\"
+     docker rm -f \"\$CID\"
+     chmod -R a+rX \"\$STAGING_DIR\"
+     
+     mkdir -p web_releases
+     RELEASE_DIR=\"web_releases/\${DEPLOY_TAG}\"
+     rm -rf \"\$RELEASE_DIR\"
+     mv \"\$STAGING_DIR\" \"\$RELEASE_DIR\"
+     ln -sfn \"\$RELEASE_DIR\" web
+     sha256sum web/main.dart.js | awk '{print \$1}' > /var/lib/vps-deploy/bigdevz-finance/implantado_web_hash
+     echo 'Frontend Web re-promovido com sucesso via symlink atômico!'
+   "
+   ```
+
+5. **Validar Resposta Pública:**
+   ```bash
+   ./scripts/verify-production-release.sh --expected-sha "<SHA>" --expected-web-hash "<HASH>"
+   ```
+
+---
+
 ## 4. Janelas de Manutenção Programada
 
 Para intervenções estruturais ou manutenções planejadas:

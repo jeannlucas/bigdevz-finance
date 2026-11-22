@@ -36,6 +36,13 @@ Todo critério de aceite deve ser unívoco, identificável e rastreável no cód
   - `AC-FIN-001`: Proibição estrita de float/double para valores monetários.
   - `AC-FIN-005`: Distribuição determinística de centavos restantes em parcelas.
   - `AC-FIN-015`: Chave de idempotência e serialização sob concorrência.
+  - `AC-FIN-029`: Canal oficial exclusivo via navegador (Flutter Web) e barreira dupla de release.
+
+---
+
+## 4. Canal de Entrega e Homologação de Produto
+
+Conforme a Decisão de Arquitetura ADR 0007, o BigDev.Z Finance é homologado e disponibilizado exclusivamente pelo canal web (Desktop Web e Mobile Web). Publicações em lojas de aplicativos nativas estão congeladas. As especificações e seus critérios de interface e entrega cobrem estritamente as resoluções widescreen (>= 840px / 1200px) e compactas (< 840px / 375px) via navegador.
 
 ---
 

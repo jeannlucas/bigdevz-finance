@@ -275,6 +275,13 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
   - Uma nova competência mensal de uma mesma conta recorrente possui identificador próprio e gera seu próprio alerta.
   - Isolamento intransponível: estados de leitura e dispensa são estritamente isolados entre usuários e entre os espaços PF e PJ do mesmo usuário.
 
+- **AC-FIN-029 [Canal Oficial Exclusivo via Navegador e Barreira Dupla de Release]:**
+  - O canal oficial de entrega e homologação do BigDev.Z Finance é estritamente o navegador (Flutter Web em Desktop Widescreen >= 840px / 1200px e Mobile Web em smartphones < 840px / 375px), conforme a Decisão de Arquitetura ADR 0007. A publicação em lojas de aplicativos nativas (Google Play e Apple App Store) fica congelada.
+  - A publicação em produção exige barreira dupla pós-deploy executada via HTTPS público:
+    1. Revisão e integridade da API em `/api/health` com `.status == "ok"` e `.revision == $RELEASE_SHA`.
+    2. Hash SHA-256 do arquivo JavaScript principal `main.dart.js` idêntico ao hash do bundle compilado para a release (`EXPECTED_WEB_HASH`).
+  - Qualquer divergência entre o backend publicado e o bundle web servido bloqueia a promoção e aciona falha no pipeline via `scripts/verify-production-release.sh`.
+
 ---
 
 ## 3. Matriz de Rastreabilidade (Spec ↔ Código ↔ Testes)
@@ -312,6 +319,7 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
 | **AC-FIN-026** | `RegisterDirectExpense.php`, `PayableController.php`, `direct_expense_modal.dart` | `DirectExpenseTest.php` |
 | **AC-FIN-027** | `bank_catalog.dart`, `account_form_screen.dart`, `account_edit_screen.dart` | `bank_catalog_test.dart`, `account_form_test.dart` |
 | **AC-FIN-028** | `AlertState.php`, `AlertController.php`, `notifications_modal.dart` | `AlertsTest.php`, `notifications_modal_test.dart` |
+| **AC-FIN-029** | `scripts/build-web.sh`, `scripts/vps-deploy.sh`, `deploy.yml`, `scripts/verify-production-release.sh` | `test-release-verification.sh`, `test-deploy-integrated-simulation.sh` |
 | **AC-UI-001** | `agreement_form_screen.dart`, `agreement_modal.dart`, `payable_modal.dart`, `payables_tab.dart` | `agreements_tab_test.dart`, `agreement_modal_test.dart`, `payable_modal_test.dart` |
 | **AC-UI-002** | `financial_search_bar.dart`, `payables_tab.dart`, `agreements_tab.dart`, `statement_tab.dart` | `financial_search_and_sort_test.dart`, `financial_agenda_test.dart` |
 | **AC-UI-003** | `FinancialPeriodBar`, `FinancialPeriodSelection` (suporte a `custom` e `showDateRangePicker`) | `financial_search_and_sort_test.dart`, `financial_agenda_test.dart` |

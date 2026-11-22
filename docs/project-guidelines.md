@@ -11,6 +11,7 @@ Este documento consolida as diretrizes permanentes, princípios arquiteturais, r
 - **Integridade Financeira Inegociável**: Dinheiro é exato. Arredondamentos não perdem centavos, operações são determinísticas e transações concorrentes são rigorosamente controladas.
 - **Experiência Fintech Profissional**: Interface de usuário moderna, fluida e clara, com contraste refinado, tipografia estruturada, sem jargões confusos e com forte suporte à acessibilidade visual e motora.
 - **Preservação do Histórico Contábil**: Operações financeiras efetivadas são imutáveis no histórico. Não se apaga um registro para corrigir um saldo; realizam-se estornos, compensações ou ajustes auditáveis com registro de motivo e data.
+- **Canal Oficial de Uso (Web Exclusivo)**: O BigDev.Z Finance é operado oficialmente pelo navegador, tanto no computador (Desktop Web em widescreen) quanto no smartphone (Mobile Web em telas compactas). A publicação em lojas de aplicativos (Google Play Store e Apple App Store) e demandas específicas para empacotamento nativo estão congeladas (ADR 0007). A base de código Flutter compartilhada é integralmente preservada, sendo o bundle Flutter Web de produção o alvo oficial de compilação, homologação e deploy.
 - **Desenvolvimento Público e Open Source**: O projeto é desenvolvido com intenção pública e código aberto, exigindo higiene estrita de segurança, ausência de credenciais reais ou dados pessoais (PII) e documentação transparente.
 
 ---
@@ -35,12 +36,15 @@ O sistema é estruturado como um cliente mobile conectado a uma API backend com 
 - **Lógica de Domínio Pura**: Regras de cálculo monetário, cronogramas de parcelas e datas mensais residem no domínio puro PHP (`apps/api/app/Domain`), sem dependência direta de framework ou banco de dados, sendo testáveis isoladamente.
 - **Actions e Transações**: Operações que alteram estado financeiro são implementadas em Actions dedicadas (`app/Actions`), executadas dentro de transações de banco com locks explícitos (`lockForUpdate`).
 
-### 2.2. Frontend Mobile (`apps/mobile`)
-- **Framework**: Flutter (canal stable) / Dart 3.x.
-- **Estrutura por Funcionalidades**: Código organizado em `lib/features/` (`accounts`, `agreements`, `payables`, `auth`, `home`, `summary`) e componentes de design system em `lib/ui/`.
-- **Armazenamento Local Mínimo**: O aplicativo **não replica nem armazena dados financeiros localmente**. Apenas o token de sessão e o espaço ativo selecionado são guardados de forma segura via Keychain (iOS) ou Keystore (Android) (`SecureSessionStorage`).
+### 2.2. Frontend Flutter Web (Desktop e Mobile Web) — `apps/mobile`
+- **Framework**: Flutter (canal stable 3.47.6) / Dart 3.x.
+- **Estrutura por Funcionalidades**: Código organizado em `lib/features/` (`accounts`, `agreements`, `payables`, `auth`, `home`, `summary`, `categories`, `alerts`) e componentes de design system em `lib/ui/`.
+- **Armazenamento de Sessão Web Seguro**: O aplicativo **não replica nem armazena dados financeiros localmente**. Apenas o token de sessão e o espaço ativo selecionado são guardados de forma segura via Web Cryptography e IndexedDB (`SecureSessionStorage`).
 - **Gerenciamento de Estado**: State management enxuto e previsível via `Provider` e `ChangeNotifier` (`SessionController`).
-- **Suporte Multiplataforma**: Execução nativa homologada em **iOS** e **Android**. Configuração de endpoints via `--dart-define=API_BASE_URL=...` (`127.0.0.1` no iOS e `10.0.2.2` no emulador Android). Instruções completas em [docs/mobile-development.md](mobile-development.md).
+- **Ergonomia Multiplataforma Dedicada (Desktop e Mobile Web)**:
+  - **Desktop Web (widescreen >= 840px / 1200px):** Layout executivo, tabelas analíticas multi-colunas, atalhos de teclado e modais centralizados com largura controlada (`maxWidth: 640px` a `800px`).
+  - **Mobile Web (smartphones < 840px / 375px):** Cards verticais fluidos, bottom sheets adaptativos com `SingleChildScrollView` e `isScrollControlled: true` para resiliência ao teclado do sistema (sem estouramento de layout).
+- **Alvo Oficial de Release**: Compilado via `./scripts/build-web.sh --env=production`. Toda entrega e release em produção exige barreira dupla de verificação pós-deploy (revisão da API e hash SHA-256 do `main.dart.js` público via HTTPS). Publicações em lojas de aplicativos (Google Play e Apple App Store) estão congeladas (ADR 0007).
 
 ### 2.3. Banco de Dados e Infraestrutura
 - **PostgreSQL 18**: Banco relacional robusto. Acesso externo bloqueado em produção; em desenvolvimento local, exposto via porta mapeada no Docker Compose.

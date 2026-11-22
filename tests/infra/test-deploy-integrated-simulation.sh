@@ -12,6 +12,7 @@
 set -euo pipefail
 
 TEST_DIR=$(mktemp -d -t finance_integrated_sim_XXXXXX)
+export TEST_DIR
 SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../scripts" && pwd)"
 DEPLOY_SRC="$SCRIPTS_DIR/vps-deploy.sh"
 ROLLBACK_SRC="$SCRIPTS_DIR/rollback-production.sh"
@@ -45,6 +46,22 @@ if [[ "$*" =~ pg_restore ]]; then
   exit 0
 fi
 if [[ "$1" == "inspect" ]]; then
+  exit 0
+fi
+if [[ "$1" == "create" ]]; then
+  echo "mock_cid_sim_123"
+  exit 0
+fi
+if [[ "$1" == "cp" ]]; then
+  dest="${@: -1}"
+  mkdir -p "$dest"
+  if [ -f "$TEST_DIR/mock_web_content.txt" ]; then
+    cat "$TEST_DIR/mock_web_content.txt" > "$dest/index.html"
+  else
+    echo "ASSETS_V1_2_0" > "$dest/index.html"
+  fi
+  echo "console.log('main');" > "$dest/main.dart.js"
+  echo "console.log('bootstrap');" > "$dest/flutter_bootstrap.js"
   exit 0
 fi
 if [[ "$1" == "pull" ]]; then
@@ -155,12 +172,14 @@ DIGEST_V121="ghcr.io/jeannlucas/bigdevz-finance-api@sha256:222222222222222222222
 echo -n "🧪 Fase 1: Simulação de deploy completo e bem-sucedido (v1.2.0) .. "
 
 # Preparar staging web com versão v1.2.0
+echo "ASSETS_V1_2_0" > "$TEST_DIR/mock_web_content.txt"
 mkdir -p "$TARGET_FINANCE/web_staging"
 echo "ASSETS_V1_2_0" > "$TARGET_FINANCE/web_staging/index.html"
 
 > "$EVENTS_LOG"
 export MOCK_CURL_STATUS=200
-bash "$SANDBOX_DEPLOY" --tag "v1.2.0" --digest "$DIGEST_V120" >/dev/null 2>&1
+VALID_WEB_HASH="ca7dc00a8cc0ab0d105d2ae2bc85220d70ad590072169071248dd0538668c9bf"
+bash "$SANDBOX_DEPLOY" --tag "v1.2.0" --digest "$DIGEST_V120" --web-hash "$VALID_WEB_HASH" >/dev/null 2>&1
 
 # Conferir marcadores
 if [ "$(cat "$VAR_LIB/implantado_tag")" != "v1.2.0" ]; then
@@ -199,13 +218,14 @@ echo "✅ PASSOU"
 echo -n "🧪 Fase 2: Simulação de deploy com falha de healthcheck (v1.2.1) .. "
 
 # Preparar staging web v1.2.1
+echo "ASSETS_V1_2_1_QUEBRADA" > "$TEST_DIR/mock_web_content.txt"
 mkdir -p "$TARGET_FINANCE/web_staging"
 echo "ASSETS_V1_2_1_QUEBRADA" > "$TARGET_FINANCE/web_staging/index.html"
 
 # Simular healthcheck falhando (HTTP 500)
 export MOCK_CURL_STATUS=500
 set +e
-bash "$SANDBOX_DEPLOY" --tag "v1.2.1" --digest "$DIGEST_V121" >/dev/null 2>&1
+bash "$SANDBOX_DEPLOY" --tag "v1.2.1" --digest "$DIGEST_V121" --web-hash "$VALID_WEB_HASH" >/dev/null 2>&1
 SIM_FAIL_EXIT=$?
 set -e
 export MOCK_CURL_STATUS=200
@@ -239,7 +259,7 @@ fi
 
 # Conferir bloqueio fail-closed de novos deploys
 set +e
-bash "$SANDBOX_DEPLOY" --tag "v1.2.1" --digest "$DIGEST_V121" >/dev/null 2>&1
+bash "$SANDBOX_DEPLOY" --tag "v1.2.1" --digest "$DIGEST_V121" --web-hash "$VALID_WEB_HASH" >/dev/null 2>&1
 BLOCKED_EXIT=$?
 set -e
 if [ "$BLOCKED_EXIT" -eq 0 ]; then
@@ -258,12 +278,13 @@ rm -f "$VAR_LIB/recuperacao_pendente"
 rm -rf "$TARGET_FINANCE/web_staging"
 
 # Preparar novo staging web corrigido para v1.2.1
+echo "ASSETS_V1_2_1_CORRIGIDA" > "$TEST_DIR/mock_web_content.txt"
 mkdir -p "$TARGET_FINANCE/web_staging"
 echo "ASSETS_V1_2_1_CORRIGIDA" > "$TARGET_FINANCE/web_staging/index.html"
 
 # Executar novo deploy v1.2.1 com saúde aprovada
 export MOCK_CURL_STATUS=200
-bash "$SANDBOX_DEPLOY" --tag "v1.2.1" --digest "$DIGEST_V121" >/dev/null 2>&1
+bash "$SANDBOX_DEPLOY" --tag "v1.2.1" --digest "$DIGEST_V121" --web-hash "$VALID_WEB_HASH" >/dev/null 2>&1
 
 # Conferir marcadores atualizados para v1.2.1
 if [ "$(cat "$VAR_LIB/implantado_tag")" != "v1.2.1" ]; then

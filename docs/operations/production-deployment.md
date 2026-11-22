@@ -114,4 +114,12 @@ O push para `dev` compartilha o trabalho. PRs abertos continuam executando CI qu
 
 Promova por PR de `dev` para `main`. Aguarde o CI verde na `main` para o commit de merge antes de publicar a tag SemVer nesse commit. A tag dispara o deploy. O job confere o SHA homologado e autentica o SSH com as credenciais do ambiente `production` do Finance antes de construir a imagem.
 
-O Trivy inspeciona a imagem pelo digest enviado à VPS. Após a implantação, o job compara a revisão devolvida por `https://finance.bigdevz.com/api/health` com o SHA da tag. Se essa consulta falhar, confira a revisão pública e os marcadores da VPS antes de repetir o deploy.
+### Fluxo de Entrega Coordenada do Frontend Web e API
+1. **Compilação do Flutter Web de Produção:** O runner compila os assets web de produção via `./scripts/build-web.sh --env=production` e calcula o hash SHA-256 do `main.dart.js` gerado (`EXPECTED_WEB_HASH`).
+2. **Empacotamento Unificado na Imagem Docker:** Os assets compilados (`apps/mobile/build/web/`) são incorporados à imagem Docker da release (`COPY public_web /opt/finance/web`), garantindo que tanto o backend Laravel quanto o bundle web viajem como um artefato imutável sob o mesmo digest assinado.
+3. **Varredura de Segurança Trivy:** O Trivy inspeciona a imagem imutável pelo digest exato antes do envio à VPS.
+4. **Implantação na VPS e Extração Atômica:** O script `/srv/finance/scripts/vps-deploy.sh` extrai `/opt/finance/web` para `/srv/finance/web_staging/`. Após o healthcheck liveness (`/up`) da API responder 200 OK, os arquivos de staging são promovidos atomicamente para `/srv/finance/web/` com `rsync -ac --delete`.
+5. **Barreira Dupla de Release:** O script `scripts/verify-production-release.sh` confirma em HTTPS público:
+   - A resposta de saúde da API (`https://finance.bigdevz.com/api/health`) com `.status == "ok"` e `.revision == $RELEASE_SHA`.
+   - O hash SHA-256 de `https://finance.bigdevz.com/main.dart.js`, comparando diretamente contra `$EXPECTED_WEB_HASH`.
+   Se qualquer um dos dois divergir, o pipeline falha e reporta a discrepância imediatamente, impedindo releases com frontend estagnado.
