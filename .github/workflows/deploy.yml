@@ -77,6 +77,25 @@ jobs:
             -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=10 \
             -i ~/.ssh/finance_key -p "${VPS_SSH_PORT:-22}" "${VPS_SSH_USER:-jeann}@${VPS_HOST:-100.90.8.15}"
 
+      - name: Configurar Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.6'
+          channel: stable
+          cache: true
+
+      - name: Compilar Frontend Flutter Web de Produção
+        shell: bash
+        run: |
+          ./scripts/build-web.sh --env=production
+          test -f apps/mobile/build/web/main.dart.js
+          EXPECTED_HASH=$(sha256sum apps/mobile/build/web/main.dart.js | awk '{print $1}')
+          echo "EXPECTED_WEB_HASH=$EXPECTED_HASH" >> "$GITHUB_ENV"
+          echo "✅ Hash SHA-256 do main.dart.js compilado: $EXPECTED_HASH"
+          rm -rf apps/api/public_web
+          mkdir -p apps/api/public_web
+          cp -r apps/mobile/build/web/* apps/api/public_web/
+
       - name: Configurar Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -139,11 +158,16 @@ jobs:
         env:
           TAG_NAME: ${{ github.ref_name }}
           IMAGE_DIGEST: ${{ steps.image_digest.outputs.registry_ref }}
+          EXPECTED_WEB_HASH: ${{ env.EXPECTED_WEB_HASH }}
         run: |
-          ssh -S "$RUNNER_TEMP/finance.sock" -o ProxyCommand=false finance-prod -- "$TAG_NAME" "$IMAGE_DIGEST"
+          ssh -S "$RUNNER_TEMP/finance.sock" -o ProxyCommand=false finance-prod -- "$TAG_NAME" "$IMAGE_DIGEST" "$EXPECTED_WEB_HASH"
 
-      - name: Confirmar revisão pública
+      - name: Confirmar publicação da API e do Frontend Web (Barreira Dupla de Release)
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ env.RELEASE_SHA }}
+          EXPECTED_WEB_HASH: ${{ env.EXPECTED_WEB_HASH }}
         run: |
-          curl --fail --silent --show-error --max-time 15 --retry 4 --retry-delay 2 --retry-max-time 30 \
-            https://finance.bigdevz.com/api/health |
-            jq -e --arg sha "$RELEASE_SHA" '.status == "ok" and .revision == $sha'
+          ./scripts/verify-production-release.sh \
+            --expected-sha "$RELEASE_SHA" \
+            --expected-web-hash "$EXPECTED_WEB_HASH"

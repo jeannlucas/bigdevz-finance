@@ -42,6 +42,18 @@ if [[ "$1" == "inspect" ]]; then
   fi
   exit 0
 fi
+if [[ "$1" == "create" ]]; then
+  echo "mock_cid_transition_123"
+  exit 0
+fi
+if [[ "$1" == "cp" ]]; then
+  dest="${@: -1}"
+  mkdir -p "$dest"
+  echo "<html>Transition</html>" > "$dest/index.html"
+  echo "console.log('main');" > "$dest/main.dart.js"
+  echo "console.log('bootstrap');" > "$dest/flutter_bootstrap.js"
+  exit 0
+fi
 if [[ "$1" == "pull" ]]; then
   if [ "${MOCK_PULL_FAIL:-0}" = "1" ]; then
     echo "Error response from daemon: manifest unknown" >&2
@@ -199,11 +211,12 @@ echo -n "🧪 Cenário 2: Exigência de digest e implantação com --no-build ..
 )
 EXPECTED_SHA=$(cd "$INIT_REPO" && git rev-parse HEAD)
 TEST_DIGEST="bigdevz/finance-api@sha256:88a6a8244a3beb94335d850c806cf1e636d8c646c578812f509551282b6a1fe2"
+VALID_WEB_HASH="ca7dc00a8cc0ab0d105d2ae2bc85220d70ad590072169071248dd0538668c9bf"
 
 # 2.1 Testar que deploy sem digest é rejeitado antes de parar escritores
 > "$EVENTS_LOG"
 set +e
-bash "$SANDBOX_SCRIPT" --tag v1.0.1 >/dev/null 2>&1
+bash "$SANDBOX_SCRIPT" --tag v1.0.1 --web-hash "$VALID_WEB_HASH" >/dev/null 2>&1
 MISSING_DIGEST_EXIT=$?
 set -e
 if [ "$MISSING_DIGEST_EXIT" -eq 0 ]; then
@@ -218,7 +231,7 @@ fi
 # 2.2 Testar que deploy com digest vazio é rejeitado antes de parar escritores
 > "$EVENTS_LOG"
 set +e
-bash "$SANDBOX_SCRIPT" --tag v1.0.1 --digest "" >/dev/null 2>&1
+bash "$SANDBOX_SCRIPT" --tag v1.0.1 --digest "" --web-hash "$VALID_WEB_HASH" >/dev/null 2>&1
 EMPTY_DIGEST_EXIT=$?
 set -e
 if [ "$EMPTY_DIGEST_EXIT" -eq 0 ]; then
@@ -233,7 +246,7 @@ fi
 # 2.3 Testar que tag isolada (ex: :prod ou v1.0.1) é rejeitada antes de parar escritores
 > "$EVENTS_LOG"
 set +e
-bash "$SANDBOX_SCRIPT" --tag v1.0.1 --digest "bigdevz/finance-api:prod" >/dev/null 2>&1
+bash "$SANDBOX_SCRIPT" --tag v1.0.1 --digest "bigdevz/finance-api:prod" --web-hash "$VALID_WEB_HASH" >/dev/null 2>&1
 TAG_DIGEST_EXIT=$?
 set -e
 if [ "$TAG_DIGEST_EXIT" -eq 0 ]; then
@@ -248,7 +261,7 @@ fi
 # 2.4 Testar que sha256 puro sem repositório é rejeitado antes de parar escritores
 > "$EVENTS_LOG"
 set +e
-bash "$SANDBOX_SCRIPT" --tag v1.0.1 --digest "sha256:88a6a8244a3beb94335d850c806cf1e636d8c646c578812f509551282b6a1fe2" >/dev/null 2>&1
+bash "$SANDBOX_SCRIPT" --tag v1.0.1 --digest "sha256:88a6a8244a3beb94335d850c806cf1e636d8c646c578812f509551282b6a1fe2" --web-hash "$VALID_WEB_HASH" >/dev/null 2>&1
 PURE_SHA_EXIT=$?
 set -e
 if [ "$PURE_SHA_EXIT" -eq 0 ]; then
@@ -263,7 +276,7 @@ fi
 # 2.5 Testar que repositório não autorizado é rejeitado antes de parar escritores
 > "$EVENTS_LOG"
 set +e
-bash "$SANDBOX_SCRIPT" --tag v1.0.1 --digest "unauthorized/finance-api@sha256:88a6a8244a3beb94335d850c806cf1e636d8c646c578812f509551282b6a1fe2" >/dev/null 2>&1
+bash "$SANDBOX_SCRIPT" --tag v1.0.1 --digest "unauthorized/finance-api@sha256:88a6a8244a3beb94335d850c806cf1e636d8c646c578812f509551282b6a1fe2" --web-hash "$VALID_WEB_HASH" >/dev/null 2>&1
 UNAUTH_REPO_EXIT=$?
 set -e
 if [ "$UNAUTH_REPO_EXIT" -eq 0 ]; then
@@ -280,7 +293,7 @@ fi
 export MOCK_INSPECT_FAIL=1
 export MOCK_PULL_FAIL=1
 set +e
-bash "$SANDBOX_SCRIPT" --tag v1.0.1 --digest "$TEST_DIGEST" >/dev/null 2>&1
+bash "$SANDBOX_SCRIPT" --tag v1.0.1 --digest "$TEST_DIGEST" --web-hash "$VALID_WEB_HASH" >/dev/null 2>&1
 UNAVAIL_IMAGE_EXIT=$?
 set -e
 unset MOCK_INSPECT_FAIL
@@ -300,7 +313,7 @@ fi
 
 # 2.7 Deploy com tag válida e digest aprovado do registro
 > "$EVENTS_LOG"
-bash "$SANDBOX_SCRIPT" --tag v1.0.1 --digest "$TEST_DIGEST" >/dev/null 2>&1
+bash "$SANDBOX_SCRIPT" --tag v1.0.1 --digest "$TEST_DIGEST" --web-hash "$VALID_WEB_HASH" >/dev/null 2>&1
 
 if [ "$(cat "$VAR_LIB/implantado_tag")" != "v1.0.1" ]; then
   echo "❌ FALHOU (implantado_tag não foi atualizado para v1.0.1)"
@@ -340,7 +353,7 @@ echo -n "🧪 Cenário 3: Falha pós-migração bloqueia novos deploys e preserv
 
 > "$EVENTS_LOG"
 export MOCK_WRITER_RUNNING=1
-if bash "$SANDBOX_SCRIPT" --tag v1.0.2 --digest "$TEST_DIGEST" >/dev/null 2>&1; then
+if bash "$SANDBOX_SCRIPT" --tag v1.0.2 --digest "$TEST_DIGEST" --web-hash "$VALID_WEB_HASH" >/dev/null 2>&1; then
   echo "Deploy prosseguiu com escritor ativo." >&2
   exit 1
 fi
@@ -351,7 +364,7 @@ if grep -q 'pg_dump' "$EVENTS_LOG"; then
 fi
 > "$EVENTS_LOG"
 export MOCK_DUMP_FAIL=1
-if bash "$SANDBOX_SCRIPT" --tag v1.0.2 --digest "$TEST_DIGEST" >/dev/null 2>&1; then
+if bash "$SANDBOX_SCRIPT" --tag v1.0.2 --digest "$TEST_DIGEST" --web-hash "$VALID_WEB_HASH" >/dev/null 2>&1; then
   echo "Backup com erro e saída parcial foi aceito." >&2
   exit 1
 fi
@@ -363,7 +376,7 @@ fi
 > "$EVENTS_LOG"
 export MOCK_CURL_FAIL=1
 set +e
-bash "$SANDBOX_SCRIPT" --tag v1.0.2 --digest "$TEST_DIGEST" >/dev/null 2>&1
+bash "$SANDBOX_SCRIPT" --tag v1.0.2 --digest "$TEST_DIGEST" --web-hash "$VALID_WEB_HASH" >/dev/null 2>&1
 DEPLOY_EXIT=$?
 set -e
 export MOCK_CURL_FAIL=0
@@ -393,7 +406,7 @@ if grep -q "RESTORE: pg_restore called with" "$EVENTS_LOG"; then
   exit 1
 fi
 > "$EVENTS_LOG"
-if bash "$SANDBOX_SCRIPT" --tag v1.0.2 --digest "$TEST_DIGEST" >/dev/null 2>&1 || [ -s "$EVENTS_LOG" ]; then
+if bash "$SANDBOX_SCRIPT" --tag v1.0.2 --digest "$TEST_DIGEST" --web-hash "$VALID_WEB_HASH" >/dev/null 2>&1 || [ -s "$EVENTS_LOG" ]; then
   echo "❌ FALHOU (nova tentativa prosseguiu com recuperação pendente)"
   exit 1
 fi

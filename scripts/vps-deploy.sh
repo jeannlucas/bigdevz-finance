@@ -22,8 +22,10 @@ DB_USER="${DB_USER:-bigdevz}"
 DB_NAME="${DB_NAME:-bigdevz_finance}"
 DEPLOY_TAG="${DEPLOY_TAG:-}"
 FINANCE_IMAGE_DIGEST="${FINANCE_IMAGE_DIGEST:-}"
+EXPECTED_WEB_HASH="${EXPECTED_WEB_HASH:-${WEB_HASH:-}}"
 SKIP_GIT_CHECKOUT="${SKIP_GIT_CHECKOUT:-0}"
 DEPLOY_HEALTH_PASSED=0
+WEB_EXTRACTION_TMP=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -33,6 +35,10 @@ while [ $# -gt 0 ]; do
       ;;
     --digest|--image-digest)
       FINANCE_IMAGE_DIGEST="$2"
+      shift 2
+      ;;
+    --web-hash|--expected-web-hash)
+      EXPECTED_WEB_HASH="$2"
       shift 2
       ;;
     --project|-p)
@@ -45,12 +51,18 @@ while [ $# -gt 0 ]; do
       shift
       ;;
     --help|-h)
-      echo "Uso: $0 [--tag vX.Y.Z] [--digest imagem@sha256:...] [--project nome] [--skip-checkout]"
+      echo "Uso: $0 [--tag vX.Y.Z] [--digest imagem@sha256:...] [--web-hash sha256] [--project nome] [--skip-checkout]"
       exit 0
       ;;
     *)
       if [ -z "$DEPLOY_TAG" ] && [[ "$1" =~ ^v ]]; then
         DEPLOY_TAG="$1"
+        shift
+      elif [ -z "$FINANCE_IMAGE_DIGEST" ] && [[ "$1" =~ @sha256: || "$1" =~ ^sha256: ]]; then
+        FINANCE_IMAGE_DIGEST="$1"
+        shift
+      elif [ -z "$EXPECTED_WEB_HASH" ] && [[ "$1" =~ ^[a-fA-F0-9]{64}$ ]]; then
+        EXPECTED_WEB_HASH="$1"
         shift
       else
         echo "Argumento desconhecido: $1" >&2
@@ -78,6 +90,149 @@ cd "$TARGET_DIR" || exit 1
 
 run_compose() {
   docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" "$@"
+}
+
+atomic_exchange_paths() {
+  local path_a="$1"
+  local path_b="$2"
+  python3 -c "
+import sys, os, ctypes
+
+path_a = os.fsencode(sys.argv[1])
+path_b = os.fsencode(sys.argv[2])
+
+system = os.uname().sysname
+if system == 'Linux':
+    AT_FDCWD = -100
+    RENAME_EXCHANGE = 2
+    libc = ctypes.CDLL(None, use_errno=True)
+    if hasattr(libc, 'renameat2'):
+        ret = libc.renameat2(ctypes.c_int(AT_FDCWD), ctypes.c_char_p(path_a),
+                             ctypes.c_int(AT_FDCWD), ctypes.c_char_p(path_b),
+                             ctypes.c_uint(RENAME_EXCHANGE))
+    else:
+        machine = os.uname().machine
+        SYS_renameat2 = 316
+        if machine == 'aarch64' or machine == 'riscv64':
+            SYS_renameat2 = 276
+        elif machine.startswith('arm'):
+            SYS_renameat2 = 382
+        elif machine in ('i386', 'i686'):
+            SYS_renameat2 = 353
+        elif machine == 's390x':
+            SYS_renameat2 = 347
+        ret = libc.syscall(ctypes.c_long(SYS_renameat2),
+                           ctypes.c_int(AT_FDCWD), ctypes.c_char_p(path_a),
+                           ctypes.c_int(AT_FDCWD), ctypes.c_char_p(path_b),
+                           ctypes.c_uint(RENAME_EXCHANGE))
+    if ret != 0:
+        err = ctypes.get_errno()
+        sys.exit(err if err != 0 else 1)
+elif system == 'Darwin':
+    RENAME_SWAP = 2
+    libc = ctypes.CDLL(None, use_errno=True)
+    ret = libc.renamex_np(ctypes.c_char_p(path_a), ctypes.c_char_p(path_b), ctypes.c_uint(RENAME_SWAP))
+    if ret != 0:
+        err = ctypes.get_errno()
+        sys.exit(err if err != 0 else 1)
+else:
+    sys.exit(99)
+" "$path_a" "$path_b"
+}
+
+atomic_promote_web() {
+  local target_web="$1"
+  local release_source="$2"
+  local releases_parent
+  releases_parent="$(dirname "$target_web")/web_releases"
+  mkdir -p "$releases_parent"
+
+  # Identificar o caminho real apontado pelo link ativo atualmente (se existir)
+  local active_real=""
+  if [ -L "$target_web" ]; then
+    active_real=$(realpath "$target_web" 2>/dev/null || readlink -f "$target_web" 2>/dev/null || true)
+  elif [ -d "$target_web" ]; then
+    active_real=$(realpath "$target_web" 2>/dev/null || true)
+  fi
+
+  # PRIMEIRA CONVERSÃO DO DIRETÓRIO LEGADO:
+  # Se target_web for um diretório real, verificar os pré-requisitos antes de alterar o diretório ativo.
+  if [ -d "$target_web" ] && [ ! -L "$target_web" ]; then
+    local probe_dir="${releases_parent}/.swap_probe_dir_$$"
+    local probe_link="${releases_parent}/.swap_probe_link_$$"
+    mkdir -p "$probe_dir"
+    ln -sfn "$probe_dir" "$probe_link"
+
+    local probe_ok=1
+    if [ "${MOCK_UNSUPPORTED_EXCHANGE:-0}" = "1" ] || ! atomic_exchange_paths "$probe_link" "$probe_dir" 2>/dev/null; then
+      probe_ok=0
+    fi
+    rm -rf "$probe_dir" "$probe_link" 2>/dev/null || true
+
+    if [ "$probe_ok" -ne 1 ]; then
+      echo "❌ ERRO DE PRÉ-REQUISITO: O sistema de arquivos em '$(dirname "$target_web")' não suporta troca atômica (renameat2/RENAME_EXCHANGE). Deploy abortado para preservar o frontend servido." >&2
+      return 1
+    fi
+  fi
+
+  # Destino da nova release permanente.
+  # REGRA INEGOCIÁVEL: Nunca remover arquivos apontados pelo link ativo!
+  local permanent_release="$releases_parent/$DEPLOY_TAG"
+  if [ -e "$permanent_release" ] && [ -n "$active_real" ] && [ "$active_real" = "$permanent_release" ]; then
+    permanent_release="${releases_parent}/${DEPLOY_TAG}_$(date +%s)_$$"
+  else
+    rm -rf "$permanent_release"
+  fi
+
+  mv "$release_source" "$permanent_release"
+  chmod -R a+rX "$permanent_release"
+
+  local rel_target="web_releases/$(basename "$permanent_release")"
+  local tmp_link="${target_web}_tmp_$$"
+  ln -sfn "$rel_target" "$tmp_link"
+
+  if [ -d "$target_web" ] && [ ! -L "$target_web" ]; then
+    # PRIMEIRA CONVERSÃO DO DIRETÓRIO LEGADO COM TROCA ATÔMICA:
+    # O diretório ativo NUNCA é removido ou esvaziado antes da troca.
+    # A troca atômica permuta no kernel o diretório real e o symlink em uma única operação indivisível.
+
+    # Hook para simulação de interrupção antes da troca atômica (regressão)
+    if [ "${MOCK_INTERRUPT_BEFORE_SWAP:-0}" = "1" ]; then
+      echo "⚡ SIMULAÇÃO: Interrupção imediatamente antes da troca atômica." >&2
+      rm -f "$tmp_link" 2>/dev/null || true
+      return 130
+    fi
+
+    echo "🔄 Executando troca atômica do diretório legado por symlink no kernel..."
+    if ! atomic_exchange_paths "$tmp_link" "$target_web"; then
+      echo "❌ ERRO: Troca atômica de caminhos falhou entre '$tmp_link' e '$target_web'." >&2
+      rm -f "$tmp_link" 2>/dev/null || true
+      return 1
+    fi
+
+    # Hook para simulação de interrupção imediatamente após a troca atômica (regressão)
+    if [ "${MOCK_INTERRUPT_AFTER_SWAP:-0}" = "1" ]; then
+      echo "⚡ SIMULAÇÃO: Interrupção imediatamente após a troca atômica." >&2
+      return 130
+    fi
+
+    # Preservar o bundle anterior em web_releases/legacy para recuperação
+    local legacy_saved="$releases_parent/legacy"
+    rm -rf "$legacy_saved"
+    mv "$tmp_link" "$legacy_saved"
+    echo "✅ Conteúdo legado preservado em '$legacy_saved' para recuperação."
+  else
+    # SWAP ATÔMICO DE SYMLINK EXISTENTE:
+    if mv -Tf "$tmp_link" "$target_web" 2>/dev/null; then
+      :
+    elif mv -hf "$tmp_link" "$target_web" 2>/dev/null; then
+      :
+    elif atomic_exchange_paths "$tmp_link" "$target_web" 2>/dev/null; then
+      rm -f "$tmp_link" 2>/dev/null || true
+    else
+      mv -f "$tmp_link" "$target_web"
+    fi
+  fi
 }
 
 safe_write_marker() {
@@ -154,7 +309,7 @@ check_permissions_preflight() {
   fi
   rm -f "$test_file"
 
-  for marker in "$MARCADOR_TAG" "$MARCADOR_COMMIT" "$MARCADOR_DIGEST" "$RECOVERY_PENDING"; do
+  for marker in "$MARCADOR_TAG" "$MARCADOR_COMMIT" "$MARCADOR_DIGEST" "$MARCADOR_WEB_HASH" "$RECOVERY_PENDING"; do
     if [ -e "$marker" ] && [ ! -w "$marker" ]; then
       echo "❌ ERRO DE PRÉ-VOO: Marcador '$marker' existe mas não possui permissão de escrita para o usuário atual ($(id -un))." >&2
       echo "   Execute no servidor: sudo chown $(id -un):$(id -gn) $marker && sudo chmod 644 $marker" >&2
@@ -221,6 +376,18 @@ if ! [[ "$DEPLOY_TAG" =~ $SEMVER_REGEX ]]; then
   exit 1
 fi
 
+# Validação Estrita do Hash SHA-256 do Frontend Web (Fail-Closed antes de alterar serviços ou banco)
+HEX64_REGEX='^[a-fA-F0-9]{64}$'
+if [ -z "$EXPECTED_WEB_HASH" ]; then
+  echo "❌ ERRO DE GOVERNANÇA: O deploy de produção em $TARGET_DIR exige o hash SHA-256 esperado do frontend web (--web-hash <64 hex chars>). Valor ausente rejeitado antes de parar serviços, migrar banco ou alterar a web ativa." >&2
+  exit 1
+fi
+
+if ! [[ "$EXPECTED_WEB_HASH" =~ $HEX64_REGEX ]]; then
+  echo "❌ ERRO DE GOVERNANÇA: O hash do frontend web '$EXPECTED_WEB_HASH' é malformado. Formato obrigatório: 64 caracteres hexadecimais (SHA-256)." >&2
+  exit 1
+fi
+
 # 4. Obtenção do commit alvo e validação de merge commit
 if [ -d "$TARGET_DIR/.git" ]; then
   TARGET_SHA=$(git rev-parse -q --verify "refs/remotes/origin/tags/${DEPLOY_TAG}^{commit}" 2>/dev/null || git rev-parse -q --verify "refs/tags/${DEPLOY_TAG}^{commit}" 2>/dev/null || true)
@@ -257,6 +424,7 @@ fi
 MARCADOR_TAG="$VAR_LIB_DIR/implantado_tag"
 MARCADOR_COMMIT="$VAR_LIB_DIR/implantado"
 MARCADOR_DIGEST="$VAR_LIB_DIR/implantado_digest"
+MARCADOR_WEB_HASH="$VAR_LIB_DIR/implantado_web_hash"
 RECOVERY_PENDING="$VAR_LIB_DIR/recuperacao_pendente"
 
 check_permissions_preflight
@@ -270,8 +438,23 @@ IMPLANTADA_TAG=$(cat "$MARCADOR_TAG" 2>/dev/null || true)
 IMPLANTADO_COMMIT=$(cat "$MARCADOR_COMMIT" 2>/dev/null || true)
 
 if [ "$IMPLANTADA_TAG" = "$DEPLOY_TAG" ] && [ -n "$DEPLOY_TAG" ]; then
-  echo "ℹ️ [vps-deploy] Tag $DEPLOY_TAG já está implantada (marcador sincronizado). Deploy ignorado."
-  exit 0
+  # Verificar se a mesma release já está íntegra antes de tratar como sucesso idempotente
+  ACTIVE_WEB_JS="$TARGET_DIR/web/main.dart.js"
+  CURRENT_WEB_HASH=""
+  if [ -s "$ACTIVE_WEB_JS" ]; then
+    if command -v sha256sum >/dev/null 2>&1; then
+      CURRENT_WEB_HASH=$(sha256sum "$ACTIVE_WEB_JS" | awk '{print $1}')
+    else
+      CURRENT_WEB_HASH=$(shasum -a 256 "$ACTIVE_WEB_JS" | awk '{print $1}')
+    fi
+  fi
+
+  if [ -n "$CURRENT_WEB_HASH" ] && [ "$CURRENT_WEB_HASH" = "$EXPECTED_WEB_HASH" ]; then
+    echo "ℹ️ [vps-deploy] Tag $DEPLOY_TAG já está implantada e com frontend web íntegro (SHA-256: $CURRENT_WEB_HASH). Sucesso idempotente."
+    exit 0
+  else
+    echo "⚠️ [vps-deploy] Tag $DEPLOY_TAG consta como implantada, mas o frontend web ativo diverge ou está ausente. Prosseguindo com reparo/reimplantação..."
+  fi
 fi
 
 if [ -n "$IMPLANTADO_COMMIT" ] && [ "$IMPLANTADO_COMMIT" = "$TARGET_SHA" ] && [ "$TARGET_SHA" != "static-version" ]; then
@@ -356,8 +539,23 @@ WRITERS_STOPPED=0
 
 perform_rollback() {
   local exit_code=$?
+  if [ -n "${WEB_EXTRACTION_TMP:-}" ] && [ -d "$WEB_EXTRACTION_TMP" ]; then
+    rm -rf "$WEB_EXTRACTION_TMP"
+  fi
+  rm -f "$TARGET_DIR/web_tmp_"* 2>/dev/null || true
   if [ "$exit_code" -eq 0 ]; then
     return
+  fi
+
+  # Se o diretório web estiver ausente e houver backup legado, restaura imediatamente
+  if [ ! -e "$TARGET_DIR/web" ]; then
+    for leg in "$TARGET_DIR/web_legacy_"* "$TARGET_DIR/web_releases/legacy"; do
+      if [ -d "$leg" ]; then
+        echo "⚠️ [vps-deploy] Restaurando frontend web a partir de '$leg' após interrupção..." >&2
+        mv -f "$leg" "$TARGET_DIR/web" 2>/dev/null || cp -a "$leg/." "$TARGET_DIR/web/" 2>/dev/null || true
+        break
+      fi
+    done
   fi
 
   if [ "$DEPLOY_HEALTH_PASSED" -eq 1 ]; then
@@ -389,6 +587,61 @@ perform_rollback() {
   fi
 }
 trap perform_rollback EXIT
+
+# ==============================================================================
+# Pré-Extração e Validação Rigorosa do Frontend Web da Imagem Homologada
+# (Executado em diretório temporário exclusivo ANTES de parar escritores, backup ou migrações)
+# ==============================================================================
+# 1. Limpar qualquer web_staging residual de tentativa anterior (não pode determinar publicação)
+if [ -d "$TARGET_DIR/web_staging" ]; then
+  echo "⚠️ [vps-deploy] Limpando web_staging residual de tentativa anterior..."
+  rm -rf "$TARGET_DIR/web_staging"
+fi
+
+WEB_EXTRACTION_TMP=$(mktemp -d "${TARGET_DIR}/.web_staging_XXXXXX" 2>/dev/null || mktemp -d -t web_staging_XXXXXX)
+chmod 755 "$WEB_EXTRACTION_TMP"
+
+echo "📦 Extraindo Frontend Web da imagem de release homologada ($FINANCE_IMAGE_DIGEST)..."
+CONTAINER_EXTRACT=$(docker create "$FINANCE_IMAGE_DIGEST" 2>/dev/null || true)
+if [ -z "$CONTAINER_EXTRACT" ]; then
+  echo "❌ ERRO DE EXTRAÇÃO: Falha ao criar container a partir de '$FINANCE_IMAGE_DIGEST' para extração do frontend web." >&2
+  exit 1
+fi
+
+if ! docker cp "$CONTAINER_EXTRACT:/opt/finance/web/." "$WEB_EXTRACTION_TMP/" 2>/dev/null; then
+  docker rm -f "$CONTAINER_EXTRACT" >/dev/null 2>&1 || true
+  echo "❌ ERRO DE EXTRAÇÃO: Falha ao extrair bundle web (/opt/finance/web) da imagem '$FINANCE_IMAGE_DIGEST' via docker cp." >&2
+  exit 1
+fi
+docker rm -f "$CONTAINER_EXTRACT" >/dev/null 2>&1 || true
+
+# 2. Conferir a presença dos arquivos necessários à inicialização do Flutter Web
+for req_file in "main.dart.js" "index.html"; do
+  if [ ! -s "$WEB_EXTRACTION_TMP/$req_file" ]; then
+    echo "❌ ERRO DE VALIDAÇÃO DO BUNDLE: Arquivo obrigatório de inicialização do Flutter Web ausente ou vazio: '$req_file'." >&2
+    exit 1
+  fi
+done
+
+if [ ! -s "$WEB_EXTRACTION_TMP/flutter_bootstrap.js" ] && [ ! -s "$WEB_EXTRACTION_TMP/flutter.js" ]; then
+  echo "❌ ERRO DE VALIDAÇÃO DO BUNDLE: Script de bootstrap do Flutter Web ausente (flutter_bootstrap.js ou flutter.js)." >&2
+  exit 1
+fi
+
+# 3. Conferir o hash SHA-256 do main.dart.js extraído contra o valor calculado pelo workflow
+if command -v sha256sum >/dev/null 2>&1; then
+  ACTUAL_EXTRACTED_HASH=$(sha256sum "$WEB_EXTRACTION_TMP/main.dart.js" | awk '{print $1}')
+else
+  ACTUAL_EXTRACTED_HASH=$(shasum -a 256 "$WEB_EXTRACTION_TMP/main.dart.js" | awk '{print $1}')
+fi
+
+if [ "$ACTUAL_EXTRACTED_HASH" != "$EXPECTED_WEB_HASH" ]; then
+  echo "❌ ERRO DE VALIDAÇÃO DO BUNDLE: Hash SHA-256 de main.dart.js diverge do esperado pela release!" >&2
+  echo "   Esperado pelo workflow: $EXPECTED_WEB_HASH" >&2
+  echo "   Extraído da imagem:     $ACTUAL_EXTRACTED_HASH" >&2
+  exit 1
+fi
+echo "✅ Hash SHA-256 do main.dart.js extraído confere com a release: $ACTUAL_EXTRACTED_HASH"
 
 # Parar os escritores antes de criar o snapshot
 WRITERS_STOPPED=1
@@ -451,13 +704,13 @@ if [ "$HEALTH_OK" -ne 1 ]; then
   exit 1
 fi
 
-# Sincronização e transição atômica de Frontend Web se houver staging preparado
-if [ -d "$TARGET_DIR/web_staging" ]; then
-  echo "🌐 Promovendo Frontend Web coordenado (staging -> web)..."
-  mkdir -p "$TARGET_DIR/web"
-  rsync -ac --delete "$TARGET_DIR/web_staging/" "$TARGET_DIR/web/"
-  rm -rf "$TARGET_DIR/web_staging"
-  echo "✅ Frontend Web atualizado com sucesso após healthcheck positivo da API."
+# Sincronização e transição atômica de Frontend Web (sem expor bundle parcial)
+if [ -n "${WEB_EXTRACTION_TMP:-}" ] && [ -d "$WEB_EXTRACTION_TMP" ]; then
+  echo "🌐 Promovendo Frontend Web de forma atômica (sem expor bundle parcial)..."
+  atomic_promote_web "$TARGET_DIR/web" "$WEB_EXTRACTION_TMP"
+  WEB_EXTRACTION_TMP=""
+  safe_write_marker "$MARCADOR_WEB_HASH" "$ACTUAL_EXTRACTED_HASH"
+  echo "✅ Frontend Web promovido com sucesso de forma atômica pós-healthcheck (SHA-256: $ACTUAL_EXTRACTED_HASH)."
 fi
 
 # Marcação de saúde aprovada

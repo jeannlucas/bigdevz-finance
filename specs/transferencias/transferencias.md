@@ -67,7 +67,8 @@ A funcionalidade tem natureza contábil e de registro: reflete movimentações e
   - Replay de requisição idêntica com mesma chave e mesmo fingerprint responde `HTTP 200 OK` com `replayed: true` e a representação atualizada da transferência.
   - Replay com chave idêntica mas payload diferente responde `HTTP 409 Conflict`.
 
-- **AC-TRF-008 [Interface Unificada Multiplataforma (iOS, Android e Web)]:**
+- **AC-TRF-008 [Interface Unificada via Navegador (Desktop e Mobile Web)]:**
+  - O formulário de transferência adapta-se dinamicamente ao formato de tela do navegador (widescreen desktop e smartphone mobile web). A distribuição em lojas de aplicativos nativas está congelada (ADR 0007).
   - Ação rápida acessível no Dashboard e na aba Carteira de Contas.
   - Formulário acessível com seletores de conta de origem e destino, campo com máscara monetária sem float (`MoneyInputFormatter`), seletor de data e campo de observações opcionais.
   - Responsivo e resiliente a escalas de acessibilidade de 150% e 200% em viewports a partir de 320pt de largura sem overflow visual.

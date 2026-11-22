@@ -73,7 +73,8 @@ O módulo atua como orquestrador patrimonial de alto nível: registra o desembol
   - Replay idêntico devolve `HTTP 200 OK` com `replayed: true` e a representação atualizada do empréstimo sem duplicar desembolsos ou parcelas.
   - Replay conflitante devolve `HTTP 409 Conflict`.
 
-- **AC-EMP-008 [Interface Unificada Multiplataforma (iOS, Android e Web)]:**
+- **AC-EMP-008 [Interface Unificada via Navegador (Desktop e Mobile Web)]:**
+  - Telas e modais de empréstimos adaptam-se dinamicamente ao formato de tela do navegador (desktop widescreen e smartphone mobile web). A distribuição em lojas de aplicativos nativas está congelada (ADR 0007).
   - Tela de consulta e acompanhamento de empréstimos com visual fintech, exibindo status (`active`, `settled`), saldo devedor e taxa/encargos embutidos.
   - Formulário acessível de contratação com cálculo dinâmico de juros/encargos, seleção de tipo, conta de desembolso e data.
   - Suporte responsivo a telas estreitas (320pt) sob escalas ampliadas de acessibilidade (150% e 200%) sem estouro de layout.

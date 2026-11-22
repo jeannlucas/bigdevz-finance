@@ -48,45 +48,66 @@ sed -e "s|/srv/finance/scripts/vps-deploy.sh|$MOCK_DEPLOY|g" "$WRAPPER_SRC" > "$
 chmod +x "$SANDBOX_WRAPPER"
 
 export MOCK_DEPLOY_OUT="$TEST_DIR/mock_deploy.out"
+VALID_WEB_HASH="ca7dc00a8cc0ab0d105d2ae2bc85220d70ad590072169071248dd0538668c9bf"
 
-# 1.1 Invocação posicional via CLI: wrapper v1.2.0 digest
-"$SANDBOX_WRAPPER" "$VALID_TAG" "$VALID_DIGEST"
-if [ "$(cat "$MOCK_DEPLOY_OUT")" != "RECEIVED: --tag $VALID_TAG --digest $VALID_DIGEST" ]; then
-  echo "❌ FALHOU (Chamada posicional direta falhou)"
+# 1.1 Invocação com 3 argumentos posicionais (incluindo web_hash)
+"$SANDBOX_WRAPPER" "$VALID_TAG" "$VALID_DIGEST" "$VALID_WEB_HASH"
+if [ "$(cat "$MOCK_DEPLOY_OUT")" != "RECEIVED: --tag $VALID_TAG --digest $VALID_DIGEST --web-hash $VALID_WEB_HASH" ]; then
+  echo "❌ FALHOU (Chamada com 3 argumentos posicionais incluindo web_hash falhou)"
   exit 1
 fi
 
-# 1.2 Invocação com flags nomeadas via CLI: wrapper --tag v1.2.0 --digest digest
-"$SANDBOX_WRAPPER" --tag "$VALID_TAG" --digest "$VALID_DIGEST"
-if [ "$(cat "$MOCK_DEPLOY_OUT")" != "RECEIVED: --tag $VALID_TAG --digest $VALID_DIGEST" ]; then
-  echo "❌ FALHOU (Chamada com flags nomeadas falhou)"
+# 1.2 Invocação com flags nomeadas incluindo --web-hash
+"$SANDBOX_WRAPPER" --tag "$VALID_TAG" --digest "$VALID_DIGEST" --web-hash "$VALID_WEB_HASH"
+if [ "$(cat "$MOCK_DEPLOY_OUT")" != "RECEIVED: --tag $VALID_TAG --digest $VALID_DIGEST --web-hash $VALID_WEB_HASH" ]; then
+  echo "❌ FALHOU (Chamada com flags nomeadas incluindo web-hash falhou)"
   exit 1
 fi
 
 # 1.3 Invocação com separador '--' inicial (como gerado pelo cliente OpenSSH seguro)
-"$SANDBOX_WRAPPER" -- "$VALID_TAG" "$VALID_DIGEST"
-if [ "$(cat "$MOCK_DEPLOY_OUT")" != "RECEIVED: --tag $VALID_TAG --digest $VALID_DIGEST" ]; then
+"$SANDBOX_WRAPPER" -- "$VALID_TAG" "$VALID_DIGEST" "$VALID_WEB_HASH"
+if [ "$(cat "$MOCK_DEPLOY_OUT")" != "RECEIVED: --tag $VALID_TAG --digest $VALID_DIGEST --web-hash $VALID_WEB_HASH" ]; then
   echo "❌ FALHOU (Chamada com separador '--' inicial falhou)"
   exit 1
 fi
 
 # 1.4 Invocação simulando SSH_ORIGINAL_COMMAND com separador '--' e flags
-SSH_ORIGINAL_COMMAND="-- --tag $VALID_TAG --digest $VALID_DIGEST" "$SANDBOX_WRAPPER"
-if [ "$(cat "$MOCK_DEPLOY_OUT")" != "RECEIVED: --tag $VALID_TAG --digest $VALID_DIGEST" ]; then
+SSH_ORIGINAL_COMMAND="-- --tag $VALID_TAG --digest $VALID_DIGEST --web-hash $VALID_WEB_HASH" "$SANDBOX_WRAPPER"
+if [ "$(cat "$MOCK_DEPLOY_OUT")" != "RECEIVED: --tag $VALID_TAG --digest $VALID_DIGEST --web-hash $VALID_WEB_HASH" ]; then
   echo "❌ FALHOU (SSH_ORIGINAL_COMMAND com '--' e flags falhou)"
   exit 1
 fi
 
 # 1.5 Invocação simulando SSH_ORIGINAL_COMMAND posicional
-SSH_ORIGINAL_COMMAND="$VALID_TAG $VALID_DIGEST" "$SANDBOX_WRAPPER"
-if [ "$(cat "$MOCK_DEPLOY_OUT")" != "RECEIVED: --tag $VALID_TAG --digest $VALID_DIGEST" ]; then
+SSH_ORIGINAL_COMMAND="$VALID_TAG $VALID_DIGEST $VALID_WEB_HASH" "$SANDBOX_WRAPPER"
+if [ "$(cat "$MOCK_DEPLOY_OUT")" != "RECEIVED: --tag $VALID_TAG --digest $VALID_DIGEST --web-hash $VALID_WEB_HASH" ]; then
   echo "❌ FALHOU (SSH_ORIGINAL_COMMAND posicional falhou)"
   exit 1
 fi
 
-# 1.6 Rejeição estrita de tag inválida
+# 1.6 Rejeição estrita quando web_hash está ausente
 set +e
-"$SANDBOX_WRAPPER" "versao-invalida" "$VALID_DIGEST" >/dev/null 2>&1
+"$SANDBOX_WRAPPER" "$VALID_TAG" "$VALID_DIGEST" >/dev/null 2>&1
+MISSING_HASH_EXIT=$?
+set -e
+if [ "$MISSING_HASH_EXIT" -eq 0 ]; then
+  echo "❌ FALHOU (Wrapper aceitou deploy sem web-hash)"
+  exit 1
+fi
+
+# 1.7 Rejeição estrita quando web_hash é malformado
+set +e
+"$SANDBOX_WRAPPER" "$VALID_TAG" "$VALID_DIGEST" "hash_invalido" >/dev/null 2>&1
+MALFORMED_HASH_EXIT=$?
+set -e
+if [ "$MALFORMED_HASH_EXIT" -eq 0 ]; then
+  echo "❌ FALHOU (Wrapper aceitou web-hash malformado)"
+  exit 1
+fi
+
+# 1.8 Rejeição estrita de tag inválida
+set +e
+"$SANDBOX_WRAPPER" "versao-invalida" "$VALID_DIGEST" "$VALID_WEB_HASH" >/dev/null 2>&1
 INVALID_TAG_EXIT=$?
 set -e
 if [ "$INVALID_TAG_EXIT" -eq 0 ]; then
@@ -111,6 +132,25 @@ if [[ "$*" =~ pg_dump ]]; then
   exit 0
 fi
 if [[ "$*" =~ pg_restore ]]; then
+  exit 0
+fi
+if [[ "$1" == "inspect" ]]; then
+  exit 0
+fi
+if [[ "$1" == "create" ]]; then
+  echo "mock_cid_preflight_123"
+  exit 0
+fi
+if [[ "$1" == "cp" ]]; then
+  dest="${@: -1}"
+  mkdir -p "$dest"
+  if [ -n "${TARGET_WEB:-}" ] && [ -f "$TARGET_WEB/web_staging/index.html" ]; then
+    cp "$TARGET_WEB/web_staging/index.html" "$dest/index.html"
+  else
+    echo "FRONTEND_V2_NEW" > "$dest/index.html"
+  fi
+  echo "console.log('main');" > "$dest/main.dart.js"
+  echo "console.log('bootstrap');" > "$dest/flutter_bootstrap.js"
   exit 0
 fi
 exit 0
@@ -142,7 +182,7 @@ chmod +x "$SANDBOX_DEPLOY"
 
 export PATH="$MOCK_BIN:$PATH"
 set +e
-SKIP_GIT_CHECKOUT=1 bash "$SANDBOX_DEPLOY" --tag "$VALID_TAG" --digest "$VALID_DIGEST" >/dev/null 2>&1
+SKIP_GIT_CHECKOUT=1 bash "$SANDBOX_DEPLOY" --tag "$VALID_TAG" --digest "$VALID_DIGEST" --web-hash "$VALID_WEB_HASH" >/dev/null 2>&1
 PERM_TEST_EXIT=$?
 set -e
 
@@ -227,7 +267,7 @@ sed \
 chmod +x "$SANDBOX_HEALTH"
 
 > "$EVENTS_LOG"
-SKIP_GIT_CHECKOUT=1 bash "$SANDBOX_HEALTH" --tag "$VALID_TAG" --digest "$VALID_DIGEST" >/dev/null 2>&1
+SKIP_GIT_CHECKOUT=1 bash "$SANDBOX_HEALTH" --tag "$VALID_TAG" --digest "$VALID_DIGEST" --web-hash "$VALID_WEB_HASH" >/dev/null 2>&1
 
 # Verificar que up -d --no-build foi emitido
 if ! grep -q "up -d --no-build api scheduler" "$EVENTS_LOG"; then
@@ -300,7 +340,7 @@ sed \
   "$DEPLOY_SRC" > "$SANDBOX_WEB"
 chmod +x "$SANDBOX_WEB"
 
-SKIP_GIT_CHECKOUT=1 bash "$SANDBOX_WEB" --tag "$VALID_TAG" --digest "$VALID_DIGEST" >/dev/null 2>&1
+SKIP_GIT_CHECKOUT=1 bash "$SANDBOX_WEB" --tag "$VALID_TAG" --digest "$VALID_DIGEST" --web-hash "$VALID_WEB_HASH" >/dev/null 2>&1
 
 if [ ! -f "$TARGET_WEB/web/index.html" ] || [ "$(cat "$TARGET_WEB/web/index.html")" != "FRONTEND_V2_NEW" ]; then
   echo "❌ FALHOU (Frontend Web não foi promovido para a versão nova pós-healthcheck)"
@@ -363,7 +403,7 @@ sed \
 chmod +x "$SANDBOX_NO_PG"
 
 set +e
-PATH="$MOCK_BIN_FAIL:$PATH" SKIP_GIT_CHECKOUT=1 bash "$SANDBOX_NO_PG" --tag "v1.2.9" --digest "$VALID_DIGEST" >/dev/null 2>&1
+PATH="$MOCK_BIN_FAIL:$PATH" SKIP_GIT_CHECKOUT=1 bash "$SANDBOX_NO_PG" --tag "v1.2.9" --digest "$VALID_DIGEST" --web-hash "$VALID_WEB_HASH" >/dev/null 2>&1
 NO_PG_EXIT=$?
 set -e
 
@@ -381,7 +421,7 @@ echo -n "🧪 Teste 7: Replay idempotente de tag já implantada sai com exit 0 s
 echo "$VALID_TAG" > "$VAR_LIB_WEB/implantado_tag"
 
 set +e
-SKIP_GIT_CHECKOUT=1 bash "$SANDBOX_WEB" --tag "$VALID_TAG" --digest "$VALID_DIGEST" >/dev/null 2>&1
+SKIP_GIT_CHECKOUT=1 bash "$SANDBOX_WEB" --tag "$VALID_TAG" --digest "$VALID_DIGEST" --web-hash "$VALID_WEB_HASH" >/dev/null 2>&1
 REPLAY_EXIT=$?
 set -e
 
@@ -406,6 +446,25 @@ if [[ "$*" =~ pg_dump ]]; then
   exit 0
 fi
 if [[ "$*" =~ pg_restore ]]; then
+  exit 0
+fi
+if [[ "$1" == "inspect" ]]; then
+  exit 0
+fi
+if [[ "$1" == "create" ]]; then
+  echo "mock_cid_preflight_123"
+  exit 0
+fi
+if [[ "$1" == "cp" ]]; then
+  dest="${@: -1}"
+  mkdir -p "$dest"
+  if [ -n "${TARGET_WEB:-}" ] && [ -f "$TARGET_WEB/web_staging/index.html" ]; then
+    cp "$TARGET_WEB/web_staging/index.html" "$dest/index.html"
+  else
+    echo "FRONTEND_V2_NEW" > "$dest/index.html"
+  fi
+  echo "console.log('main');" > "$dest/main.dart.js"
+  echo "console.log('bootstrap');" > "$dest/flutter_bootstrap.js"
   exit 0
 fi
 if [[ "$*" =~ "artisan migrate" ]]; then
@@ -451,7 +510,7 @@ sed \
 chmod +x "$SANDBOX_MIG"
 
 set +e
-PATH="$MOCK_BIN_MIG_FAIL:$PATH" SKIP_GIT_CHECKOUT=1 bash "$SANDBOX_MIG" --tag "v1.2.1" --digest "$VALID_DIGEST" >/dev/null 2>&1
+PATH="$MOCK_BIN_MIG_FAIL:$PATH" SKIP_GIT_CHECKOUT=1 bash "$SANDBOX_MIG" --tag "v1.2.1" --digest "$VALID_DIGEST" --web-hash "$VALID_WEB_HASH" >/dev/null 2>&1
 MIG_FAIL_EXIT=$?
 set -e
 
