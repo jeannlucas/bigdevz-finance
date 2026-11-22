@@ -30,6 +30,7 @@ comprovantes/
 
 # Ambiente operacional local e notas particulares
 .local/
+.superpowers/
 docs/archive/
 
 # Preferências locais de profiling

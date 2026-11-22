@@ -828,6 +828,7 @@ void main() {
                 ],
                 child: MaterialApp(
                   home: PayableFormScreen(
+                    key: ValueKey(scale),
                     space: pf,
                     today: DateTime(2026, 3, 10),
                   ),

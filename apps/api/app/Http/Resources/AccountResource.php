@@ -16,6 +16,7 @@ class AccountResource extends JsonResource
             'id' => $this->id,
             'space_id' => $this->space_id,
             'name' => $this->name,
+            'bank_id' => $this->bank_id,
             'opening_balance' => Money::fromCents($this->opening_balance_cents),
             'opening_balance_date' => $this->opening_balance_date->toDateString(),
             'balance' => Money::fromCents($this->balanceCents()),

@@ -110,15 +110,24 @@ class CreatePayable
                     'approved_until' => 'O período aprovado vai além do horizonte atual. Revise a recorrência de novo.',
                 ]);
             }
-            $past = self::pastOf($plan, Money::toCents($data['amount']));
+            $isVariable = filter_var($data['is_variable'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $amountCents = (! empty($data['amount'])) ? Money::toCents($data['amount']) : null;
+            $estimatedCents = (! empty($data['estimated_amount'])) ? Money::toCents($data['estimated_amount']) : null;
+
+            $checkCents = $amountCents ?? ($estimatedCents ?? 0);
+            $past = self::pastOf($plan, $checkCents);
             if ($past['count'] > 0 && ! filter_var($data['confirm_past'], FILTER_VALIDATE_BOOLEAN)) {
+                $totalText = $checkCents > 0 ? ' (total '.Money::formatAggregate($past['total_cents']).')' : '';
                 throw ValidationException::withMessages([
-                    'confirm_past' => "Confirme a criação das {$past['count']} ocorrências já vencidas (total ".Money::formatAggregate($past['total_cents']).').',
+                    'confirm_past' => "Confirme a criação das {$past['count']} ocorrências já vencidas{$totalText}.",
                 ]);
             }
             $recurrence = Recurrence::create([
                 'space_id' => $space->id, 'description' => $data['description'], 'payee' => $data['payee'] ?? null,
-                'amount_cents' => Money::toCents($data['amount']), 'start_date' => $data['start_date'],
+                'is_variable' => $isVariable,
+                'amount_cents' => $amountCents,
+                'estimated_amount_cents' => $estimatedCents,
+                'start_date' => $data['start_date'],
                 'reference_day' => (int) substr($data['start_date'], 8, 2), 'end_date' => $data['end_date'] ?? null,
                 'initial_until' => $data['approved_until'],
                 'category_id' => $categoryId,

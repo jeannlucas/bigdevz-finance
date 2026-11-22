@@ -94,6 +94,11 @@ class ReversePayment
                 'amount_cents' => $origTotal, 'effective_date' => $original->paid_on->toDateString(),
             ]);
             $payable->decrement('paid_cents', $origPrincipal);
+            if ($payable->is_direct_expense && $replacement === null) {
+                $payable->cancelled_at = now();
+                $payable->cancel_reason = 'Estorno de compra no débito: '.$reason;
+                $payable->save();
+            }
 
             ObligationChange::create([
                 'space_id' => $space->id,

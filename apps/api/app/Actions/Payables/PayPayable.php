@@ -79,6 +79,13 @@ class PayPayable
         return $this->keys->run($user, $space, $key, IdempotentOperations::PAYMENT, $fingerprint, function () use ($user, $space, $payableId, $accountId, $paidOn, $settlement) {
             $payable = Payable::query()->where('space_id', $space->id)->lockForUpdate()->findOrFail($payableId);
             $account = Account::query()->where('space_id', $space->id)->lockForUpdate()->find($accountId);
+
+            if ($payable->amount_cents === null && $payable->kind === Payable::RECURRING) {
+                $payable->amount_cents = $settlement['principal_cents'];
+                $payable->edited_at = now();
+                $payable->save();
+            }
+
             self::validateTarget(
                 $payable,
                 $account,

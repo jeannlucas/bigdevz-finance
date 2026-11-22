@@ -207,6 +207,7 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
       await context.read<AccountsRepository>().create(
         widget.space.id,
         name: _name.text.trim(),
+        bankId: _selectedBank?.id,
         openingBalance: Money.fromInput(_balance.text)!,
         date: toApiDate(_date),
       );

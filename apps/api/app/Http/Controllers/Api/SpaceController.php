@@ -73,68 +73,152 @@ class SpaceController extends Controller
 
     private function expenseCategoriesSummary(Space $space): array
     {
-        return DB::table('payables')
-            ->leftJoin('categories', 'payables.category_id', '=', 'categories.id')
+        $rows = DB::table('payables')
+            ->leftJoin('categories as c', 'payables.category_id', '=', 'c.id')
+            ->leftJoin('categories as p', 'c.parent_id', '=', 'p.id')
             ->where('payables.space_id', $space->id)
             ->whereNull('payables.cancelled_at')
             ->whereNotNull('payables.amount_cents')
             ->select(
-                DB::raw('COALESCE(categories.id, 0) as id'),
-                DB::raw("COALESCE(categories.name, 'Outros / Sem categoria') as name"),
-                DB::raw("COALESCE(categories.icon, 'category') as icon"),
-                DB::raw("COALESCE(categories.color, '#6B7280') as color"),
+                DB::raw('COALESCE(c.id, 0) as category_id'),
+                DB::raw("COALESCE(c.name, 'Outros / Sem categoria') as category_name"),
+                DB::raw("COALESCE(c.icon, 'category') as category_icon"),
+                DB::raw("COALESCE(c.color, '#6B7280') as category_color"),
+                'c.parent_id',
+                'p.name as parent_name',
+                'p.icon as parent_icon',
+                'p.color as parent_color',
                 DB::raw('COALESCE(SUM(payables.amount_cents), 0) as total_cents')
             )
             ->groupBy(
-                DB::raw('COALESCE(categories.id, 0)'),
-                DB::raw("COALESCE(categories.name, 'Outros / Sem categoria')"),
-                DB::raw("COALESCE(categories.icon, 'category')"),
-                DB::raw("COALESCE(categories.color, '#6B7280')")
+                DB::raw('COALESCE(c.id, 0)'),
+                DB::raw("COALESCE(c.name, 'Outros / Sem categoria')"),
+                DB::raw("COALESCE(c.icon, 'category')"),
+                DB::raw("COALESCE(c.color, '#6B7280')"),
+                'c.parent_id',
+                'p.name',
+                'p.icon',
+                'p.color'
             )
             ->havingRaw('COALESCE(SUM(payables.amount_cents), 0) > 0')
-            ->orderByDesc('total_cents')
-            ->get()
-            ->map(fn ($row) => [
-                'id' => (int) $row->id,
-                'name' => $row->name,
-                'icon' => $row->icon,
-                'color' => $row->color,
+            ->get();
+
+        $groups = [];
+        foreach ($rows as $row) {
+            $isSubcategory = ! empty($row->parent_id);
+            $groupId = $isSubcategory ? (int) $row->parent_id : (int) $row->category_id;
+            $groupName = $isSubcategory ? $row->parent_name : $row->category_name;
+            $groupIcon = $isSubcategory ? $row->parent_icon : $row->category_icon;
+            $groupColor = $isSubcategory ? $row->parent_color : $row->category_color;
+
+            if (! isset($groups[$groupId])) {
+                $groups[$groupId] = [
+                    'id' => $groupId,
+                    'name' => $groupName,
+                    'icon' => $groupIcon,
+                    'color' => $groupColor,
+                    'total_cents' => 0,
+                    'composition' => [],
+                ];
+            }
+
+            $groups[$groupId]['total_cents'] += (int) $row->total_cents;
+            $groups[$groupId]['composition'][] = [
+                'id' => (int) $row->category_id,
+                'name' => $row->category_name,
+                'icon' => $row->category_icon,
+                'color' => $row->category_color,
+                'is_parent' => ! $isSubcategory,
+                'is_direct' => ! $isSubcategory,
                 'total' => Money::formatAggregate((int) $row->total_cents),
                 'total_cents' => (int) $row->total_cents,
-            ])
+            ];
+        }
+
+        return collect($groups)
+            ->map(function ($group) {
+                $group['total'] = Money::formatAggregate($group['total_cents']);
+                $group['has_children'] = count(array_filter($group['composition'], fn ($c) => ! $c['is_parent'])) > 0;
+                usort($group['composition'], fn ($a, $b) => $b['total_cents'] <=> $a['total_cents']);
+
+                return $group;
+            })
+            ->sortByDesc('total_cents')
             ->values()
             ->all();
     }
 
     private function incomeCategoriesSummary(Space $space): array
     {
-        return DB::table('agreements')
-            ->leftJoin('categories', 'agreements.category_id', '=', 'categories.id')
+        $rows = DB::table('agreements')
+            ->leftJoin('categories as c', 'agreements.category_id', '=', 'c.id')
+            ->leftJoin('categories as p', 'c.parent_id', '=', 'p.id')
             ->where('agreements.space_id', $space->id)
             ->select(
-                DB::raw('COALESCE(categories.id, 0) as id'),
-                DB::raw("COALESCE(categories.name, 'Outros / Sem categoria') as name"),
-                DB::raw("COALESCE(categories.icon, 'category') as icon"),
-                DB::raw("COALESCE(categories.color, '#6B7280') as color"),
+                DB::raw('COALESCE(c.id, 0) as category_id'),
+                DB::raw("COALESCE(c.name, 'Outros / Sem categoria') as category_name"),
+                DB::raw("COALESCE(c.icon, 'category') as category_icon"),
+                DB::raw("COALESCE(c.color, '#6B7280') as category_color"),
+                'c.parent_id',
+                'p.name as parent_name',
+                'p.icon as parent_icon',
+                'p.color as parent_color',
                 DB::raw('COALESCE(SUM(agreements.total_cents), 0) as total_cents')
             )
             ->groupBy(
-                DB::raw('COALESCE(categories.id, 0)'),
-                DB::raw("COALESCE(categories.name, 'Outros / Sem categoria')"),
-                DB::raw("COALESCE(categories.icon, 'category')"),
-                DB::raw("COALESCE(categories.color, '#6B7280')")
+                DB::raw('COALESCE(c.id, 0)'),
+                DB::raw("COALESCE(c.name, 'Outros / Sem categoria')"),
+                DB::raw("COALESCE(c.icon, 'category')"),
+                DB::raw("COALESCE(c.color, '#6B7280')"),
+                'c.parent_id',
+                'p.name',
+                'p.icon',
+                'p.color'
             )
             ->havingRaw('COALESCE(SUM(agreements.total_cents), 0) > 0')
-            ->orderByDesc('total_cents')
-            ->get()
-            ->map(fn ($row) => [
-                'id' => (int) $row->id,
-                'name' => $row->name,
-                'icon' => $row->icon,
-                'color' => $row->color,
+            ->get();
+
+        $groups = [];
+        foreach ($rows as $row) {
+            $isSubcategory = ! empty($row->parent_id);
+            $groupId = $isSubcategory ? (int) $row->parent_id : (int) $row->category_id;
+            $groupName = $isSubcategory ? $row->parent_name : $row->category_name;
+            $groupIcon = $isSubcategory ? $row->parent_icon : $row->category_icon;
+            $groupColor = $isSubcategory ? $row->parent_color : $row->category_color;
+
+            if (! isset($groups[$groupId])) {
+                $groups[$groupId] = [
+                    'id' => $groupId,
+                    'name' => $groupName,
+                    'icon' => $groupIcon,
+                    'color' => $groupColor,
+                    'total_cents' => 0,
+                    'composition' => [],
+                ];
+            }
+
+            $groups[$groupId]['total_cents'] += (int) $row->total_cents;
+            $groups[$groupId]['composition'][] = [
+                'id' => (int) $row->category_id,
+                'name' => $row->category_name,
+                'icon' => $row->category_icon,
+                'color' => $row->category_color,
+                'is_parent' => ! $isSubcategory,
+                'is_direct' => ! $isSubcategory,
                 'total' => Money::formatAggregate((int) $row->total_cents),
                 'total_cents' => (int) $row->total_cents,
-            ])
+            ];
+        }
+
+        return collect($groups)
+            ->map(function ($group) {
+                $group['total'] = Money::formatAggregate($group['total_cents']);
+                $group['has_children'] = count(array_filter($group['composition'], fn ($c) => ! $c['is_parent'])) > 0;
+                usort($group['composition'], fn ($a, $b) => $b['total_cents'] <=> $a['total_cents']);
+
+                return $group;
+            })
+            ->sortByDesc('total_cents')
             ->values()
             ->all();
     }

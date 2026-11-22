@@ -35,11 +35,17 @@ class PayableItemAdapter implements FinancialItemView {
   String get kindLabel => payable.kindLabel;
 
   @override
-  String get statusLabel => payable.overdue
-      ? (payable.status == PayableStatus.partial
-            ? 'Parcial · vencida'
-            : 'Vencida')
-      : payable.status.label;
+  String get statusLabel {
+    if (payable.overdue) {
+      return payable.status == PayableStatus.partial
+          ? 'Parcial · vencida'
+          : 'Vencida';
+    }
+    if (payable.isAwaitingAmount) {
+      return payable.isVariable ? 'Aguardando valor' : 'Valor a informar';
+    }
+    return payable.status.label;
+  }
 
   @override
   StatusTone get statusTone => switch (payable.status) {
@@ -52,10 +58,10 @@ class PayableItemAdapter implements FinancialItemView {
   @override
   Money? get pendingAmount => payable.status == PayableStatus.paid
       ? payable.paid
-      : (payable.remaining ?? payable.amount);
+      : (payable.remaining ?? payable.amount ?? payable.estimatedAmount);
 
   @override
-  Money? get totalAmount => payable.amount;
+  Money? get totalAmount => payable.amount ?? payable.estimatedAmount;
 
   @override
   bool get isOverdue => payable.overdue;

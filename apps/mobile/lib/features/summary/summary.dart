@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/api_client.dart';
 import '../../core/money.dart';
+import '../categories/category_style_catalog.dart';
 
 class SpaceSummary {
   const SpaceSummary({
@@ -109,6 +110,9 @@ class CategorySummaryItem {
     required this.color,
     required this.total,
     required this.totalCents,
+    this.hasChildren = false,
+    this.isDirect = false,
+    this.composition = const [],
   });
 
   factory CategorySummaryItem.fromJson(Map<String, dynamic> json) =>
@@ -119,6 +123,15 @@ class CategorySummaryItem {
         color: json['color'] as String? ?? '#6B7280',
         total: Money.parse(json['total'] as String),
         totalCents: json['total_cents'] as int,
+        hasChildren: json['has_children'] as bool? ?? false,
+        isDirect:
+            json['is_direct'] as bool? ?? (json['is_parent'] as bool? ?? false),
+        composition: (json['composition'] as List? ?? const [])
+            .map(
+              (item) =>
+                  CategorySummaryItem.fromJson(item as Map<String, dynamic>),
+            )
+            .toList(),
       );
 
   final int id;
@@ -127,19 +140,11 @@ class CategorySummaryItem {
   final String color;
   final Money total;
   final int totalCents;
+  final bool hasChildren;
+  final bool isDirect;
+  final List<CategorySummaryItem> composition;
 
-  Color get colorValue {
-    try {
-      final hex = color.replaceAll('#', '');
-      if (hex.length == 6) {
-        return Color(int.parse('FF$hex', radix: 16));
-      }
-      if (hex.length == 8) {
-        return Color(int.parse(hex, radix: 16));
-      }
-    } catch (_) {}
-    return const Color(0xFF6B7280);
-  }
+  Color get colorValue => CategoryStyleCatalog.colorFromHex(color);
 }
 
 class CategoriesSummary {

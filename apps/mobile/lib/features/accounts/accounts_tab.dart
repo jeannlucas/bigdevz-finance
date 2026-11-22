@@ -273,7 +273,7 @@ class _AccountTile extends StatelessWidget {
   final bool obscure;
 
   Widget _buildLeading(ThemeData theme) {
-    final bank = BankCatalog.findByAccountName(account.name);
+    final bank = BankCatalog.resolveForAccount(account);
     if (bank != null) {
       return Container(
         width: 44,

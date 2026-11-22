@@ -18,6 +18,7 @@ class Category extends Model
 
     protected $fillable = [
         'space_id',
+        'parent_id',
         'name',
         'icon',
         'color',
@@ -26,6 +27,7 @@ class Category extends Model
     ];
 
     protected $casts = [
+        'parent_id' => 'integer',
         'is_default' => 'boolean',
     ];
 
@@ -38,6 +40,18 @@ class Category extends Model
     public function space(): BelongsTo
     {
         return $this->belongsTo(Space::class);
+    }
+
+    /** @return BelongsTo<Category, $this> */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(Category::class, 'parent_id');
+    }
+
+    /** @return HasMany<Category, $this> */
+    public function children(): HasMany
+    {
+        return $this->hasMany(Category::class, 'parent_id')->orderBy('name');
     }
 
     /** @return HasMany<Agreement, $this> */

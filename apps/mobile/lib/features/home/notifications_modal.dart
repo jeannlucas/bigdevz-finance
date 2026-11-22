@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
+import '../alerts/alerts_repository.dart';
 import '../auth/session_controller.dart';
 import '../summary/summary.dart';
 
@@ -34,21 +35,29 @@ class _NotificationsDialog extends StatefulWidget {
 
 class _NotificationsDialogState extends State<_NotificationsDialog> {
   late SpaceSummary? _summary = widget.initialSummary;
+  List<AlertItem> _alerts = [];
   bool _loading = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    if (_summary == null) {
-      _load();
-    }
+    _load();
   }
 
   Future<void> _load() async {
-    final session = context.read<SessionController>();
-    final space = session.activeSpace;
-    if (space == null) return;
+    SessionController? session;
+    try {
+      session = Provider.of<SessionController?>(context, listen: false);
+    } catch (_) {}
+
+    final space = session?.activeSpace;
+    if (space == null) {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+      return;
+    }
 
     setState(() {
       _loading = true;
@@ -56,11 +65,30 @@ class _NotificationsDialogState extends State<_NotificationsDialog> {
     });
 
     try {
-      final repo = context.read<SummaryRepository>();
-      final summary = await repo.load(space.id);
+      SummaryRepository? summaryRepo;
+      AlertsRepository? alertsRepo;
+      try {
+        summaryRepo = Provider.of<SummaryRepository?>(context, listen: false);
+      } catch (_) {}
+      try {
+        alertsRepo = Provider.of<AlertsRepository?>(context, listen: false);
+      } catch (_) {}
+
+      final summary = summaryRepo != null
+          ? await summaryRepo.load(space.id)
+          : _summary;
+      List<AlertItem> alerts = [];
+      if (alertsRepo != null) {
+        try {
+          final res = await alertsRepo.list(space.id);
+          alerts = res.alerts;
+        } catch (_) {}
+      }
+
       if (mounted) {
         setState(() {
           _summary = summary;
+          _alerts = alerts;
           _loading = false;
         });
       }
@@ -74,6 +102,55 @@ class _NotificationsDialogState extends State<_NotificationsDialog> {
     }
   }
 
+  Future<void> _markAsRead(AlertItem item) async {
+    SessionController? session;
+    try {
+      session = Provider.of<SessionController?>(context, listen: false);
+    } catch (_) {}
+    final space = session?.activeSpace;
+    if (space == null) return;
+
+    try {
+      final repo = Provider.of<AlertsRepository?>(context, listen: false);
+      if (repo == null) return;
+      await repo.read(space.id, item.key);
+      if (!mounted) return;
+      setState(() {
+        final idx = _alerts.indexWhere((a) => a.key == item.key);
+        if (idx >= 0) {
+          _alerts[idx] = _alerts[idx].copyWith(isRead: true);
+        }
+      });
+      session?.dataChanged();
+    } catch (_) {}
+  }
+
+  Future<void> _dismiss(AlertItem item) async {
+    SessionController? session;
+    try {
+      session = Provider.of<SessionController?>(context, listen: false);
+    } catch (_) {}
+    final space = session?.activeSpace;
+    if (space == null) return;
+
+    try {
+      final repo = Provider.of<AlertsRepository?>(context, listen: false);
+      if (repo == null) return;
+      await repo.dismiss(space.id, item.key);
+      if (!mounted) return;
+      setState(() {
+        _alerts.removeWhere((a) => a.key == item.key);
+      });
+      session?.dataChanged();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Aviso dispensado. O vencimento continua na agenda.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -84,7 +161,7 @@ class _NotificationsDialogState extends State<_NotificationsDialog> {
         borderRadius: BorderRadius.circular(AppTokens.r16),
       ),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520, maxHeight: 680),
+        constraints: const BoxConstraints(maxWidth: 540, maxHeight: 680),
         child: Padding(
           padding: const EdgeInsets.all(AppTokens.p24),
           child: Column(
@@ -165,8 +242,50 @@ class _NotificationsDialogState extends State<_NotificationsDialog> {
       );
     }
 
+    // Se temos alertas granulares na nova API de alertas
+    if (_alerts.isNotEmpty) {
+      return ListView.separated(
+        shrinkWrap: true,
+        itemCount: _alerts.length,
+        separatorBuilder: (_, _) => const SizedBox(height: AppTokens.p12),
+        itemBuilder: (context, index) {
+          final alert = _alerts[index];
+          final isPayable =
+              alert.type == 'payable_overdue' ||
+              alert.type == 'awaiting_amount';
+
+          return _NotificationCard(
+            icon: alert.isCritical ? AppIcons.alert : AppIcons.clock,
+            iconColor: alert.isCritical
+                ? AppTokens.expense
+                : Colors.amber.shade700,
+            title: alert.title,
+            description: alert.description,
+            actionLabel: isPayable ? 'Ver contas a pagar' : 'Ver a receber',
+            isCritical: alert.isCritical,
+            isRead: alert.isRead,
+            onAction: () {
+              Navigator.of(context).pop();
+              if (isPayable) {
+                widget.onNavigate(
+                  3,
+                  filter: alert.type == 'awaiting_amount'
+                      ? 'awaiting_amount'
+                      : 'overdue',
+                );
+              } else {
+                widget.onNavigate(2, filter: 'overdue');
+              }
+            },
+            onRead: !alert.isRead ? () => _markAsRead(alert) : null,
+            onDismiss: () => _dismiss(alert),
+          );
+        },
+      );
+    }
+
     if (summary == null) {
-      return const SizedBox.shrink();
+      return _buildCleanState(theme);
     }
 
     final hasPayablesOverdue = summary.payables.overdueCount > 0;
@@ -305,6 +424,9 @@ class _NotificationCard extends StatelessWidget {
     required this.actionLabel,
     required this.isCritical,
     required this.onAction,
+    this.isRead = false,
+    this.onRead,
+    this.onDismiss,
   });
 
   final List<List<dynamic>> icon;
@@ -314,22 +436,26 @@ class _NotificationCard extends StatelessWidget {
   final String actionLabel;
   final bool isCritical;
   final VoidCallback onAction;
+  final bool isRead;
+  final VoidCallback? onRead;
+  final VoidCallback? onDismiss;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Container(
-      padding: const EdgeInsets.all(AppTokens.p16),
+      padding: const EdgeInsets.all(AppTokens.p14),
       decoration: BoxDecoration(
-        color: isCritical
-            ? iconColor.withValues(alpha: 0.06)
+        color: isCritical && !isRead
+            ? iconColor.withValues(alpha: 0.08)
             : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(AppTokens.r12),
         border: Border.all(
-          color: isCritical
-              ? iconColor.withValues(alpha: 0.3)
-              : theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+          color: isCritical && !isRead
+              ? iconColor.withValues(alpha: 0.4)
+              : theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
         ),
       ),
       child: Row(
@@ -344,11 +470,52 @@ class _NotificationCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: isRead
+                              ? FontWeight.w500
+                              : FontWeight.w700,
+                          color: isRead
+                              ? theme.colorScheme.onSurfaceVariant
+                              : (isDark ? Colors.white : Colors.black87),
+                        ),
+                      ),
+                    ),
+                    if (isRead)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerHigh,
+                          borderRadius: BorderRadius.circular(AppTokens.r8),
+                        ),
+                        child: Text(
+                          'Lido',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    if (onDismiss != null) ...[
+                      const SizedBox(width: 4),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 16),
+                        tooltip: 'Dispensar aviso',
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: onDismiss,
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: AppTokens.p4),
                 Text(
@@ -358,37 +525,54 @@ class _NotificationCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: AppTokens.p8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: InkWell(
-                    onTap: onAction,
-                    borderRadius: BorderRadius.circular(AppTokens.r8),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: AppTokens.p4,
-                        horizontal: AppTokens.p4,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            actionLabel,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: AppTokens.p8,
+                  runSpacing: AppTokens.p4,
+                  children: [
+                    InkWell(
+                      onTap: onAction,
+                      borderRadius: BorderRadius.circular(AppTokens.r8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppTokens.p4,
+                          horizontal: AppTokens.p4,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              actionLabel,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.arrow_forward_ios,
+                              size: 10,
                               color: theme.colorScheme.primary,
                             ),
-                          ),
-                          const SizedBox(width: AppTokens.p4),
-                          Icon(
-                            Icons.arrow_forward_ios,
-                            size: 11,
-                            color: theme.colorScheme.primary,
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
+                    if (!isRead && onRead != null)
+                      TextButton(
+                        onPressed: onRead,
+                        style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                        ),
+                        child: const Text(
+                          'Marcar como lido',
+                          style: TextStyle(fontSize: 11),
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),

@@ -98,11 +98,13 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
   final _description = TextEditingController();
   final _payee = TextEditingController();
   final _amount = TextEditingController();
+  final _estimatedAmount = TextEditingController();
   final _count = TextEditingController(text: '2');
   int? _selectedCategoryId;
   late DateTime _date = DateUtils.dateOnly(widget.today ?? DateTime.now());
   DateTime? _endDate;
   _Kind _kind = _Kind.single;
+  bool _isVariable = false;
   _InstallmentAmountMode _installmentAmountMode =
       _InstallmentAmountMode.byInstallment;
   List<ScheduleItem>? _schedule;
@@ -125,7 +127,13 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
 
   @override
   void dispose() {
-    for (final controller in [_description, _payee, _amount, _count]) {
+    for (final controller in [
+      _description,
+      _payee,
+      _amount,
+      _estimatedAmount,
+      _count,
+    ]) {
       controller.dispose();
     }
     super.dispose();
@@ -174,7 +182,9 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
   /// Conteúdo do rascunho, sem a aprovação do período.
   Map<String, Object?>? _draft() {
     final amount = Money.fromInput(_amount.text);
-    if (amount == null) return null;
+    if (amount == null && !(_kind == _Kind.recurring && _isVariable)) {
+      return null;
+    }
     final common = {
       'description': _description.text.trim(),
       'payee': _payee.text.trim().isEmpty ? null : _payee.text.trim(),
@@ -184,20 +194,25 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
       _Kind.single => {
         'kind': 'single',
         ...common,
-        'amount': amount.toApi(),
+        'amount': amount?.toApi(),
         'due_date': toApiDate(_date),
       },
       _Kind.installment => {
         'kind': 'installment',
         ...common,
-        'total': (_computedInstallmentTotal ?? amount).toApi(),
+        'total': (_computedInstallmentTotal ?? amount)!.toApi(),
         'installment_count': int.tryParse(_count.text),
         'first_due_date': toApiDate(_date),
       },
       _Kind.recurring => {
         'kind': 'recurring',
         ...common,
-        'amount': amount.toApi(),
+        'is_variable': _isVariable,
+        'amount': _isVariable
+            ? (amount != null && !amount.isZero ? amount.toApi() : null)
+            : amount?.toApi(),
+        if (_isVariable && Money.fromInput(_estimatedAmount.text) != null)
+          'estimated_amount': Money.fromInput(_estimatedAmount.text)!.toApi(),
         'start_date': toApiDate(_date),
         'end_date': _endDate == null ? null : toApiDate(_endDate!),
       },
@@ -231,9 +246,13 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
           });
         }
       } else {
+        final amountToUse =
+            Money.fromInput(_amount.text) ??
+            Money.fromInput(_estimatedAmount.text) ??
+            const Money(0);
         final preview = await repository.recurrencePreview(
           widget.space.id,
-          amount: Money.fromInput(_amount.text)!,
+          amount: amountToUse,
           startDate: toApiDate(_date),
           endDate: _endDate == null ? null : toApiDate(_endDate!),
         );
@@ -531,7 +550,10 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
             _installmentAmountMode == _InstallmentAmountMode.byInstallment
                 ? 'Valor da parcela'
                 : 'Valor total',
-          _Kind.recurring => 'Valor mensal',
+          _Kind.recurring =>
+            _isVariable
+                ? 'Valor mensal (opcional / a definir)'
+                : 'Valor mensal',
         },
         prefixText: r'R$ ',
         errorText: fieldErrors['amount'] ?? fieldErrors['total'],
@@ -539,6 +561,9 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
       keyboardType: TextInputType.number,
       inputFormatters: [MoneyInputFormatter()],
       validator: (value) {
+        if (_kind == _Kind.recurring && _isVariable) {
+          return null;
+        }
         final amount = Money.fromInput(value ?? '');
         if (amount == null || amount.isZero) return 'Informe o valor.';
         if (_kind == _Kind.installment &&
@@ -682,6 +707,42 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
             const SizedBox(height: 16),
             dateField,
           ] else if (isDesktop && _kind == _Kind.recurring) ...[
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(
+                  value: false,
+                  label: Text('Valor Fixo'),
+                  icon: Icon(Icons.lock_outline_rounded, size: 16),
+                ),
+                ButtonSegment(
+                  value: true,
+                  label: Text('Valor Variável'),
+                  icon: Icon(Icons.tune_rounded, size: 16),
+                ),
+              ],
+              selected: {_isVariable},
+              onSelectionChanged: (set) => setState(() {
+                _isVariable = set.first;
+                _schedule = null;
+                _recurrence = null;
+              }),
+            ),
+            if (_isVariable) ...[
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _estimatedAmount,
+                decoration: InputDecoration(
+                  labelText:
+                      'Estimativa de valor (opcional, para planejamento)',
+                  prefixText: r'R$ ',
+                  helperText: 'Aguardando valor: o valor exato será informado a cada mês.',
+                  errorText: fieldErrors['estimated_amount'],
+                ),
+                keyboardType: TextInputType.number,
+                inputFormatters: [MoneyInputFormatter()],
+              ),
+            ],
+            const SizedBox(height: 16),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -693,6 +754,44 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
           ] else ...[
             if (_kind == _Kind.installment) ...[
               _buildInstallmentModeSelector(),
+              const SizedBox(height: 16),
+            ],
+            if (_kind == _Kind.recurring) ...[
+              SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment(
+                    value: false,
+                    label: Text('Valor Fixo'),
+                    icon: Icon(Icons.lock_outline_rounded, size: 16),
+                  ),
+                  ButtonSegment(
+                    value: true,
+                    label: Text('Valor Variável'),
+                    icon: Icon(Icons.tune_rounded, size: 16),
+                  ),
+                ],
+                selected: {_isVariable},
+                onSelectionChanged: (set) => setState(() {
+                  _isVariable = set.first;
+                  _schedule = null;
+                  _recurrence = null;
+                }),
+              ),
+              if (_isVariable) ...[
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _estimatedAmount,
+                  decoration: InputDecoration(
+                    labelText:
+                        'Estimativa de valor (opcional, para planejamento)',
+                    prefixText: r'R$ ',
+                    helperText: 'Aguardando valor: o valor exato será informado a cada mês.',
+                    errorText: fieldErrors['estimated_amount'],
+                  ),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [MoneyInputFormatter()],
+                ),
+              ],
               const SizedBox(height: 16),
             ],
             amountField,

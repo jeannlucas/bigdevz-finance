@@ -63,9 +63,16 @@ class GenerateObligations
             $recurrence->end_date?->toDateString(), min($until ?? self::horizon(), self::horizon()),
         );
 
+        $amount = $recurrence->is_variable ? null : $recurrence->amount_cents;
+
         return $this->insert(array_map(fn (array $cycle) => $this->row(
-            $recurrence->space_id, Payable::RECURRING, $recurrence->description, $recurrence->payee, $recurrence->amount_cents, $cycle['due_date'],
-        ) + ['recurrence_id' => $recurrence->id, 'cycle' => $cycle['cycle'], 'category_id' => $recurrence->category_id], $cycles));
+            $recurrence->space_id, Payable::RECURRING, $recurrence->description, $recurrence->payee, $amount, $cycle['due_date'],
+        ) + [
+            'recurrence_id' => $recurrence->id,
+            'cycle' => $cycle['cycle'],
+            'category_id' => $recurrence->category_id,
+            'estimated_amount_cents' => $recurrence->is_variable ? $recurrence->estimated_amount_cents : null,
+        ], $cycles));
     }
 
     /**

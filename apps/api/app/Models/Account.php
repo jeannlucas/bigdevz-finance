@@ -12,7 +12,7 @@ class Account extends Model
 {
     use NormalizesFinancialText;
 
-    protected $fillable = ['name', 'opening_balance_cents', 'opening_balance_date'];
+    protected $fillable = ['name', 'bank_id', 'opening_balance_cents', 'opening_balance_date'];
 
     protected function casts(): array
     {

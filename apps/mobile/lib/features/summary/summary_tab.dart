@@ -10,6 +10,7 @@ import '../accounts/account.dart';
 import '../accounts/account_form_screen.dart';
 import '../accounts/accounts_repository.dart';
 import '../auth/auth_models.dart';
+import '../payables/direct_expense_modal.dart';
 import '../settings/preferences_controller.dart';
 import 'dashboard_charts.dart';
 import 'summary.dart';
@@ -523,36 +524,55 @@ class _QuickActionsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: _QuickActionButton(
-            icon: AppIcons.receivables,
-            label: 'A receber',
-            color: space.isPf ? AppTokens.brandPrimary : AppTokens.pjSeed,
-            isDark: isDark,
-            onTap: () => onOpenTab(1),
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: _QuickActionButton(
+                icon: AppIcons.receivables,
+                label: 'A receber',
+                color: space.isPf ? AppTokens.brandPrimary : AppTokens.pjSeed,
+                isDark: isDark,
+                onTap: () => onOpenTab(1),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _QuickActionButton(
+                icon: AppIcons.payables,
+                label: 'A pagar',
+                color: AppTokens.expense,
+                isDark: isDark,
+                onTap: () => onOpenTab(2),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _QuickActionButton(
+                icon: AppIcons.accounts,
+                label: 'Contas',
+                color: const Color(0xFF0EA5E9),
+                isDark: isDark,
+                onTap: () => onOpenTab(3),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _QuickActionButton(
-            icon: AppIcons.payables,
-            label: 'A pagar',
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          onPressed: () => showDirectExpenseModal(context, space: space),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(40),
+            side: BorderSide(color: AppTokens.expense.withValues(alpha: 0.4)),
+            foregroundColor: isDark ? Colors.white : AppTokens.expense,
+          ),
+          icon: const Icon(
+            Icons.shopping_bag_outlined,
+            size: 18,
             color: AppTokens.expense,
-            isDark: isDark,
-            onTap: () => onOpenTab(2),
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _QuickActionButton(
-            icon: AppIcons.accounts,
-            label: 'Contas',
-            color: const Color(0xFF0EA5E9),
-            isDark: isDark,
-            onTap: () => onOpenTab(3),
-          ),
+          label: const Text('Registrar despesa paga (débito em conta)'),
         ),
       ],
     );

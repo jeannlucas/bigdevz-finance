@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\AccountingPeriodController;
 use App\Http\Controllers\Api\AgreementController;
+use App\Http\Controllers\Api\AlertController;
 use App\Http\Controllers\Api\AuditController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CardController;
@@ -111,12 +112,14 @@ Route::middleware('auth:sanctum')->group(function () {
         // A pagar.
         Route::get('/payables', [PayableController::class, 'index']);
         Route::post('/payables', [PayableController::class, 'store']);
+        Route::post('/payables/direct-expense', [PayableController::class, 'directExpense']);
         Route::post('/payables/preview', [PayableController::class, 'preview']);
         Route::post('/payables/recurrence-preview', [PayableController::class, 'recurrencePreview']);
         Route::get('/payables/{payable}', [PayableController::class, 'show']);
         Route::patch('/payables/{payable}', [PayableController::class, 'update']);
         Route::post('/payables/{payable}/cancel', [PayableController::class, 'cancel']);
         Route::post('/payables/{payable}/payments', [PaymentController::class, 'store']);
+        Route::post('/payables/{payable}/payments/{payment}/reversals', [PaymentController::class, 'reverse']);
         Route::post('/payments/{payment}/reversal', [PaymentController::class, 'reverse']);
         Route::post('/payments/{payment}/correction', [PaymentController::class, 'correct']);
         Route::get('/recurrences', [RecurrenceController::class, 'index']);
@@ -145,5 +148,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/members', [SpaceMemberController::class, 'index']);
         Route::post('/members', [SpaceMemberController::class, 'store']);
         Route::delete('/members/{member}', [SpaceMemberController::class, 'destroy']);
+
+        // Alertas e Notificações (Sininho).
+        Route::get('/alerts', [AlertController::class, 'index']);
+        Route::get('/alerts/badge', [AlertController::class, 'badge']);
+        Route::post('/alerts/{alertKey}/read', [AlertController::class, 'read']);
+        Route::post('/alerts/{alertKey}/dismiss', [AlertController::class, 'dismiss']);
     });
 });

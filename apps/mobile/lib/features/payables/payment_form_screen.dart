@@ -56,7 +56,13 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
   ApiException? _error;
   String? _localError;
 
-  Money get _remaining => widget.payable.remaining ?? const Money(0);
+  bool get _isVariableAwaiting =>
+      widget.payable.amount == null && widget.payable.isVariable;
+
+  Money get _remaining =>
+      widget.payable.remaining ??
+      widget.payable.estimatedAmount ??
+      const Money(0);
   bool get _busy => _state == ReceiptAttemptState.sending;
   List<Account> get _selectable =>
       widget.accounts.where((account) => !account.isArchived).toList();
@@ -65,9 +71,11 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
       .firstOrNull;
   Money get _value =>
       _attempt?.amount ??
-      (_kind == ReceiptKind.total
-          ? _remaining
-          : Money.fromInput(_amount.text) ?? const Money(0));
+      (_isVariableAwaiting
+          ? (Money.fromInput(_amount.text) ?? const Money(0))
+          : (_kind == ReceiptKind.total
+                ? _remaining
+                : (Money.fromInput(_amount.text) ?? const Money(0))));
 
   @override
   void dispose() {
@@ -219,7 +227,9 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
               SpaceBadge(widget.space, prefix: 'Pagamento no espaço'),
               const SizedBox(height: 12),
               Text(
-                '${toFinancialUpper(payable.description)} · ${payable.kindLabel}\nFalta pagar ${_remaining.brl}',
+                _isVariableAwaiting
+                    ? '${toFinancialUpper(payable.description)} · ${payable.kindLabel}\nAguardando definição de valor'
+                    : '${toFinancialUpper(payable.description)} · ${payable.kindLabel}\nFalta pagar ${_remaining.brl}',
               ),
               const SizedBox(height: 20),
               if (banner != null) ...[
@@ -246,26 +256,16 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                 onChanged: (value) => setState(() => _accountId = value),
               ),
               const SizedBox(height: 16),
-              ReceiptKindField(
-                initialValue: _kind,
-                onChanged: (kind) => setState(() => _kind = kind),
-              ),
-              const SizedBox(height: 16),
-              if (_kind == ReceiptKind.total)
-                InputDecorator(
-                  decoration: InputDecoration(
-                    labelText: 'Valor pago',
-                    helperText: 'Valor integral que falta pagar.',
-                    errorText: fieldErrors['amount'],
-                  ),
-                  child: MoneyText(_remaining),
-                )
-              else if (_kind == ReceiptKind.partial)
+              if (_isVariableAwaiting)
                 TextFormField(
                   controller: _amount,
+                  autofocus: true,
                   decoration: InputDecoration(
-                    labelText: 'Valor pago',
+                    labelText: 'Valor efetivo a pagar *',
                     prefixText: r'R$ ',
+                    helperText: widget.payable.estimatedAmount != null
+                        ? 'Estimativa planejada: ${widget.payable.estimatedAmount!.brl}'
+                        : 'Informe o valor desta fatura/conta para liquidar.',
                     errorText: fieldErrors['amount'],
                   ),
                   keyboardType: TextInputType.number,
@@ -273,17 +273,51 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                   validator: (value) {
                     final amount = Money.fromInput(value ?? '');
                     if (amount == null || amount.isZero) {
-                      return 'Informe o valor pago.';
-                    }
-                    if (amount.cents == _remaining.cents) {
-                      return 'Esse é o valor integral: escolha Total.';
-                    }
-                    if (amount.cents > _remaining.cents) {
-                      return 'Máximo nesta conta a pagar: ${_remaining.brl}.';
+                      return 'Informe o valor efetivo a pagar.';
                     }
                     return null;
                   },
+                )
+              else ...[
+                ReceiptKindField(
+                  initialValue: _kind,
+                  onChanged: (kind) => setState(() => _kind = kind),
                 ),
+                const SizedBox(height: 16),
+                if (_kind == ReceiptKind.total)
+                  InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: 'Valor pago',
+                      helperText: 'Valor integral que falta pagar.',
+                      errorText: fieldErrors['amount'],
+                    ),
+                    child: MoneyText(_remaining),
+                  )
+                else if (_kind == ReceiptKind.partial)
+                  TextFormField(
+                    controller: _amount,
+                    decoration: InputDecoration(
+                      labelText: 'Valor pago',
+                      prefixText: r'R$ ',
+                      errorText: fieldErrors['amount'],
+                    ),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [MoneyInputFormatter()],
+                    validator: (value) {
+                      final amount = Money.fromInput(value ?? '');
+                      if (amount == null || amount.isZero) {
+                        return 'Informe o valor pago.';
+                      }
+                      if (amount.cents == _remaining.cents) {
+                        return 'Esse é o valor integral: escolha Total.';
+                      }
+                      if (amount.cents > _remaining.cents) {
+                        return 'Máximo nesta conta a pagar: ${_remaining.brl}.';
+                      }
+                      return null;
+                    },
+                  ),
+              ],
               const SizedBox(height: 16),
               DateField(
                 label: 'Data do pagamento',

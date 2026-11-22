@@ -4,6 +4,7 @@ class Account {
   const Account({
     required this.id,
     required this.name,
+    this.bankId,
     required this.openingBalance,
     required this.openingBalanceDate,
     required this.balance,
@@ -15,6 +16,7 @@ class Account {
   factory Account.fromJson(Map<String, dynamic> json) => Account(
     id: json['id'] as int,
     name: json['name'] as String,
+    bankId: json['bank_id'] as String?,
     openingBalance: Money.parse(json['opening_balance'] as String),
     openingBalanceDate: json['opening_balance_date'] as String,
     balance: Money.parse(json['balance'] as String),
@@ -27,6 +29,7 @@ class Account {
 
   final int id;
   final String name;
+  final String? bankId;
   final Money openingBalance;
   final String openingBalanceDate;
 

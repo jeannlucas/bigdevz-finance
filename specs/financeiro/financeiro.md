@@ -232,6 +232,51 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
 
 ---
 
+### 2.10. Novas Funcionalidades Contábeis e Notificações (2026-11)
+
+- **AC-FIN-025 [Conta Recorrente com Valor Variável e Ocorrências 'Aguardando Valor']:**
+  - O fluxo de cadastro de despesa recorrente (`POST /api/spaces/{space}/payables` com `kind = 'recurring'`) suporta modalidade fixa e variável (`is_variable = true`).
+  - Na modalidade variável, o usuário pode opcionalmente definir uma estimativa de valor para planejamento orçamentário (`estimated_amount`), mas o valor contratual das ocorrências geradas é inicialmente indefinido (`amount_cents = null`).
+  - Ocorrências variáveis geradas até o horizonte (mês atual + 12) assumem situação `awaiting_amount` e exibem o badge "Aguardando valor" na agenda financeira.
+  - Na agenda e nos totais analíticos, o sistema segrega valores confirmados, valores estimados e ocorrências de valor desconhecido.
+  - O sistema permite confirmar o valor de uma ocorrência pontual (`PATCH /api/spaces/{space}/payables/{payable}`) sem alterar os demais meses da série.
+  - Na liquidação de uma ocorrência em `awaiting_amount`, o usuário pode informar o valor efetivo e quitar na mesma requisição atômica (`POST .../payments`).
+  - Apenas a liquidação efetiva debita a conta bancária; compromissos aguardando valor ou estimados jamais alteram o saldo disponível.
+  - Reexecução do gerador de obrigações (`GenerateObligations`) preserva as ocorrências variáveis existentes e seus valores confirmados ou pagos.
+
+- **AC-FIN-026 [Registro Direto de Compra no Débito em Transação Atômica e Idempotente]:**
+  - Disponibiliza a ação "Registrar despesa paga" a partir da tela inicial (Dashboard) e do Extrato (`StatementTab`), distinguindo-se claramente de "Agendar conta a pagar".
+  - Ao ser acionada a partir do Extrato com uma conta bancária selecionada no filtro de contexto, a interface destaca visualmente essa conta mantendo a seleção transparente.
+  - Permite informar conta bancária, valor, data do pagamento, descrição e categoria opcional, concluindo a operação com uma única confirmação do usuário.
+  - O backend processa a operação de forma estritamente atômica em uma única transação de banco de dados (`RegisterDirectExpense` / `POST /api/spaces/{space}/payables/direct-expense`):
+    1. Cria a obrigação (`Payable`) com `kind = 'single'`, `due_date = paid_on`, `amount_cents = valor` e `paid_cents = valor` (status quitado imediatamente);
+    2. Cria o pagamento (`Payment`) debitando a conta de origem;
+    3. Cria a movimentação de conta (`AccountMovement`) com sinal negativo;
+    4. Registra a auditoria em `ObligationChange`.
+  - Exemplo mandatório: compra de R$ 35,90 em conta com saldo de R$ 100,00 resulta em saldo disponível de exatamente R$ 64,10, gerando uma única saída no extrato, uma única despesa no relatório analítico e zero obrigações em aberto.
+  - Idempotência rigorosa: requisição repetida com a mesma chave e idêntico payload devolve o resultado prévio (`200 OK` / `201 Created` com `replayed = true`); payload divergente responde `409 Conflict`.
+  - Estorno integral: caso o pagamento seja estornado via `ReversePayment`, o saldo da conta bancária é recomposto aos R$ 100,00 originais com trilha indelével de auditoria, sem deixar obrigações abertas pendentes de cancelamento manual.
+
+- **AC-FIN-027 [Catálogo de Instituições com Wise e DUCZ Benefícios]:**
+  - O catálogo local (`BankCatalog`) inclui as marcas oficiais:
+    - **Wise:** id `'wise'`, nome `'Wise'`, código COMPE oficial `'362'`, cor floresta/verde claro (`#163300` / `#9FE870`) e asset local 256x256 com proporções preservadas e legibilidade nos modos claro e escuro.
+    - **DUCZ Benefícios:** id `'ducz'`, nome `'DUCZ Benefícios'`, código `'---'` (instituição de benefícios / despesas corporativas), cor institucional roxo/magenta (`#7B2CBF`) e suporte a fallback de iniciais caso o logo não esteja presente.
+  - Ambas as marcas são localizáveis por busca de texto na criação e edição de contas bancárias.
+  - A instituição permanece corretamente associada e exibida nos cards de conta, extrato e seletores mesmo após edição de apelido da conta.
+  - Permite que uma conta preexistente cadastrada como "Outra Instituição" seja reassociada à DUCZ Benefícios ou à Wise, preservando integralmente seu ID, saldo disponível, movimentações históricas e correções de abertura.
+
+- **AC-FIN-028 [Sininho de Notificações com Leitura e Dispensa Persistentes]:**
+  - O sistema implementa persistência de estado de alertas (`AlertState`) segregada por tupla `(user_id, space_id, alert_key)` na tabela `alert_states`.
+  - Ações disponíveis por alerta ativo no painel executivo:
+    - **Marcar como lido:** atualiza `read_at = now()`, mantendo o alerta consultável na lista ativa com estilo visual lido e decrementando o badge de notificações não lidas.
+    - **Dispensar:** atualiza `dismissed_at = now()`, removendo o alerta da lista ativa de notificações sem excluir nem afetar a obrigação financeira na agenda ou no extrato.
+  - O badge numérico do sininho na barra superior reflete estritamente o total de alertas ativos não dispensados e não lidos (`unread_active_count`), desaparecendo automaticamente quando a contagem atingir zero.
+  - Persistência granular: duas contas com vencimento na mesma data geram chaves de alerta distintas; dispensar uma mantém a outra ativa.
+  - Uma nova competência mensal de uma mesma conta recorrente possui identificador próprio e gera seu próprio alerta.
+  - Isolamento intransponível: estados de leitura e dispensa são estritamente isolados entre usuários e entre os espaços PF e PJ do mesmo usuário.
+
+---
+
 ## 3. Matriz de Rastreabilidade (Spec ↔ Código ↔ Testes)
 
 | Critério | Implementação Backend / Mobile | Testes Automatizados |
@@ -263,6 +308,10 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
 | **AC-PAY-CAT-001..006** | `PayableController.php`, `ChangeObligations.php`, `payable_modal.dart`, `payable_edit_screen.dart` | `PayableCategoryEditTest.php`, `payable_category_edit_widget_test.dart` |
 | **AC-PAY-INT-001..007** | `PayPayable.php`, `Payment.php`, `PaymentController.php`, `payable_modal.dart`, `payment_form_screen.dart` | `domain.php`, `PayableChargesAndDiscountsTest.php`, `payment_charges_widget_test.dart` |
 | **AC-FIN-024** | `payable_modal.dart`, `batch_payable_modal.dart`, `agreement_modal.dart`, `payment_form_screen.dart`, `receipt_form_screen.dart` | `payable_modal_test.dart`, `agreement_modal_test.dart`, `payables_test.dart`, `payable_charges_widget_test.dart` |
+| **AC-FIN-025** | `CreatePayable.php`, `GenerateObligations.php`, `PayableController.php` | `VariableRecurrenceTest.php` |
+| **AC-FIN-026** | `RegisterDirectExpense.php`, `PayableController.php`, `direct_expense_modal.dart` | `DirectExpenseTest.php` |
+| **AC-FIN-027** | `bank_catalog.dart`, `account_form_screen.dart`, `account_edit_screen.dart` | `bank_catalog_test.dart`, `account_form_test.dart` |
+| **AC-FIN-028** | `AlertState.php`, `AlertController.php`, `notifications_modal.dart` | `AlertsTest.php`, `notifications_modal_test.dart` |
 | **AC-UI-001** | `agreement_form_screen.dart`, `agreement_modal.dart`, `payable_modal.dart`, `payables_tab.dart` | `agreements_tab_test.dart`, `agreement_modal_test.dart`, `payable_modal_test.dart` |
 | **AC-UI-002** | `financial_search_bar.dart`, `payables_tab.dart`, `agreements_tab.dart`, `statement_tab.dart` | `financial_search_and_sort_test.dart`, `financial_agenda_test.dart` |
 | **AC-UI-003** | `FinancialPeriodBar`, `FinancialPeriodSelection` (suporte a `custom` e `showDateRangePicker`) | `financial_search_and_sort_test.dart`, `financial_agenda_test.dart` |

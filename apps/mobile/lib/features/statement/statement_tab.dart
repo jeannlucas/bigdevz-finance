@@ -11,6 +11,7 @@ import '../accounts/accounts_repository.dart';
 import '../auth/auth_models.dart';
 import '../categories/category_badge.dart';
 import '../categories/category_filter_chip.dart';
+import '../payables/direct_expense_modal.dart';
 import '../settings/preferences_controller.dart';
 import 'statement_entry.dart';
 import 'statement_repository.dart';
@@ -144,14 +145,58 @@ class _StatementTabState extends State<StatementTab> {
                               ),
                             ),
                             const Spacer(),
-                            if (_loading)
+                            Material(
+                              color: AppTokens.expense,
+                              borderRadius: BorderRadius.circular(AppTokens.r8),
+                              child: InkWell(
+                                onTap: () async {
+                                  await showDirectExpenseModal(
+                                    context,
+                                    space: widget.space,
+                                    preselectedAccountId: _selectedAccountId,
+                                  );
+                                  _load();
+                                },
+                                borderRadius: BorderRadius.circular(
+                                  AppTokens.r8,
+                                ),
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 7,
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.shopping_bag_outlined,
+                                        size: 15,
+                                        color: Colors.white,
+                                      ),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'Registrar despesa',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (_loading) ...[
+                              const SizedBox(width: 8),
                               const SizedBox(
-                                width: 20,
-                                height: 20,
+                                width: 18,
+                                height: 18,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
                                 ),
                               ),
+                            ],
                           ],
                         ),
                         const SizedBox(height: AppTokens.p12),

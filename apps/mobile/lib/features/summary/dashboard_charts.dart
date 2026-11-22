@@ -227,7 +227,7 @@ class BankDistributionDonutCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: positiveAccounts.map((account) {
-                      final bank = BankCatalog.findByAccountName(account.name);
+                      final bank = BankCatalog.resolveForAccount(account);
                       final color = bank?.color ?? AppTokens.brandPrimary;
                       final percent = totalPositiveCents > 0
                           ? (account.balance.cents * 100 / totalPositiveCents)
@@ -325,7 +325,7 @@ class _DonutChartPainter extends CustomPainter {
 
     for (final account in accounts) {
       final sweepAngle = (account.balance.cents / totalCents) * 2 * math.pi;
-      final bank = BankCatalog.findByAccountName(account.name);
+      final bank = BankCatalog.resolveForAccount(account);
       final color = bank?.color ?? AppTokens.brandPrimary;
 
       final paint = Paint()
@@ -647,6 +647,7 @@ class CategoryDistributionDonutCard extends StatefulWidget {
 class _CategoryDistributionDonutCardState
     extends State<CategoryDistributionDonutCard> {
   bool _showExpenses = true;
+  final Set<int> _expandedCategoryIds = {};
 
   @override
   Widget build(BuildContext context) {
@@ -678,37 +679,42 @@ class _CategoryDistributionDonutCardState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: AppTokens.brandPrimary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(AppTokens.r8),
-                ),
-                alignment: Alignment.center,
-                child: const Icon(
-                  Icons.pie_chart_rounded,
-                  size: 18,
-                  color: AppTokens.brandPrimary,
-                ),
-              ),
-              const SizedBox(width: AppTokens.p8),
-              Expanded(
-                child: Text(
-                  'Distribuição por Categoria',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: isDark
-                        ? AppTokens.darkTextPrimary
-                        : AppTokens.lightTextPrimary,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isCompact = constraints.maxWidth < 420;
+              final headerTitle = Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: AppTokens.brandPrimary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(AppTokens.r8),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.pie_chart_rounded,
+                      size: 18,
+                      color: AppTokens.brandPrimary,
+                    ),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              SegmentedButton<bool>(
+                  const SizedBox(width: AppTokens.p8),
+                  Expanded(
+                    child: Text(
+                      'Distribuição por Categoria',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: isDark
+                            ? AppTokens.darkTextPrimary
+                            : AppTokens.lightTextPrimary,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              );
+
+              final selector = SegmentedButton<bool>(
                 segments: const [
                   ButtonSegment<bool>(
                     value: true,
@@ -726,8 +732,27 @@ class _CategoryDistributionDonutCardState
                   visualDensity: VisualDensity.compact,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-              ),
-            ],
+              );
+
+              if (isCompact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    headerTitle,
+                    const SizedBox(height: AppTokens.p8),
+                    selector,
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: headerTitle),
+                  const SizedBox(width: AppTokens.p8),
+                  selector,
+                ],
+              );
+            },
           ),
           const SizedBox(height: AppTokens.p16),
           if (items.isEmpty || totalCents <= 0)
@@ -781,60 +806,182 @@ class _CategoryDistributionDonutCardState
                     final percent = totalCents > 0
                         ? (item.totalCents * 100 / totalCents).round()
                         : 0;
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 3.0),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 10,
-                            height: 10,
-                            decoration: BoxDecoration(
-                              color: item.colorValue,
-                              shape: BoxShape.circle,
+                    final hasComp = item.composition.isNotEmpty;
+                    final isExpanded = _expandedCategoryIds.contains(item.id);
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        InkWell(
+                          onTap: hasComp
+                              ? () => setState(() {
+                                  if (isExpanded) {
+                                    _expandedCategoryIds.remove(item.id);
+                                  } else {
+                                    _expandedCategoryIds.add(item.id);
+                                  }
+                                })
+                              : null,
+                          borderRadius: BorderRadius.circular(AppTokens.r8),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 3.0),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: BoxDecoration(
+                                    color: item.colorValue,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: AppTokens.p8),
+                                Icon(
+                                  Category.iconToMaterial(item.icon),
+                                  size: 14,
+                                  color: item.colorValue,
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          toFinancialUpper(item.name),
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                                color: isDark
+                                                    ? AppTokens.darkTextPrimary
+                                                    : AppTokens
+                                                          .lightTextPrimary,
+                                              ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (hasComp) ...[
+                                        const SizedBox(width: 4),
+                                        Icon(
+                                          isExpanded
+                                              ? Icons.expand_less_rounded
+                                              : Icons.expand_more_rounded,
+                                          size: 16,
+                                          color: theme
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: AppTokens.p8),
+                                Text(
+                                  '$percent%',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: isDark
+                                        ? AppTokens.darkTextSecondary
+                                        : AppTokens.lightTextSecondary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(width: AppTokens.p8),
+                                Text(
+                                  widget.obscure ? '••••' : item.total.brl,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: isDark
+                                        ? AppTokens.darkTextPrimary
+                                        : AppTokens.lightTextPrimary,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(width: AppTokens.p8),
-                          Icon(
-                            Category.iconToMaterial(item.icon),
-                            size: 14,
-                            color: item.colorValue,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              toFinancialUpper(item.name),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: isDark
-                                    ? AppTokens.darkTextPrimary
-                                    : AppTokens.lightTextPrimary,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                        ),
+
+                        // Detalhamento da composição da categoria principal
+                        if (hasComp && isExpanded)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 24, bottom: 4),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: item.composition.map((comp) {
+                                final compPercent = item.totalCents > 0
+                                    ? (comp.totalCents * 100 / item.totalCents)
+                                          .round()
+                                    : 0;
+                                final label = comp.isDirect
+                                    ? '${comp.name} (direto)'
+                                    : comp.name;
+
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 2.0,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.subdirectory_arrow_right_rounded,
+                                        size: 14,
+                                        color: theme.colorScheme.outline,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        Category.iconToMaterial(comp.icon),
+                                        size: 12,
+                                        color: comp.colorValue,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          toFinancialUpper(label),
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                                fontSize: 11,
+                                                color: isDark
+                                                    ? AppTokens
+                                                          .darkTextSecondary
+                                                    : AppTokens
+                                                          .lightTextSecondary,
+                                              ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      Text(
+                                        '$compPercent%',
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              fontSize: 10,
+                                              color: isDark
+                                                  ? AppTokens.darkTextSecondary
+                                                  : AppTokens
+                                                        .lightTextSecondary,
+                                            ),
+                                      ),
+                                      const SizedBox(width: AppTokens.p8),
+                                      Text(
+                                        widget.obscure
+                                            ? '••••'
+                                            : comp.total.brl,
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: isDark
+                                                  ? AppTokens.darkTextPrimary
+                                                  : AppTokens.lightTextPrimary,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
                             ),
                           ),
-                          const SizedBox(width: AppTokens.p8),
-                          Text(
-                            '$percent%',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: isDark
-                                  ? AppTokens.darkTextSecondary
-                                  : AppTokens.lightTextSecondary,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(width: AppTokens.p8),
-                          Text(
-                            widget.obscure ? '••••' : item.total.brl,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: isDark
-                                  ? AppTokens.darkTextPrimary
-                                  : AppTokens.lightTextPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
+                      ],
                     );
                   }).toList(),
                 );

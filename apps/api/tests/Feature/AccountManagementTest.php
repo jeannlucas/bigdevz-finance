@@ -75,6 +75,32 @@ class AccountManagementTest extends TestCase
         $this->assertSame(1, AccountMovement::query()->where('account_id', $this->a)->count());
     }
 
+    public function test_account_persists_bank_id_independently_of_name(): void
+    {
+        // 1. Cadastra conta Outro
+        $res = $this->api('POST', "/api/spaces/{$this->pf->id}/accounts", [
+            'name' => 'Cartão Despesas',
+            'opening_balance' => '500.00',
+            'opening_balance_date' => '2026-01-01',
+        ])->assertCreated();
+        $id = $res->json('data.id');
+
+        // 2. Reassocia para DUCZ Benefícios e define apelido customizado 'Benefícios da empresa'
+        $this->api('PATCH', "/api/spaces/{$this->pf->id}/accounts/{$id}", [
+            'name' => 'Benefícios da empresa',
+            'bank_id' => 'ducz',
+        ])->assertOk()
+            ->assertJsonPath('data.id', $id)
+            ->assertJsonPath('data.name', 'BENEFÍCIOS DA EMPRESA')
+            ->assertJsonPath('data.bank_id', 'ducz')
+            ->assertJsonPath('data.balance', '500.00');
+
+        // 3. Consulta e reabre a conta para garantir persistência no banco
+        $getRes = $this->api('GET', "/api/spaces/{$this->pf->id}/accounts/{$id}")->assertOk();
+        $this->assertSame('ducz', $getRes->json('data.bank_id'));
+        $this->assertSame('BENEFÍCIOS DA EMPRESA', $getRes->json('data.name'));
+    }
+
     public function test_other_users_and_spaces_cannot_touch_the_account(): void
     {
         $this->api('PATCH', "/api/spaces/{$this->pj->id}/accounts/{$this->a}", ['name' => 'Pelo PJ'])->assertNotFound();

@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class CategoryController extends Controller
 {
@@ -41,12 +42,33 @@ class CategoryController extends Controller
                 Rule::unique('categories')->where(fn ($query) => $query->where('space_id', $spaceModel->id)->where('type', $request->input('type'))),
             ],
             'type' => ['required', 'string', Rule::in([Category::TYPE_INCOME, Category::TYPE_EXPENSE])],
+            'parent_id' => ['nullable', 'integer'],
             'icon' => ['nullable', 'string', 'max:50'],
             'color' => ['nullable', 'string', 'max:10'],
         ]);
 
+        if (! empty($data['parent_id'])) {
+            $parent = $spaceModel->categories()->find($data['parent_id']);
+            if (! $parent) {
+                throw ValidationException::withMessages([
+                    'parent_id' => 'A categoria principal selecionada não existe no espaço.',
+                ]);
+            }
+            if ($parent->type !== $data['type']) {
+                throw ValidationException::withMessages([
+                    'parent_id' => 'A subcategoria deve ter o mesmo tipo da categoria principal.',
+                ]);
+            }
+            if ($parent->parent_id !== null) {
+                throw ValidationException::withMessages([
+                    'parent_id' => 'Não é permitido criar subcategorias com mais de um nível.',
+                ]);
+            }
+        }
+
         $category = Category::create([
             'space_id' => $spaceModel->id,
+            'parent_id' => $data['parent_id'] ?? null,
             'name' => $data['name'],
             'type' => $data['type'],
             'icon' => $data['icon'] ?? ($data['type'] === Category::TYPE_INCOME ? 'trending_up' : 'shopping_cart'),
@@ -79,9 +101,39 @@ class CategoryController extends Controller
                     ->where(fn ($query) => $query->where('space_id', $spaceModel->id)->where('type', $categoryModel->type))
                     ->ignore($categoryModel->id),
             ],
+            'parent_id' => ['nullable', 'integer'],
             'icon' => ['nullable', 'string', 'max:50'],
             'color' => ['nullable', 'string', 'max:10'],
         ]);
+
+        if (array_key_exists('parent_id', $data) && $data['parent_id'] !== null) {
+            if ((int) $data['parent_id'] === (int) $categoryModel->id) {
+                throw ValidationException::withMessages([
+                    'parent_id' => 'Uma categoria não pode ser subcategoria de si mesma.',
+                ]);
+            }
+            $parent = $spaceModel->categories()->find($data['parent_id']);
+            if (! $parent) {
+                throw ValidationException::withMessages([
+                    'parent_id' => 'A categoria principal selecionada não existe no espaço.',
+                ]);
+            }
+            if ($parent->type !== $categoryModel->type) {
+                throw ValidationException::withMessages([
+                    'parent_id' => 'A subcategoria deve ter o mesmo tipo da categoria principal.',
+                ]);
+            }
+            if ($parent->parent_id !== null) {
+                throw ValidationException::withMessages([
+                    'parent_id' => 'Não é permitido criar subcategorias com mais de um nível.',
+                ]);
+            }
+            if ($categoryModel->children()->exists()) {
+                throw ValidationException::withMessages([
+                    'parent_id' => 'Uma categoria que possui subcategorias não pode se tornar filha de outra.',
+                ]);
+            }
+        }
 
         $categoryModel->update($data);
 
@@ -99,6 +151,12 @@ class CategoryController extends Controller
         if ($categoryModel->is_default) {
             return response()->json([
                 'message' => 'Categorias padrão do sistema não podem ser excluídas.',
+            ], 422);
+        }
+
+        if ($categoryModel->children()->exists()) {
+            return response()->json([
+                'message' => 'Não é possível excluir uma categoria que possui subcategorias.',
             ], 422);
         }
 
