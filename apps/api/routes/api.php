@@ -100,6 +100,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/loans', [LoanController::class, 'store']);
         Route::get('/loans/{loan}', [LoanController::class, 'show']);
         Route::get('/agreements', [AgreementController::class, 'index']);
+        Route::post('/agreements/recurrence-preview', [AgreementController::class, 'recurrencePreview']);
         Route::post('/agreements', [AgreementController::class, 'store']);
         Route::get('/agreements/{agreement}', [AgreementController::class, 'show']);
         Route::patch('/agreements/{agreement}', [AgreementController::class, 'update']);

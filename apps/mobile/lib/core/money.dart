@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 class Money {
   const Money(this.cents);
 
+  static const Money zero = Money(0);
   static const int maxCents = 99999999999999;
   static final RegExp _api = RegExp(r'^(-?)(0|[1-9][0-9]*)\.([0-9]{2})$');
 

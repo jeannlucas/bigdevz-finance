@@ -29,6 +29,7 @@ class AccountEditScreen extends StatefulWidget {
 
 class _AccountEditScreenState extends State<AccountEditScreen> {
   final _form = GlobalKey<FormState>();
+  final _nameFocus = FocusNode();
   late final _name = TextEditingController(
     text: toFinancialUpper(widget.account.name),
   );
@@ -46,12 +47,19 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
 
   @override
   void dispose() {
+    _nameFocus.dispose();
     _name.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
-    if (_saving || !_form.currentState!.validate()) return;
+    if (_saving) return;
+    if (!_form.currentState!.validate()) {
+      if (_name.text.trim().isEmpty) {
+        focusAndEnsureVisible(_nameFocus);
+      }
+      return;
+    }
     setState(() {
       _saving = true;
       _error = null;
@@ -90,10 +98,11 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
               const SizedBox(height: 16),
             ],
             TextFormField(
+              focusNode: _nameFocus,
               controller: _name,
               inputFormatters: const [UpperCaseTextFormatter()],
               decoration: InputDecoration(
-                labelText: 'Nome da conta',
+                labelText: 'Nome da conta *',
                 errorText: fieldErrors['name'],
               ),
               textCapitalization: TextCapitalization.sentences,

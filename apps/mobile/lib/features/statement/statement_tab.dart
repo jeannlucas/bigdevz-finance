@@ -124,7 +124,7 @@ class _StatementTabState extends State<StatementTab> {
     return Scaffold(
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1040),
+          constraints: const BoxConstraints(maxWidth: 1280),
           child: RefreshIndicator(
             onRefresh: _load,
             child: CustomScrollView(

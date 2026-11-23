@@ -353,7 +353,7 @@ void main() {
         expect(find.text('Registrar pagamento'), findsNothing);
         await tapText(tester, 'Informar total da fatura');
         await tester.enterText(
-          find.widgetWithText(TextFormField, 'Total da fatura'),
+          find.widgetWithText(TextFormField, 'Total da fatura *'),
           '120000',
         );
         await tapText(tester, 'Salvar total');
@@ -385,18 +385,18 @@ void main() {
           tester,
           PayableFormScreen(space: pf, today: DateTime(2026, 3, 10)),
         );
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'Descrição *'),
+          'Notebook',
+        );
         await tapText(tester, 'Parcelada');
         await tapText(tester, 'Valor total');
         await tester.enterText(
-          find.widgetWithText(TextFormField, 'Descrição'),
-          'Notebook',
-        );
-        await tester.enterText(
-          find.widgetWithText(TextFormField, 'Valor total'),
+          find.widgetWithText(TextFormField, 'Valor total *'),
           '10000',
         );
         await tester.enterText(
-          find.widgetWithText(TextFormField, 'Número de parcelas'),
+          find.widgetWithText(TextFormField, 'Número de parcelas *'),
           '3',
         );
         await tester.pump();
@@ -418,7 +418,7 @@ void main() {
         // Sem resposta: a tela passa para a retomada, sem novo formulário.
         expect(find.text('Cadastro aguardando confirmação'), findsOneWidget);
         expect(find.textContaining('Sem conexão'), findsOneWidget);
-        expect(find.widgetWithText(TextFormField, 'Descrição'), findsNothing);
+        expect(find.widgetWithText(TextFormField, 'Descrição *'), findsNothing);
         await tapText(tester, 'Verificar cadastro');
 
         final creates = fake.writes
@@ -447,17 +447,17 @@ void main() {
         await tapText(tester, 'Parcelada');
 
         // Modo padrão é "Valor da parcela"
-        expect(find.text('Valor da parcela'), findsWidgets);
+        expect(find.text('Valor da parcela *'), findsWidgets);
         await tester.enterText(
-          find.widgetWithText(TextFormField, 'Descrição'),
+          find.widgetWithText(TextFormField, 'Descrição *'),
           'Financiamento 45x',
         );
         await tester.enterText(
-          find.widgetWithText(TextFormField, 'Valor da parcela'),
+          find.widgetWithText(TextFormField, 'Valor da parcela *'),
           '50502',
         );
         await tester.enterText(
-          find.widgetWithText(TextFormField, 'Número de parcelas'),
+          find.widgetWithText(TextFormField, 'Número de parcelas *'),
           '45',
         );
         await tester.pump();
@@ -628,7 +628,7 @@ void main() {
             await tester.tap(find.text('Parcelada'), warnIfMissed: false);
             await tester.pumpAndSettle();
             expect(tester.takeException(), isNull);
-            final parcelasFinder = find.text('Número de parcelas');
+            final parcelasFinder = find.text('Número de parcelas *');
             await tester.scrollUntilVisible(
               parcelasFinder,
               200,
@@ -865,7 +865,7 @@ void main() {
           await tester.pumpAndSettle();
 
           // 3. Rótulo "Primeiro vencimento" deve estar presente (não truncado com dia de ref dentro do rótulo)
-          final vencimentoFinder = find.text('Primeiro vencimento');
+          final vencimentoFinder = find.text('Primeiro vencimento *');
           await tester.scrollUntilVisible(
             vencimentoFinder,
             200,
@@ -983,7 +983,7 @@ void main() {
 
         // Digita descrição, beneficiário e valor em Avulsa
         await tester.enterText(
-          find.widgetWithText(TextFormField, 'Descrição'),
+          find.widgetWithText(TextFormField, 'Descrição *'),
           'Assinatura de Software',
         );
         await tester.enterText(
@@ -991,7 +991,7 @@ void main() {
           'Empresa SaaS LTDA',
         );
         await tester.enterText(
-          find.widgetWithText(TextFormField, 'Valor'),
+          find.widgetWithText(TextFormField, 'Valor *'),
           '15000',
         );
         await tester.pump();
@@ -1000,7 +1000,10 @@ void main() {
         await tester.tap(find.text('Parcelada'));
         await tester.pumpAndSettle();
 
-        expect(find.widgetWithText(TextFormField, 'Descrição'), findsOneWidget);
+        expect(
+          find.widgetWithText(TextFormField, 'Descrição *'),
+          findsOneWidget,
+        );
         expect(find.text('ASSINATURA DE SOFTWARE'), findsOneWidget);
         expect(find.text('EMPRESA SAAS LTDA'), findsOneWidget);
         expect(find.text('150,00'), findsOneWidget);

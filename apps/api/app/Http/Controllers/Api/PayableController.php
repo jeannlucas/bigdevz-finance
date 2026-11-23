@@ -7,6 +7,7 @@ use App\Actions\Payables\CreatePayable;
 use App\Actions\Payables\GenerateObligations;
 use App\Actions\Payables\RegisterDirectExpense;
 use App\Actions\Receivables\IdempotentOperations;
+use App\Domain\Payables\NationalBankCalendar;
 use App\Domain\Receivables\Money;
 use App\Http\Controllers\Api\Concerns\HandlesIdempotency;
 use App\Http\Controllers\Controller;
@@ -22,6 +23,8 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 
 /** Obrigações a pagar do espaço: lista, detalhe, cadastro, edição e cancelamento. */
 class PayableController extends Controller
@@ -73,9 +76,22 @@ class PayableController extends Controller
             'total' => ['required', new MoneyAmount],
             'installment_count' => ['required', 'integer', 'min:1', 'max:1200'],
             'first_due_date' => ['required', 'date_format:Y-m-d'],
+            'suggest_next_bank_day' => ['sometimes', 'boolean'],
         ]);
 
-        return response()->json(['data' => CreatePayable::schedule($data['total'], (int) $data['installment_count'], $data['first_due_date'])]);
+        $schedule = CreatePayable::schedule($data['total'], (int) $data['installment_count'], $data['first_due_date']);
+        if ($data['suggest_next_bank_day'] ?? false) {
+            try {
+                foreach ($schedule as &$installment) {
+                    $installment['due_date'] = NationalBankCalendar::onOrAfter($installment['due_date']);
+                }
+                unset($installment);
+            } catch (InvalidArgumentException $error) {
+                throw ValidationException::withMessages(['first_due_date' => $error->getMessage()]);
+            }
+        }
+
+        return response()->json(['data' => $schedule]);
     }
 
     public function store(Request $request, string $space, CreatePayable $create, IdempotentOperations $keys): JsonResponse
@@ -105,6 +121,10 @@ class PayableController extends Controller
                 'total' => ['required', new MoneyAmount],
                 'installment_count' => ['required', 'integer', 'min:1', 'max:1200'],
                 'first_due_date' => ['required', 'date_format:Y-m-d'],
+                'installments' => ['nullable', 'array'],
+                'installments.*.number' => ['required_with:installments', 'integer', 'min:1'],
+                'installments.*.amount' => ['required_with:installments', new MoneyAmount],
+                'installments.*.due_date' => ['required_with:installments', 'date_format:Y-m-d'],
             ]],
             'recurring' => [IdempotentOperations::RECURRENCE, $common + [
                 'is_variable' => ['nullable', 'boolean'],
@@ -130,6 +150,70 @@ class PayableController extends Controller
         $raw = $request->only($fields) + ['kind' => $kind];
         $fingerprint = CreatePayable::fingerprint($operation, $space, $raw);
         $validator = Validator::make($request->all(), $rules);
+
+        if ($kind === 'installment') {
+            $validator->after(function ($v) use ($request) {
+                $installments = $request->input('installments');
+                if (! is_array($installments) || empty($installments)) {
+                    return;
+                }
+                $count = (int) $request->input('installment_count');
+                if (count($installments) !== $count) {
+                    $v->errors()->add('installments', 'A quantidade de parcelas informadas diverge de installment_count.');
+
+                    return;
+                }
+                $expectedNumber = 1;
+                $prevDate = null;
+                $sumCents = 0;
+                $firstDueDate = (string) $request->input('first_due_date');
+
+                foreach ($installments as $inst) {
+                    if (! is_array($inst)) {
+                        $v->errors()->add('installments', 'Formato de parcela inválido.');
+
+                        return;
+                    }
+                    $num = (int) ($inst['number'] ?? 0);
+                    if ($num !== $expectedNumber) {
+                        $v->errors()->add('installments', 'A numeração das parcelas deve ser sequencial de 1 a '.$count.'.');
+
+                        return;
+                    }
+                    $expectedNumber++;
+
+                    $dueDate = (string) ($inst['due_date'] ?? '');
+                    if ($num === 1 && $dueDate !== $firstDueDate) {
+                        $v->errors()->add('first_due_date', 'O primeiro vencimento deve coincidir com a data da primeira parcela.');
+                    }
+                    if ($prevDate !== null && $dueDate < $prevDate) {
+                        $v->errors()->add('installments', 'As parcelas devem estar em ordem cronológica de vencimento.');
+
+                        return;
+                    }
+                    $prevDate = $dueDate;
+
+                    try {
+                        $sumCents += Money::toCents((string) ($inst['amount'] ?? ''));
+                    } catch (\Throwable) {
+                        // Regra MoneyAmount já valida formato e limite de valores
+                    }
+                }
+
+                $totalStr = (string) $request->input('total');
+                try {
+                    $totalCents = Money::toCents($totalStr);
+                    if ($sumCents !== $totalCents) {
+                        $formattedSum = Money::fromCents($sumCents);
+                        $formattedTotal = Money::fromCents($totalCents);
+                        $v->errors()->add('total', "A soma das parcelas (R$ {$formattedSum}) diverge do total informado (R$ {$formattedTotal}).");
+                    }
+                } catch (\Throwable) {
+                    // Regra MoneyAmount já valida total
+                }
+            });
+        }
+
         if ($validator->fails()) {
             return $this->rejection($key, $keys->reject($request->user(), $space, $key, $operation, $fingerprint, $validator->errors()->toArray()));
         }
@@ -250,10 +334,12 @@ class PayableController extends Controller
             'count' => count($plan),
             'past_count' => $past['count'],
             'past_total' => Money::formatAggregate($past['total_cents']),
-            'total' => Money::formatAggregate(count($plan) * $amount),
+            'total' => Money::formatAggregate($isVariable ? $amount : count($plan) * $amount),
             'is_variable' => $isVariable,
             'items' => array_map(static fn (array $cycle) => $cycle + [
-                'amount' => $isVariable && (! isset($data['amount']) || $data['amount'] === null) ? null : Money::fromCents($amount),
+                'amount' => $isVariable
+                    ? ($cycle['due_date'] === $data['start_date'] && isset($data['amount']) && $data['amount'] !== null ? Money::fromCents($amount) : null)
+                    : Money::fromCents($amount),
                 'past' => $cycle['due_date'] < $today,
                 'is_variable' => $isVariable,
             ], array_slice($plan, 0, CreatePayable::PREVIEW_ITEMS)),

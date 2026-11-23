@@ -14,15 +14,19 @@ class Installment extends Model
 
     public const PAID = 'paid';
 
-    protected $fillable = ['space_id', 'number', 'amount_cents', 'received_cents', 'due_date'];
+    public const AWAITING_AMOUNT = 'awaiting_amount';
+
+    protected $fillable = ['space_id', 'number', 'amount_cents', 'estimated_amount_cents', 'received_cents', 'due_date', 'cycle'];
 
     protected function casts(): array
     {
         return [
             'number' => 'integer',
             'amount_cents' => 'integer',
+            'estimated_amount_cents' => 'integer',
             'received_cents' => 'integer',
             'due_date' => 'date:Y-m-d',
+            'cycle' => 'date:Y-m-d',
         ];
     }
 
@@ -38,14 +42,15 @@ class Installment extends Model
         return $this->hasMany(Receipt::class)->orderBy('received_on')->orderBy('id');
     }
 
-    public function remainingCents(): int
+    public function remainingCents(): ?int
     {
-        return $this->amount_cents - $this->received_cents;
+        return $this->amount_cents === null ? null : $this->amount_cents - $this->received_cents;
     }
 
     public function status(): string
     {
         return match (true) {
+            $this->amount_cents === null => self::AWAITING_AMOUNT,
             $this->received_cents === $this->amount_cents => self::PAID,
             $this->received_cents > 0 => self::PARTIAL,
             default => self::PENDING,
@@ -55,7 +60,8 @@ class Installment extends Model
     /** Vencida: há saldo pendente e o vencimento já passou no fuso do produto. */
     public function isOverdue(): bool
     {
-        return $this->remainingCents() > 0
+        return $this->amount_cents !== null
+            && ($this->remainingCents() ?? 0) > 0
             && $this->due_date->toDateString() < now(config('finance.timezone'))->toDateString();
     }
 }

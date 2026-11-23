@@ -55,7 +55,7 @@ void main() {
 
         expect(find.text('MORADIA'), findsOneWidget);
         expect(find.text('MORADIA > ENERGIA'), findsOneWidget);
-        expect(find.byIcon(Icons.bolt_rounded), findsNWidgets(2));
+        expect(find.byIcon(Icons.bolt), findsNWidgets(2));
         expect(tester.takeException(), isNull);
       }
     });

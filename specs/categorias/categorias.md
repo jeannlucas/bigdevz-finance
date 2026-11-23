@@ -83,6 +83,18 @@ A capability **Categorias Financeiras** permite a classificação semântica de 
   - Fallback gracioso para categorias antigas ou identificadores desconhecidos sem estourar erros.
   - Contraste verificado nos temas claro e escuro (inclusive para âmbar sobre fundo claro).
 
+- **AC-CAT-011 [Renderização Universal de Glifos no Flutter Web e Visibilidade Completa do Seletor]:**
+  - O catálogo `CategoryStyleCatalog` DEVE utilizar os identificadores da família universal clássica do Material Icons (`Icons.home`, `Icons.bolt`, `Icons.water_drop`, `Icons.shopping_cart`, `Icons.restaurant`, `Icons.directions_car`, `Icons.medical_services`, `Icons.groups`, `Icons.description`, `Icons.computer`, etc.), garantindo que todos os 20 glifos sejam preservados e renderizados sem falhas no bundle compilado do Flutter Web sob tree-shaking em navegadores desktop e mobile.
+  - O seletor visual `CategoryIconColorPicker` DEVE renderizar os itens do grid com dimensão vertical padronizada (`mainAxisExtent: 52`), garantindo visibilidade clara, alvos de toque acessíveis e scrollbar visível quando necessário, sem cortar a segunda fileira ou esconder ícones do usuário.
+  - Preservação estrita dos identificadores estáveis (`id`), das cores padrão hexadecimais e dos mapeamentos legados no backend e no frontend.
+
+- **AC-CAT-012 [Hierarquia em Árvore, Agrupamento Pai/Filho e Destaque Visual no Seletor de Categorias]:**
+  - **Agrupamento e Ordenação em Árvore:** As categorias pai (`parentId == null`) DEVEM ser exibidas em ordem alfabética de seus nomes. Imediatamente abaixo de cada categoria pai, DEVEM ser listadas todas as suas subcategorias filhas (`parentId == parent.id`), também ordenadas alfabeticamente pelo nome próprio. Categorias órfãs ou sem pai identificado no conjunto são agrupadas ordenadamente ao final sem provocar quebra.
+  - **Hierarquia Visual no Menu Aberto:** Categorias pai são exibidas com estilo de destaque de cabeçalho de grupo (sem recuo, 0 px). As subcategorias filhas são exibidas com recuo visual padronizado de 20 px e exibem apenas o seu nome próprio (`cat.name`) com indicador sutil de hierarquia (`↳ `), sem poluir a interface repetindo o nome do pai.
+  - **Desambiguação e Integridade de Seleção:** Tanto categorias pai quanto subcategorias filhas mantêm-se selecionáveis. Subcategorias homônimas (mesmo nome sob pais diferentes) são facilmente distinguíveis pela posição debaixo de seus respectivos pais e sua seleção grava estritamente o `id` da entidade selecionada.
+  - **Destaque do Nome Próprio no Campo Fechado:** Ao fechar o seletor com uma subcategoria selecionada, o nome dela recebe destaque visual prioritário no campo fechado e o nome da categoria pai aparece como informação contextual secundária (`NOME DA FILHA • Nome do Pai`), evitando o truncamento precoce com reticências em nomes longos e telas estreitas.
+  - **Preservação de Registros Existentes e Filtros:** Ao reabrir formulários financeiros com categoria preexistente selecionada, o valor selecionado é preservado e exibido corretamente. A opção "Sem categoria" permanece no topo da lista. O filtro de tipo (`income`/`expense`) permanece estritamente isolado.
+
 ---
 
 ## 3. Matriz de Rastreabilidade (Spec ↔ Código ↔ Testes)
@@ -98,4 +110,6 @@ A capability **Categorias Financeiras** permite a classificação semântica de 
 | **AC-CAT-007** | `Category.php`, migration `parent_id`, `CategoryController` | `SubcategoriesTest.php` |
 | **AC-CAT-008** | Validações em `CategoryController` (ciclo/nível) | `SubcategoriesTest.php` |
 | **AC-CAT-009** | `SpaceController::expenseCategoriesSummary`, Flutter summary | `SubcategoriesTest.php`, `summary_test.dart` |
-| **AC-CAT-010** | `category_style_catalog.dart`, `CategoryIconColorPicker` | `category_icon_color_picker_test.dart` |
+| **AC-CAT-010** | `category_style_catalog.dart`, `CategoryIconColorPicker` | `categories_and_subcategories_test.dart`, `category_icon_color_picker_test.dart` |
+| **AC-CAT-011** | `category_style_catalog.dart`, `CategoryIconColorPicker` | `category_style_catalog_web_test.dart` |
+| **AC-CAT-012** | `category_picker_field.dart` | `category_picker_hierarchy_test.dart` |

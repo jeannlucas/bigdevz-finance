@@ -33,6 +33,10 @@ class PayableEditScreen extends StatefulWidget {
 
 class _PayableEditScreenState extends State<PayableEditScreen> {
   final _form = GlobalKey<FormState>();
+  final _descriptionFocus = FocusNode();
+  final _amountFocus = FocusNode();
+  final _descriptionKey = GlobalKey();
+  final _amountKey = GlobalKey();
   late final _description = TextEditingController(
     text: toFinancialUpper(widget.payable.description),
   );
@@ -52,6 +56,8 @@ class _PayableEditScreenState extends State<PayableEditScreen> {
 
   @override
   void dispose() {
+    _descriptionFocus.dispose();
+    _amountFocus.dispose();
     for (final controller in [_description, _payee, _amount, _reason]) {
       controller.dispose();
     }
@@ -59,7 +65,26 @@ class _PayableEditScreenState extends State<PayableEditScreen> {
   }
 
   Future<void> _save() async {
-    if (_saving || !_form.currentState!.validate()) return;
+    if (_saving) return;
+    if (!_form.currentState!.validate()) {
+      if (!widget.payable.isCardBill && _description.text.trim().isEmpty) {
+        focusAndEnsureVisible(
+          _descriptionFocus,
+          context: _descriptionKey.currentContext,
+        );
+      } else {
+        final amount = Money.fromInput(_amount.text);
+        if (amount == null ||
+            amount.isZero ||
+            amount.cents < widget.payable.paid.cents) {
+          focusAndEnsureVisible(
+            _amountFocus,
+            context: _amountKey.currentContext,
+          );
+        }
+      }
+      return;
+    }
 
     final newDesc = _description.text.trim();
     final newPayee = _payee.text.trim();
@@ -186,10 +211,12 @@ class _PayableEditScreenState extends State<PayableEditScreen> {
             ],
             if (!payable.isCardBill) ...[
               TextFormField(
+                key: _descriptionKey,
+                focusNode: _descriptionFocus,
                 controller: _description,
                 inputFormatters: const [UpperCaseTextFormatter()],
                 decoration: InputDecoration(
-                  labelText: 'Descrição',
+                  labelText: 'Descrição *',
                   errorText: fieldErrors['description'],
                 ),
                 maxLength: 120,
@@ -207,9 +234,11 @@ class _PayableEditScreenState extends State<PayableEditScreen> {
               ),
             ],
             TextFormField(
+              key: _amountKey,
+              focusNode: _amountFocus,
               controller: _amount,
               decoration: InputDecoration(
-                labelText: payable.isCardBill ? 'Total da fatura' : 'Valor',
+                labelText: payable.isCardBill ? 'Total da fatura *' : 'Valor *',
                 prefixText: r'R$ ',
                 helperText: payable.paid.isZero
                     ? null
@@ -229,7 +258,7 @@ class _PayableEditScreenState extends State<PayableEditScreen> {
             ),
             const SizedBox(height: 16),
             DateField(
-              label: 'Vencimento',
+              label: 'Vencimento *',
               value: _due,
               lastDate: DateTime(2100),
               errorText: fieldErrors['due_date'],
@@ -246,7 +275,7 @@ class _PayableEditScreenState extends State<PayableEditScreen> {
             TextFormField(
               controller: _reason,
               decoration: const InputDecoration(
-                labelText: 'Motivo (opcional, fica no histórico)',
+                labelText: 'Motivo da alteração (opcional)',
               ),
               maxLength: 500,
             ),

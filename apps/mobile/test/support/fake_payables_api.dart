@@ -274,15 +274,33 @@ class FakePayablesApi {
     final total = body['kind'] == 'recurring'
         ? _cents(body['amount'] as String) * count
         : _cents((body['total'] ?? body['amount']) as String);
-    for (var i = 0; i < count; i++) {
-      final item = FakePayable(
-        _nextPayable++,
-        body['description'] as String,
-        total ~/ count + (i < total % count ? 1 : 0),
-        kind: body['kind'] as String,
-      );
-      payables[item.id] = item;
-      created.add(item);
+    final customInstallments = body['installments'] as List?;
+    if (customInstallments != null && customInstallments.isNotEmpty) {
+      for (final raw in customInstallments) {
+        final itemMap = raw as Map<String, dynamic>;
+        final item = FakePayable(
+          _nextPayable++,
+          body['description'] as String,
+          _cents(itemMap['amount'] as String),
+          kind: 'installment',
+        );
+        if (itemMap['due_date'] != null) {
+          item.dueDate = itemMap['due_date'] as String;
+        }
+        payables[item.id] = item;
+        created.add(item);
+      }
+    } else {
+      for (var i = 0; i < count; i++) {
+        final item = FakePayable(
+          _nextPayable++,
+          body['description'] as String,
+          total ~/ count + (i < total % count ? 1 : 0),
+          kind: body['kind'] as String,
+        );
+        payables[item.id] = item;
+        created.add(item);
+      }
     }
     return (
       201,

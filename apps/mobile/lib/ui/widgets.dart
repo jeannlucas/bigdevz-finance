@@ -444,3 +444,21 @@ class AccessibleFieldWrapper extends StatelessWidget {
     );
   }
 }
+
+/// Rola suavemente até o contexto do widget informado e requisita o foco.
+void focusAndEnsureVisible(
+  FocusNode focusNode, {
+  BuildContext? context,
+  double alignment = 0.1,
+}) {
+  focusNode.requestFocus();
+  final targetContext = context ?? focusNode.context;
+  if (targetContext != null) {
+    Scrollable.ensureVisible(
+      targetContext,
+      alignment: alignment,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+}

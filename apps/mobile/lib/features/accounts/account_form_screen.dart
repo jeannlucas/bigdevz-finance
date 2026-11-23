@@ -119,6 +119,10 @@ class AccountFormScreen extends StatefulWidget {
 class _AccountFormScreenState extends State<AccountFormScreen> {
   final _pageController = PageController();
   final _form = GlobalKey<FormState>();
+  final _nameFocus = FocusNode();
+  final _balanceFocus = FocusNode();
+  final _nameKey = GlobalKey();
+  final _balanceKey = GlobalKey();
   final _name = TextEditingController();
   final _balance = TextEditingController(text: '0,00');
   final _searchController = TextEditingController();
@@ -143,6 +147,8 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
 
   @override
   void dispose() {
+    _nameFocus.dispose();
+    _balanceFocus.dispose();
     _pageController.dispose();
     _name.dispose();
     _balance.dispose();
@@ -198,7 +204,18 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
   }
 
   Future<void> _save() async {
-    if (_saving || !_form.currentState!.validate()) return;
+    if (_saving) return;
+    if (!_form.currentState!.validate()) {
+      if (_name.text.trim().isEmpty) {
+        focusAndEnsureVisible(_nameFocus, context: _nameKey.currentContext);
+      } else if (Money.fromInput(_balance.text) == null) {
+        focusAndEnsureVisible(
+          _balanceFocus,
+          context: _balanceKey.currentContext,
+        );
+      }
+      return;
+    }
     setState(() {
       _saving = true;
       _error = null;
@@ -689,10 +706,11 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
           // Nome da conta personalizável
           TextFormField(
             key: const ValueKey('account_name_field'),
+            focusNode: _nameFocus,
             controller: _name,
             inputFormatters: const [UpperCaseTextFormatter()],
             decoration: InputDecoration(
-              labelText: 'Nome de exibição da conta',
+              labelText: 'Nome de exibição da conta *',
               hintText: 'Ex.: Banco do Brasil - Corrente',
               errorText: fieldErrors['name'],
               prefixIcon: _selectedBank != null
@@ -716,9 +734,11 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
 
           // Saldo Inicial
           TextFormField(
+            key: _balanceKey,
+            focusNode: _balanceFocus,
             controller: _balance,
             decoration: InputDecoration(
-              labelText: 'Saldo inicial / atual',
+              labelText: 'Saldo inicial / atual *',
               prefixText: r'R$ ',
               errorText: fieldErrors['opening_balance'],
             ),
@@ -732,7 +752,7 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
 
           // Data de abertura
           DateField(
-            label: 'Data de referência do saldo',
+            label: 'Data de referência do saldo *',
             value: _date,
             lastDate: DateTime(2100),
             errorText: fieldErrors['opening_balance_date'],
