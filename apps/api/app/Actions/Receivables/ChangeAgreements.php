@@ -49,6 +49,12 @@ class ChangeAgreements
                 || array_key_exists('first_due_date', $data);
 
             if ($reschedule) {
+                if ($agreement->isRecurring()) {
+                    throw ValidationException::withMessages([
+                        'agreement' => 'Receitas recorrentes não podem ser recalculadas como parcelamentos.',
+                    ]);
+                }
+
                 $receivedCents = (int) $agreement->installments()->sum('received_cents');
                 if ($receivedCents > 0) {
                     throw ValidationException::withMessages([

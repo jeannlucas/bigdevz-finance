@@ -56,7 +56,7 @@ class _CategoryIconColorPickerState extends State<CategoryIconColorPicker> {
         ),
         const SizedBox(height: 8),
         Container(
-          height: 160,
+          height: 248,
           decoration: BoxDecoration(
             color: isDark
                 ? theme.colorScheme.surfaceContainerHighest.withValues(
@@ -68,73 +68,76 @@ class _CategoryIconColorPickerState extends State<CategoryIconColorPicker> {
               color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
             ),
           ),
-          child: GridView.builder(
-            padding: const EdgeInsets.all(8),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 5,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-              childAspectRatio: 1.0,
-            ),
-            itemCount: CategoryStyleCatalog.icons.length,
-            itemBuilder: (context, index) {
-              final info = CategoryStyleCatalog.icons[index];
-              final isSelected = widget.selectedIcon == info.id;
-              final iconColor = CategoryStyleCatalog.colorFromHex(
-                info.defaultColorHex,
-              );
+          child: Scrollbar(
+            thumbVisibility: true,
+            child: GridView.builder(
+              padding: const EdgeInsets.all(8),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 5,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                mainAxisExtent: 52,
+              ),
+              itemCount: CategoryStyleCatalog.icons.length,
+              itemBuilder: (context, index) {
+                final info = CategoryStyleCatalog.icons[index];
+                final isSelected = widget.selectedIcon == info.id;
+                final iconColor = CategoryStyleCatalog.colorFromHex(
+                  info.defaultColorHex,
+                );
 
-              return Tooltip(
-                message: info.label,
-                child: InkWell(
-                  onTap: () {
-                    widget.onIconChanged(info.id);
-                    // Preenche automaticamente a cor padrão caso o usuário não tenha escolhido uma customizada
-                    if (!_customColorPicked) {
-                      widget.onColorChanged(info.defaultColorHex);
-                    }
-                  },
-                  borderRadius: BorderRadius.circular(AppTokens.r8),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? theme.colorScheme.primaryContainer
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(AppTokens.r8),
-                      border: Border.all(
+                return Tooltip(
+                  message: info.label,
+                  child: InkWell(
+                    onTap: () {
+                      widget.onIconChanged(info.id);
+                      // Preenche automaticamente a cor padrão caso o usuário não tenha escolhido uma customizada
+                      if (!_customColorPicked) {
+                        widget.onColorChanged(info.defaultColorHex);
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(AppTokens.r8),
+                    child: Container(
+                      decoration: BoxDecoration(
                         color: isSelected
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.outlineVariant.withValues(
-                                alpha: 0.3,
-                              ),
-                        width: isSelected ? 2 : 1,
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          info.iconData,
-                          size: 22,
+                            ? theme.colorScheme.primaryContainer
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(AppTokens.r8),
+                        border: Border.all(
                           color: isSelected
                               ? theme.colorScheme.primary
-                              : iconColor,
+                              : theme.colorScheme.outlineVariant.withValues(
+                                  alpha: 0.3,
+                                ),
+                          width: isSelected ? 2 : 1,
                         ),
-                        const SizedBox(height: 2),
-                        Container(
-                          width: 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: iconColor,
-                            shape: BoxShape.circle,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            info.iconData,
+                            size: 22,
+                            color: isSelected
+                                ? theme.colorScheme.primary
+                                : iconColor,
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 2),
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: iconColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
         const SizedBox(height: 16),

@@ -83,10 +83,11 @@ class _ReceiptFormScreenState extends State<ReceiptFormScreen> {
       _error = null;
       _localError = null;
       _draft = ReceiptDraft(
-        kind: _kind!,
+        kind: widget.installment.isAwaitingAmount ? ReceiptKind.total : _kind!,
         accountId: account.id,
         accountName: account.name,
-        amount: _kind == ReceiptKind.total
+        amount:
+            _kind == ReceiptKind.total && !widget.installment.isAwaitingAmount
             ? _remaining
             : Money.fromInput(_amount.text)!,
         receivedOn: toApiDate(_date),
@@ -263,7 +264,7 @@ class _ReceiptFormScreenState extends State<ReceiptFormScreen> {
               Text(
                 'Parcela ${installment.number}${installment.installmentCount != null ? '/${installment.installmentCount}' : ''}'
                 '${installment.agreementDescription != null ? ' · ${toFinancialUpper(installment.agreementDescription!)}' : ''}\n'
-                'Falta receber ${installment.remaining.brl}',
+                '${installment.isAwaitingAmount ? 'Aguardando valor' : 'Falta receber ${installment.remaining.brl}'}',
                 style: theme.textTheme.bodyMedium,
               ),
               const SizedBox(height: 20),
@@ -291,12 +292,14 @@ class _ReceiptFormScreenState extends State<ReceiptFormScreen> {
                 onChanged: (value) => setState(() => _accountId = value),
               ),
               const SizedBox(height: 16),
-              ReceiptKindField(
-                initialValue: _kind,
-                onChanged: (kind) => setState(() => _kind = kind),
-              ),
-              const SizedBox(height: 16),
-              if (_kind == ReceiptKind.total)
+              if (!installment.isAwaitingAmount) ...[
+                ReceiptKindField(
+                  initialValue: _kind,
+                  onChanged: (kind) => setState(() => _kind = kind),
+                ),
+                const SizedBox(height: 16),
+              ],
+              if (_kind == ReceiptKind.total && !installment.isAwaitingAmount)
                 InputDecorator(
                   decoration: InputDecoration(
                     labelText: 'Valor recebido',
@@ -305,13 +308,16 @@ class _ReceiptFormScreenState extends State<ReceiptFormScreen> {
                   ),
                   child: MoneyText(_remaining),
                 )
-              else if (_kind == ReceiptKind.partial)
+              else if (_kind == ReceiptKind.partial ||
+                  installment.isAwaitingAmount)
                 TextFormField(
                   controller: _amount,
                   decoration: InputDecoration(
                     labelText: 'Valor recebido',
                     prefixText: r'R$ ',
-                    helperText: 'Menor que o valor que falta na parcela.',
+                    helperText: installment.isAwaitingAmount
+                        ? 'O valor será confirmado neste recebimento.'
+                        : 'Menor que o valor que falta na parcela.',
                     errorText: fieldErrors['amount'],
                   ),
                   keyboardType: TextInputType.number,
@@ -321,6 +327,7 @@ class _ReceiptFormScreenState extends State<ReceiptFormScreen> {
                     if (amount == null || amount.isZero) {
                       return 'Informe o valor recebido.';
                     }
+                    if (installment.isAwaitingAmount) return null;
                     if (amount.cents == _remaining.cents) {
                       return 'Esse é o valor integral da parcela: escolha Total.';
                     }

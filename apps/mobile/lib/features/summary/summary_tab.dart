@@ -73,15 +73,16 @@ class _SummaryTabState extends State<SummaryTab> {
         final theme = Theme.of(context);
         final isDark = theme.brightness == Brightness.dark;
         final space = widget.space;
+        final isDesktop = MediaQuery.sizeOf(context).width >= 840;
 
         return RefreshIndicator(
           onRefresh: refresh,
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1040),
+              constraints: const BoxConstraints(maxWidth: 1280),
               child: ListView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppTokens.p16,
+                padding: EdgeInsets.symmetric(
+                  horizontal: isDesktop ? AppTokens.p24 : AppTokens.p16,
                   vertical: AppTokens.p16,
                 ),
                 children: [
@@ -180,28 +181,62 @@ class _SummaryTabState extends State<SummaryTab> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  _ModernPayablesCard(
-                    payables: summary.payables,
-                    obscure: obscureBalance,
-                    isDark: isDark,
-                    onTap: () => widget.onOpenTab(2),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Card de Acesso à Carteira de Contas
-                  _AccountsAccessCard(
-                    accountsCount: summary.accountsCount,
-                    archivedCount: summary.archivedAccountsCount,
-                    isDark: isDark,
-                    space: space,
-                    onTap: () {
-                      if (summary.accountsCount == 0) {
-                        showAccountFormModal(context, space: space);
-                      } else {
-                        widget.onOpenTab(3);
-                      }
-                    },
-                  ),
+                  if (isDesktop)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _ModernPayablesCard(
+                            key: const ValueKey('summary_modern_payables_card'),
+                            payables: summary.payables,
+                            obscure: obscureBalance,
+                            isDark: isDark,
+                            onTap: () => widget.onOpenTab(2),
+                          ),
+                        ),
+                        const SizedBox(width: AppTokens.p16),
+                        Expanded(
+                          child: _AccountsAccessCard(
+                            key: const ValueKey('summary_accounts_access_card'),
+                            accountsCount: summary.accountsCount,
+                            archivedCount: summary.archivedAccountsCount,
+                            isDark: isDark,
+                            space: space,
+                            onTap: () {
+                              if (summary.accountsCount == 0) {
+                                showAccountFormModal(context, space: space);
+                              } else {
+                                widget.onOpenTab(3);
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    )
+                  else ...[
+                    _ModernPayablesCard(
+                      key: const ValueKey('summary_modern_payables_card'),
+                      payables: summary.payables,
+                      obscure: obscureBalance,
+                      isDark: isDark,
+                      onTap: () => widget.onOpenTab(2),
+                    ),
+                    const SizedBox(height: 20),
+                    _AccountsAccessCard(
+                      key: const ValueKey('summary_accounts_access_card'),
+                      accountsCount: summary.accountsCount,
+                      archivedCount: summary.archivedAccountsCount,
+                      isDark: isDark,
+                      space: space,
+                      onTap: () {
+                        if (summary.accountsCount == 0) {
+                          showAccountFormModal(context, space: space);
+                        } else {
+                          widget.onOpenTab(3);
+                        }
+                      },
+                    ),
+                  ],
                   const SizedBox(height: 20),
 
                   // Gráficos e Inteligência Visual Executiva (Donut de Bancos + Fluxo de Caixa)
@@ -523,6 +558,7 @@ class _QuickActionsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDesktop = MediaQuery.sizeOf(context).width >= 840;
 
     return Column(
       children: [
@@ -560,20 +596,55 @@ class _QuickActionsSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 10),
-        OutlinedButton.icon(
-          onPressed: () => showDirectExpenseModal(context, space: space),
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(40),
-            side: BorderSide(color: AppTokens.expense.withValues(alpha: 0.4)),
-            foregroundColor: isDark ? Colors.white : AppTokens.expense,
+        if (isDesktop)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: FilledButton.tonalIcon(
+                key: const ValueKey('summary_direct_expense_button'),
+                onPressed: () => showDirectExpenseModal(context, space: space),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(0, 40),
+                  backgroundColor: AppTokens.expense.withValues(
+                    alpha: isDark ? 0.22 : 0.12,
+                  ),
+                  foregroundColor: isDark
+                      ? const Color(0xFFFCA5A5)
+                      : AppTokens.expense,
+                ),
+                icon: Icon(
+                  Icons.receipt_long_rounded,
+                  size: 18,
+                  color: isDark ? const Color(0xFFFCA5A5) : AppTokens.expense,
+                ),
+                label: const Text('Registrar despesa paga'),
+              ),
+            ),
+          )
+        else
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.tonalIcon(
+              key: const ValueKey('summary_direct_expense_button'),
+              onPressed: () => showDirectExpenseModal(context, space: space),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(44),
+                backgroundColor: AppTokens.expense.withValues(
+                  alpha: isDark ? 0.22 : 0.12,
+                ),
+                foregroundColor: isDark
+                    ? const Color(0xFFFCA5A5)
+                    : AppTokens.expense,
+              ),
+              icon: Icon(
+                Icons.receipt_long_rounded,
+                size: 18,
+                color: isDark ? const Color(0xFFFCA5A5) : AppTokens.expense,
+              ),
+              label: const Text('Registrar despesa paga'),
+            ),
           ),
-          icon: const Icon(
-            Icons.shopping_bag_outlined,
-            size: 18,
-            color: AppTokens.expense,
-          ),
-          label: const Text('Registrar despesa paga (débito em conta)'),
-        ),
       ],
     );
   }
@@ -788,6 +859,7 @@ class _OverdueAlertBanner extends StatelessWidget {
 /// Cartão moderno de A Pagar com distinção de Previsto vs Realizado
 class _ModernPayablesCard extends StatelessWidget {
   const _ModernPayablesCard({
+    super.key,
     required this.payables,
     required this.obscure,
     required this.isDark,
@@ -939,6 +1011,7 @@ class _ModernPayablesCard extends StatelessWidget {
 /// Card de Atalho para a Carteira de Contas
 class _AccountsAccessCard extends StatelessWidget {
   const _AccountsAccessCard({
+    super.key,
     required this.accountsCount,
     required this.archivedCount,
     required this.isDark,

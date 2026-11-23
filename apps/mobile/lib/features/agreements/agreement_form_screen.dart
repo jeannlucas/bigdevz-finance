@@ -14,9 +14,10 @@ import '../../ui/widgets.dart';
 import '../auth/auth_models.dart';
 import '../auth/session_controller.dart';
 import '../categories/category_picker_field.dart';
+import '../payables/payable.dart' show RecurrencePreview;
 import 'agreements_repository.dart';
 
-enum _AgreementKind { single, installment }
+enum _AgreementKind { single, installment, recurring }
 
 enum _InstallmentAmountMode { byInstallment, byTotal }
 
@@ -86,14 +87,26 @@ class AgreementFormScreen extends StatefulWidget {
 
 class _AgreementFormScreenState extends State<AgreementFormScreen> {
   final _form = GlobalKey<FormState>();
+  final _descriptionFocus = FocusNode();
+  final _totalFocus = FocusNode();
+  final _countFocus = FocusNode();
+  final _descriptionKey = GlobalKey();
+  final _totalKey = GlobalKey();
+  final _countKey = GlobalKey();
   final _description = TextEditingController();
   final _total = TextEditingController();
+  final _estimatedAmount = TextEditingController();
   final _count = TextEditingController(text: '1');
   _AgreementKind _kind = _AgreementKind.single;
   _InstallmentAmountMode _installmentAmountMode =
       _InstallmentAmountMode.byInstallment;
+  bool _isVariable = false;
   int? _selectedCategoryId;
   DateTime _firstDue = DateUtils.dateOnly(DateTime.now());
+  DateTime? _endDate;
+  RecurrencePreview? _recurrence;
+  String? _recurrenceFor;
+  bool _confirmPast = false;
   bool _saving = false;
   ApiException? _error;
 
@@ -102,6 +115,7 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
     super.initState();
     _count.addListener(_onCountChanged);
     _total.addListener(_onCountChanged);
+    _estimatedAmount.addListener(_onCountChanged);
   }
 
   void _onCountChanged() {
@@ -112,8 +126,13 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
   void dispose() {
     _count.removeListener(_onCountChanged);
     _total.removeListener(_onCountChanged);
+    _descriptionFocus.dispose();
+    _totalFocus.dispose();
+    _countFocus.dispose();
+    _estimatedAmount.removeListener(_onCountChanged);
     _description.dispose();
     _total.dispose();
+    _estimatedAmount.dispose();
     _count.dispose();
     super.dispose();
   }
@@ -121,7 +140,9 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
   Money? get _computedTotal {
     final inputMoney = Money.fromInput(_total.text);
     if (inputMoney == null) return null;
-    if (_kind == _AgreementKind.single) return inputMoney;
+    if (_kind == _AgreementKind.single || _kind == _AgreementKind.recurring) {
+      return inputMoney;
+    }
     final count = int.tryParse(_count.text) ?? 2;
     if (count <= 1) return inputMoney;
     if (_installmentAmountMode == _InstallmentAmountMode.byInstallment) {
@@ -135,13 +156,59 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
   Money? get _computedPerInstallmentAmount {
     final inputMoney = Money.fromInput(_total.text);
     if (inputMoney == null) return null;
-    if (_kind == _AgreementKind.single) return inputMoney;
+    if (_kind == _AgreementKind.single || _kind == _AgreementKind.recurring) {
+      return inputMoney;
+    }
     final count = int.tryParse(_count.text) ?? 2;
     if (count <= 1) return inputMoney;
     if (_installmentAmountMode == _InstallmentAmountMode.byInstallment) {
       return inputMoney;
     }
     return Money(inputMoney.cents ~/ count);
+  }
+
+  String _recurrenceKey() =>
+      '${_isVariable}_${_total.text}_${_estimatedAmount.text}_${toApiDate(_firstDue)}_${_endDate == null ? '' : toApiDate(_endDate!)}';
+
+  bool get _recurrenceCurrent =>
+      _recurrence != null && _recurrenceFor == _recurrenceKey();
+
+  Future<void> _previewRecurrence() async {
+    if (!_form.currentState!.validate()) {
+      if (_description.text.trim().isEmpty) {
+        focusAndEnsureVisible(
+          _descriptionFocus,
+          context: _descriptionKey.currentContext,
+        );
+      } else if (!_isVariable) {
+        focusAndEnsureVisible(_totalFocus, context: _totalKey.currentContext);
+      }
+      return;
+    }
+    final key = _recurrenceKey();
+    final repository = context.read<AgreementsRepository>();
+    try {
+      final amountInput = Money.fromInput(_total.text);
+      final estimatedInput = Money.fromInput(_estimatedAmount.text);
+      final preview = await repository.recurrencePreview(
+        widget.space.id,
+        amount: amountInput?.isZero == true ? null : amountInput,
+        startDate: toApiDate(_firstDue),
+        endDate: _endDate == null ? null : toApiDate(_endDate!),
+        isVariable: _isVariable,
+        estimatedAmount: estimatedInput?.isZero == true ? null : estimatedInput,
+      );
+      if (mounted) {
+        setState(() {
+          _recurrence = preview;
+          _recurrenceFor = key;
+          _confirmPast = false;
+          _error = null;
+        });
+      }
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _error = error);
+    }
   }
 
   Widget _buildInstallmentModeSelector() {
@@ -188,29 +255,125 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
     );
   }
 
+  Widget _buildRecurringModeSelector() {
+    return SegmentedButton<bool>(
+      showSelectedIcon: false,
+      segments: const [
+        ButtonSegment(
+          value: false,
+          label: Text('Valor Fixo'),
+          icon: Icon(Icons.lock_outline_rounded, size: 16),
+        ),
+        ButtonSegment(
+          value: true,
+          label: Text('Valor Variável'),
+          icon: Icon(Icons.tune_rounded, size: 16),
+        ),
+      ],
+      selected: {_isVariable},
+      onSelectionChanged: (set) {
+        if (set.isNotEmpty) {
+          setState(() {
+            _isVariable = set.first;
+            _recurrence = null;
+          });
+        }
+      },
+    );
+  }
+
   Future<void> _save() async {
-    if (_saving || !_form.currentState!.validate()) return;
+    if (_saving) return;
+    final isInstallment = _kind == _AgreementKind.installment;
+    final count = int.tryParse(_count.text) ?? (isInstallment ? 2 : 1);
+    if (!_form.currentState!.validate()) {
+      if (_description.text.trim().isEmpty) {
+        focusAndEnsureVisible(
+          _descriptionFocus,
+          context: _descriptionKey.currentContext,
+        );
+      } else {
+        final amount = Money.fromInput(_total.text);
+        if (amount == null ||
+            amount.isZero ||
+            (isInstallment &&
+                _installmentAmountMode ==
+                    _InstallmentAmountMode.byInstallment &&
+                amount.cents * count > Money.maxCents)) {
+          focusAndEnsureVisible(_totalFocus, context: _totalKey.currentContext);
+        } else if (isInstallment) {
+          final parsedCount = int.tryParse(_count.text);
+          if (parsedCount == null || parsedCount < 1 || parsedCount > 1200) {
+            focusAndEnsureVisible(
+              _countFocus,
+              context: _countKey.currentContext,
+            );
+          }
+        }
+      }
+      return;
+    }
     setState(() {
       _saving = true;
       _error = null;
     });
     try {
-      final count = _kind == _AgreementKind.single
-          ? 1
-          : (int.tryParse(_count.text) ?? 2);
-      final agreement = await context.read<AgreementsRepository>().create(
-        widget.space.id,
-        description: _description.text.trim(),
-        total: _computedTotal ?? Money.fromInput(_total.text)!,
-        installmentCount: count,
-        firstDueDate: toApiDate(_firstDue),
-        categoryId: _selectedCategoryId,
-      );
+      final agreement = await switch (_kind) {
+        _AgreementKind.single => context.read<AgreementsRepository>().create(
+          widget.space.id,
+          kind: 'single',
+          description: _description.text.trim(),
+          total: Money.fromInput(_total.text)!,
+          installmentCount: 1,
+          firstDueDate: toApiDate(_firstDue),
+          categoryId: _selectedCategoryId,
+        ),
+        _AgreementKind.installment =>
+          context.read<AgreementsRepository>().create(
+            widget.space.id,
+            kind: 'installment',
+            description: _description.text.trim(),
+            total: _computedTotal ?? Money.fromInput(_total.text)!,
+            installmentCount: int.tryParse(_count.text) ?? 2,
+            firstDueDate: toApiDate(_firstDue),
+            categoryId: _selectedCategoryId,
+          ),
+        _AgreementKind.recurring => () {
+          final amountInput = Money.fromInput(_total.text);
+          final estimatedInput = Money.fromInput(_estimatedAmount.text);
+          return context.read<AgreementsRepository>().create(
+            widget.space.id,
+            kind: 'recurring',
+            description: _description.text.trim(),
+            isVariable: _isVariable,
+            amount: _isVariable
+                ? (amountInput != null && !amountInput.isZero
+                      ? amountInput
+                      : null)
+                : amountInput,
+            estimatedAmount:
+                _isVariable && estimatedInput != null && !estimatedInput.isZero
+                ? estimatedInput
+                : null,
+            startDate: toApiDate(_firstDue),
+            endDate: _endDate == null ? null : toApiDate(_endDate!),
+            approvedUntil: _recurrenceCurrent
+                ? _recurrence?.approvedUntil
+                : null,
+            confirmPast: _confirmPast,
+            categoryId: _selectedCategoryId,
+          );
+        }(),
+      };
       if (!mounted) return;
       context.read<SessionController>().dataChanged();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Conta a receber cadastrada com sucesso.'),
+        SnackBar(
+          content: Text(
+            _kind == _AgreementKind.recurring
+                ? 'Receita recorrente cadastrada com sucesso.'
+                : 'Conta a receber cadastrada com sucesso.',
+          ),
         ),
       );
       Navigator.of(context).pop(agreement);
@@ -226,25 +389,46 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
     final fieldErrors = _error?.fieldErrors ?? const {};
     final isDesktop = MediaQuery.sizeOf(context).width >= 640;
     final isInstallment = _kind == _AgreementKind.installment;
+    final isRecurring = _kind == _AgreementKind.recurring;
     final count = int.tryParse(_count.text) ?? (isInstallment ? 2 : 1);
 
     final amountField = TextFormField(
+      key: _totalKey,
+      focusNode: _totalFocus,
       controller: _total,
       decoration: InputDecoration(
-        labelText: isInstallment
-            ? (_installmentAmountMode == _InstallmentAmountMode.byInstallment
-                  ? 'Valor da parcela'
-                  : 'Valor total')
-            : 'Valor',
+        labelText: switch (_kind) {
+          _AgreementKind.single => 'Valor *',
+          _AgreementKind.installment =>
+            _installmentAmountMode == _InstallmentAmountMode.byInstallment
+                ? 'Valor da parcela *'
+                : 'Valor total *',
+          _AgreementKind.recurring =>
+            _isVariable
+                ? 'Valor da 1ª ocorrência (opcional)'
+                : 'Valor mensal *',
+        },
         prefixText: r'R$ ',
         hintText: '0,00',
-        errorText: fieldErrors['total'],
+        helperText: isRecurring && _isVariable
+            ? 'Se preenchido, aplica-se apenas à 1ª ocorrência. As demais aguardarão valor.'
+            : null,
+        errorText: fieldErrors['total'] ?? fieldErrors['amount'],
       ),
       keyboardType: TextInputType.number,
       inputFormatters: [MoneyInputFormatter()],
       validator: (value) {
         final amount = Money.fromInput(value ?? '');
+        if (isRecurring && _isVariable) {
+          if (amount != null && amount.cents > Money.maxCents) {
+            return 'Valor excede o limite suportado.';
+          }
+          return null;
+        }
         if (amount == null || amount.isZero) {
+          if (isRecurring) {
+            return 'Informe o valor mensal.';
+          }
           return isInstallment &&
                   _installmentAmountMode == _InstallmentAmountMode.byInstallment
               ? 'Informe o valor da parcela.'
@@ -260,10 +444,33 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
       },
     );
 
+    final estimatedAmountField = TextFormField(
+      controller: _estimatedAmount,
+      decoration: InputDecoration(
+        labelText: 'Estimativa de valor (opcional, para planejamento)',
+        prefixText: r'R$ ',
+        hintText: '0,00',
+        helperText:
+            'Aguardando valor: o valor exato será informado a cada mês.',
+        errorText: fieldErrors['estimated_amount'],
+      ),
+      keyboardType: TextInputType.number,
+      inputFormatters: [MoneyInputFormatter()],
+      validator: (value) {
+        final amount = Money.fromInput(value ?? '');
+        if (amount != null && amount.cents > Money.maxCents) {
+          return 'Valor excede o limite suportado.';
+        }
+        return null;
+      },
+    );
+
     final countField = TextFormField(
+      key: _countKey,
+      focusNode: _countFocus,
       controller: _count,
       decoration: InputDecoration(
-        labelText: isDesktop ? 'Parcelas' : 'Quantidade de parcelas',
+        labelText: isDesktop ? 'Parcelas *' : 'Quantidade de parcelas *',
         hintText: '2',
         errorText: fieldErrors['installment_count'],
       ),
@@ -281,10 +488,23 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
     );
 
     final dateField = DateField(
-      label: isInstallment ? 'Primeiro vencimento' : 'Vencimento',
+      label: switch (_kind) {
+        _AgreementKind.single => 'Vencimento *',
+        _AgreementKind.installment => 'Primeiro vencimento *',
+        _AgreementKind.recurring => 'Data de início *',
+      },
+      helperText: isRecurring
+          ? 'O dia escolhido será usado como referência nos meses seguintes.'
+          : null,
       value: _firstDue,
-      errorText: fieldErrors['first_due_date'],
-      onChanged: (date) => setState(() => _firstDue = date),
+      errorText:
+          fieldErrors['first_due_date'] ??
+          fieldErrors['due_date'] ??
+          fieldErrors['start_date'],
+      onChanged: (date) => setState(() {
+        _firstDue = date;
+        _recurrence = null;
+      }),
     );
 
     final formChildren = [
@@ -302,6 +522,7 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
         onChanged: (kind) {
           setState(() {
             _kind = kind;
+            _recurrence = null;
             if (kind == _AgreementKind.installment) {
               final parsed = int.tryParse(_count.text) ?? 1;
               if (parsed <= 1) _count.text = '2';
@@ -313,16 +534,18 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
       ),
       const SizedBox(height: 16),
       TextFormField(
+        key: _descriptionKey,
+        focusNode: _descriptionFocus,
         controller: _description,
         inputFormatters: const [UpperCaseTextFormatter()],
         decoration: InputDecoration(
-          labelText: 'Descrição',
+          labelText: 'Descrição *',
           hintText: 'Ex.: Salário, Venda de veículo, Consultoria',
           errorText: fieldErrors['description'],
         ),
         maxLength: 120,
         validator: (value) =>
-            (value ?? '').trim().isEmpty ? 'Descreva a conta a receber.' : null,
+            (value ?? '').trim().isEmpty ? 'Informe a descrição.' : null,
       ),
       const SizedBox(height: 12),
       CategoryPickerField(
@@ -332,7 +555,7 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
         onChanged: (catId) => setState(() => _selectedCategoryId = catId),
       ),
       const SizedBox(height: 12),
-      if (isDesktop && !isInstallment)
+      if (isDesktop && _kind == _AgreementKind.single)
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -354,15 +577,66 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
             Expanded(flex: 3, child: dateField),
           ],
         ),
+      ] else if (isDesktop && isRecurring) ...[
+        _buildRecurringModeSelector(),
+        if (_isVariable) ...[const SizedBox(height: 12), estimatedAmountField],
+        const SizedBox(height: 16),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 3, child: amountField),
+            const SizedBox(width: AppTokens.p16),
+            Expanded(flex: 3, child: dateField),
+          ],
+        ),
       ] else ...[
         if (isInstallment) ...[
           _buildInstallmentModeSelector(),
+          const SizedBox(height: 16),
+        ],
+        if (isRecurring) ...[
+          _buildRecurringModeSelector(),
+          if (_isVariable) ...[
+            const SizedBox(height: 12),
+            estimatedAmountField,
+          ],
           const SizedBox(height: 16),
         ],
         amountField,
         if (isInstallment) ...[const SizedBox(height: 16), countField],
         const SizedBox(height: 16),
         dateField,
+      ],
+      if (isRecurring) ...[
+        const SizedBox(height: 8),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Com data de término'),
+          value: _endDate != null,
+          onChanged: (on) => setState(() {
+            _endDate = on ? _firstDue : null;
+            _recurrence = null;
+          }),
+        ),
+        if (_endDate != null) ...[
+          const SizedBox(height: 8),
+          DateField(
+            label: 'Última ocorrência até',
+            value: _endDate!,
+            firstDate: _firstDue,
+            lastDate: DateTime(2100),
+            errorText: fieldErrors['end_date'],
+            onChanged: (date) => setState(() {
+              _endDate = date;
+              _recurrence = null;
+            }),
+          ),
+        ],
+        const SizedBox(height: 16),
+        OutlinedButton(
+          onPressed: _previewRecurrence,
+          child: const Text('Revisar ocorrências'),
+        ),
       ],
       if (isInstallment &&
           _computedTotal != null &&
@@ -377,11 +651,26 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
               _installmentAmountMode == _InstallmentAmountMode.byInstallment,
         ),
       ],
+      if (isRecurring && _recurrenceCurrent) ...[
+        const SizedBox(height: 8),
+        _RecurrenceReview(
+          preview: _recurrence!,
+          amount:
+              Money.fromInput(_total.text) ??
+              Money.fromInput(_estimatedAmount.text) ??
+              const Money(0),
+          confirmPast: _confirmPast,
+          onConfirmPast: (val) => setState(() => _confirmPast = val),
+        ),
+      ],
       const SizedBox(height: 8),
       Text(
-        !isInstallment
-            ? 'Recebimento à vista ou parcela única.'
-            : 'As $count parcelas somam o valor total. Nos meses sem o dia escolhido, o vencimento será no último dia do mês.',
+        switch (_kind) {
+          _AgreementKind.single => 'Recebimento à vista ou parcela única.',
+          _AgreementKind.installment =>
+            'As $count parcelas somam o valor total. Nos meses sem o dia escolhido, o vencimento será no último dia do mês.',
+          _AgreementKind.recurring => 'Cadastrar não altera o saldo. O recebimento é registrado a cada ocorrência.',
+        },
         style: Theme.of(context).textTheme.bodySmall
             ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
       ),
@@ -397,9 +686,11 @@ class _AgreementFormScreenState extends State<AgreementFormScreen> {
                 ),
               )
             : const AppIcon(AppIcons.check, size: 18),
-        label: Text(
-          !isInstallment ? 'Salvar conta a receber' : 'Gerar parcelas',
-        ),
+        label: Text(switch (_kind) {
+          _AgreementKind.single => 'Salvar conta a receber',
+          _AgreementKind.installment => 'Gerar parcelas',
+          _AgreementKind.recurring => 'Confirmar recorrência',
+        }),
         style: FilledButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 14),
         ),
@@ -507,6 +798,7 @@ class _AgreementKindSelector extends StatelessWidget {
   static const _options = [
     (_AgreementKind.single, 'Avulsa'),
     (_AgreementKind.installment, 'Parcelada'),
+    (_AgreementKind.recurring, 'Recorrente'),
   ];
 
   @override
@@ -528,6 +820,100 @@ class _AgreementKindSelector extends StatelessWidget {
       onSelectionChanged: (set) {
         if (set.isNotEmpty) onChanged(set.first);
       },
+    );
+  }
+}
+
+class _RecurrenceReview extends StatelessWidget {
+  const _RecurrenceReview({
+    required this.preview,
+    required this.amount,
+    required this.confirmPast,
+    required this.onConfirmPast,
+  });
+
+  final RecurrencePreview preview;
+  final Money amount;
+  final bool confirmPast;
+  final ValueChanged<bool> onConfirmPast;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    Widget line(String id, String label, String value) => Padding(
+      key: ValueKey('recurrence-$id'),
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Expanded(child: Text(label)),
+          Flexible(child: Text(value, textAlign: TextAlign.end)),
+        ],
+      ),
+    );
+    final horizon = parseApiDate(preview.horizon);
+    return Card(
+      margin: const EdgeInsets.only(top: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Ocorrências que serão criadas',
+              style: theme.textTheme.titleSmall,
+            ),
+            const SizedBox(height: 8),
+            line('Inicio', 'Início', formatDateBr(preview.firstDueDate)),
+            line('Dia', 'Dia de referência', '${preview.referenceDay}'),
+            line('Valor', 'Valor base', amount.brl),
+            line(
+              'Fim',
+              'Término',
+              preview.endDate == null
+                  ? 'sem término'
+                  : formatDateBr(preview.endDate!),
+            ),
+            line(
+              'Periodo',
+              'Período deste cadastro',
+              '${formatDateBr(preview.firstDueDate)} a ${formatDateBr(preview.lastDueDate)}',
+            ),
+            line(
+              'Quantidade',
+              'Ocorrências',
+              '${preview.count} · total ${preview.total.brl}',
+            ),
+            line(
+              'Horizonte',
+              'Horizonte',
+              'até ${horizon.month.toString().padLeft(2, '0')}/${horizon.year}',
+            ),
+            if (preview.pastCount > 0) ...[
+              const SizedBox(height: 8),
+              FormErrorBanner(
+                '${preview.pastCount} ${preview.pastCount == 1 ? 'ocorrência já venceu' : 'ocorrências já venceram'} '
+                '(total ${preview.pastTotal.brl}). Elas serão criadas em aberto, '
+                'sem recebimento e sem mudar saldo.',
+              ),
+              CheckboxListTile(
+                key: const ValueKey('confirm-past'),
+                contentPadding: EdgeInsets.zero,
+                value: confirmPast,
+                onChanged: (value) => onConfirmPast(value ?? false),
+                title: Text(
+                  'Confirmo a criação das ${preview.pastCount} ocorrências vencidas',
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+            for (final item in preview.items)
+              Text(
+                '${formatDateBr(item.dueDate)}${item.past ? ' · vencida' : ''}',
+                style: theme.textTheme.bodySmall,
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

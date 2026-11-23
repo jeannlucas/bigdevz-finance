@@ -94,7 +94,7 @@ void main() {
 
       // Fallback para ícone desconhecido
       final fallbackIcon = CategoryStyleCatalog.getIcon('desconhecido_xyz');
-      expect(fallbackIcon, Icons.category_rounded);
+      expect(fallbackIcon, Icons.category);
       expect(
         CategoryStyleCatalog.getIconInfo('desconhecido_xyz').label,
         'Outros / Geral',

@@ -119,7 +119,9 @@ class InstallmentScreen extends StatelessWidget {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    'Parcela ${installment.number}/${installment.installmentCount ?? '?'}',
+                                    installment.cycle == null
+                                        ? 'Parcela ${installment.number}/${installment.installmentCount ?? '?'}'
+                                        : 'Ocorrência ${installment.number}',
                                     style: theme.textTheme.titleLarge?.copyWith(
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -147,7 +149,9 @@ class InstallmentScreen extends StatelessWidget {
                             const Divider(height: 28),
                             _Row(
                               label: 'Valor da parcela',
-                              child: MoneyText(installment.amount),
+                              child: installment.amount != null
+                                  ? MoneyText(installment.amount!)
+                                  : const Text('Aguardando valor'),
                             ),
                             _Row(
                               label: 'Recebido',
@@ -178,7 +182,8 @@ class InstallmentScreen extends StatelessWidget {
                         attempt: pending,
                         onSettled: (outcome) => _settled(context, outcome),
                       )
-                    else if (!installment.remaining.isZero)
+                    else if (installment.isAwaitingAmount ||
+                        !installment.remaining.isZero)
                       FilledButton.icon(
                         style: FilledButton.styleFrom(
                           minimumSize: const Size.fromHeight(50),

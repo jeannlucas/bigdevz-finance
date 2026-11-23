@@ -116,7 +116,9 @@ class AgreementScreen extends StatelessWidget {
                       padding: const EdgeInsets.only(bottom: 8),
                       child: InstallmentTile(
                         installment: installment,
-                        count: agreement.installmentCount,
+                        count:
+                            agreement.installmentCount ??
+                            agreement.installments.length,
                         onTap: () => Navigator.of(context).push(
                           spaceRoute(
                             isPf: space.isPf,
@@ -277,7 +279,17 @@ class InstallmentTile extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            MoneyText(installment.amount, style: theme.textTheme.titleSmall),
+            installment.amount != null
+                ? MoneyText(
+                    installment.amount!,
+                    style: theme.textTheme.titleSmall,
+                  )
+                : Text(
+                    installment.isAwaitingAmount ? 'Aguardando valor' : '',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
             const SizedBox(height: 4),
             installmentStatusChip(installment),
           ],
@@ -302,6 +314,7 @@ Widget installmentStatusChip(Installment installment) {
       InstallmentStatus.paid => StatusTone.success,
       InstallmentStatus.partial => StatusTone.warning,
       InstallmentStatus.pending => StatusTone.neutral,
+      InstallmentStatus.awaitingAmount => StatusTone.neutral,
     },
   );
 }

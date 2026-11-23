@@ -327,7 +327,7 @@ class _PayablesTabState extends State<PayablesTab> {
                     onRefresh: refresh,
                     child: Center(
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 1040),
+                        constraints: const BoxConstraints(maxWidth: 1280),
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(
                             AppTokens.p16,

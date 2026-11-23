@@ -95,6 +95,12 @@ class PayableFormScreen extends StatefulWidget {
 
 class _PayableFormScreenState extends State<PayableFormScreen> {
   final _form = GlobalKey<FormState>();
+  final _descriptionFocus = FocusNode();
+  final _amountFocus = FocusNode();
+  final _countFocus = FocusNode();
+  final _descriptionKey = GlobalKey();
+  final _amountKey = GlobalKey();
+  final _countKey = GlobalKey();
   final _description = TextEditingController();
   final _payee = TextEditingController();
   final _amount = TextEditingController();
@@ -107,8 +113,11 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
   bool _isVariable = false;
   _InstallmentAmountMode _installmentAmountMode =
       _InstallmentAmountMode.byInstallment;
+  bool _suggestNextBankDay = false;
+  ({int? cents, int? count, DateTime base, bool suggest})? _scheduleSource;
+  final _manualScheduleDates = <int, String>{};
   List<ScheduleItem>? _schedule;
-  String? _scheduleFor;
+  List<TextEditingController> _scheduleAmountControllers = [];
   RecurrencePreview? _recurrence;
   String? _recurrenceFor;
   bool _confirmPast = false;
@@ -127,6 +136,9 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
 
   @override
   void dispose() {
+    _descriptionFocus.dispose();
+    _amountFocus.dispose();
+    _countFocus.dispose();
     for (final controller in [
       _description,
       _payee,
@@ -136,7 +148,19 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
     ]) {
       controller.dispose();
     }
+    for (final controller in _scheduleAmountControllers) {
+      controller.dispose();
+    }
     super.dispose();
+  }
+
+  Money? get _scheduleTotal {
+    if (_schedule == null || _schedule!.isEmpty) return null;
+    final totalCents = _schedule!.fold<int>(
+      0,
+      (sum, item) => sum + item.amount.cents,
+    );
+    return Money(totalCents);
   }
 
   Money? get _computedInstallmentTotal {
@@ -200,9 +224,21 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
       _Kind.installment => {
         'kind': 'installment',
         ...common,
-        'total': (_computedInstallmentTotal ?? amount)!.toApi(),
+        'total': (_scheduleTotal ?? _computedInstallmentTotal ?? amount)!
+            .toApi(),
         'installment_count': int.tryParse(_count.text),
-        'first_due_date': toApiDate(_date),
+        'first_due_date': _schedule?.isNotEmpty == true
+            ? _schedule!.first.dueDate
+            : toApiDate(_date),
+        if (_schedule != null && _schedule!.isNotEmpty)
+          'installments': [
+            for (final item in _schedule!)
+              {
+                'number': item.number,
+                'amount': item.amount.toApi(),
+                'due_date': item.dueDate,
+              },
+          ],
       },
       _Kind.recurring => {
         'kind': 'recurring',
@@ -219,29 +255,129 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
     };
   }
 
+  ({int? cents, int? count, DateTime base, bool suggest}) get _scheduleInputs =>
+      (
+        cents: _computedInstallmentTotal?.cents,
+        count: int.tryParse(_count.text),
+        base: _date,
+        suggest: _suggestNextBankDay,
+      );
+
   bool get _scheduleCurrent =>
-      _schedule != null && _scheduleFor == _draft()?.toString();
+      _schedule?.isNotEmpty == true && _scheduleSource == _scheduleInputs;
   bool get _recurrenceCurrent =>
       _recurrence != null && _recurrenceFor == _draft()?.toString();
 
+  void _scrollToFirstInvalid() {
+    if (_description.text.trim().isEmpty) {
+      focusAndEnsureVisible(
+        _descriptionFocus,
+        context: _descriptionKey.currentContext,
+      );
+      return;
+    }
+    if (_kind != _Kind.recurring || !_isVariable) {
+      final amount = Money.fromInput(_amount.text);
+      if (amount == null || amount.isZero) {
+        focusAndEnsureVisible(_amountFocus, context: _amountKey.currentContext);
+        return;
+      }
+      if (_kind == _Kind.installment &&
+          _installmentAmountMode == _InstallmentAmountMode.byInstallment) {
+        final count = int.tryParse(_count.text) ?? 1;
+        if (amount.cents * count > Money.maxCents) {
+          focusAndEnsureVisible(
+            _amountFocus,
+            context: _amountKey.currentContext,
+          );
+          return;
+        }
+      }
+    }
+    if (_kind == _Kind.installment) {
+      final count = int.tryParse(_count.text);
+      if (count == null || count < 1 || count > 1200) {
+        focusAndEnsureVisible(_countFocus, context: _countKey.currentContext);
+        return;
+      }
+    }
+  }
+
+  void _onScheduleAmountChanged(int index, String text) {
+    final money = Money.fromInput(text) ?? const Money(0);
+    setState(() {
+      _schedule![index] = (
+        number: _schedule![index].number,
+        amount: money,
+        dueDate: _schedule![index].dueDate,
+      );
+    });
+  }
+
+  void _onScheduleDateChanged(int index, DateTime newDate) {
+    final dateStr = toApiDate(newDate);
+    setState(() {
+      _schedule![index] = (
+        number: _schedule![index].number,
+        amount: _schedule![index].amount,
+        dueDate: dateStr,
+      );
+      _manualScheduleDates[_schedule![index].number] = dateStr;
+    });
+  }
+
   Future<void> _preview() async {
-    if (!_form.currentState!.validate()) return;
+    if (!_form.currentState!.validate()) {
+      _scrollToFirstInvalid();
+      return;
+    }
     final draft = _draft().toString();
     final repository = context.read<PayablesRepository>();
     try {
       if (_kind == _Kind.installment) {
+        final source = _scheduleInputs;
+        final previousSource = _scheduleSource;
         final total =
             _computedInstallmentTotal ?? Money.fromInput(_amount.text)!;
         final schedule = await repository.preview(
           widget.space.id,
           total: total,
-          count: int.parse(_count.text),
-          firstDueDate: toApiDate(_date),
+          count: source.count!,
+          firstDueDate: toApiDate(source.base),
+          suggestNextBankDay: source.suggest,
         );
-        if (mounted) {
+        if (mounted &&
+            _kind == _Kind.installment &&
+            source == _scheduleInputs) {
           setState(() {
-            _schedule = schedule;
-            _scheduleFor = draft;
+            final sameDates =
+                previousSource?.base == source.base &&
+                previousSource?.count == source.count;
+            if (!sameDates) _manualScheduleDates.clear();
+            final previousSchedule = _schedule;
+            final keepAmounts =
+                sameDates &&
+                previousSource?.cents == source.cents &&
+                previousSchedule?.length == schedule.length;
+            final reviewed = [
+              for (final (index, item) in schedule.indexed)
+                (
+                  number: item.number,
+                  amount: keepAmounts
+                      ? previousSchedule![index].amount
+                      : item.amount,
+                  dueDate: _manualScheduleDates[item.number] ?? item.dueDate,
+                ),
+            ];
+            for (final c in _scheduleAmountControllers) {
+              c.dispose();
+            }
+            _scheduleAmountControllers = [
+              for (final item in reviewed)
+                TextEditingController(text: item.amount.plain),
+            ];
+            _scheduleSource = source;
+            _schedule = reviewed;
             _error = null;
           });
         }
@@ -272,7 +408,11 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
 
   Future<void> _save() async {
     final user = context.read<SessionController>().user;
-    if (_saving || user == null || !_form.currentState!.validate()) return;
+    if (_saving || user == null) return;
+    if (!_form.currentState!.validate()) {
+      _scrollToFirstInvalid();
+      return;
+    }
     final body = {
       ..._draft()!,
       // O conjunto criado é exatamente o período revisado.
@@ -439,9 +579,13 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
     PendingCreation pending, {
     required bool isModal,
   }) {
+    final isDesktop = MediaQuery.sizeOf(context).width >= 640;
     return ListView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      shrinkWrap: isModal,
+      shrinkWrap: isModal || isDesktop,
+      physics: isDesktop && !isModal
+          ? const NeverScrollableScrollPhysics()
+          : null,
       padding: isModal
           ? EdgeInsets.only(
               bottom: (MediaQuery.viewInsetsOf(context).bottom > 0 ? 32 : 0),
@@ -542,18 +686,20 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
     };
 
     final amountField = TextFormField(
+      key: _amountKey,
+      focusNode: _amountFocus,
       controller: _amount,
       decoration: InputDecoration(
         labelText: switch (_kind) {
-          _Kind.single => 'Valor',
+          _Kind.single => 'Valor *',
           _Kind.installment =>
             _installmentAmountMode == _InstallmentAmountMode.byInstallment
-                ? 'Valor da parcela'
-                : 'Valor total',
+                ? 'Valor da parcela *'
+                : 'Valor total *',
           _Kind.recurring =>
             _isVariable
-                ? 'Valor mensal (opcional / a definir)'
-                : 'Valor mensal',
+                ? 'Valor da primeira ocorrência (opcional)'
+                : 'Valor mensal *',
         },
         prefixText: r'R$ ',
         errorText: fieldErrors['amount'] ?? fieldErrors['total'],
@@ -578,9 +724,11 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
     );
 
     final countField = TextFormField(
+      key: _countKey,
+      focusNode: _countFocus,
       controller: _count,
       decoration: InputDecoration(
-        labelText: 'Número de parcelas',
+        labelText: 'Número de parcelas *',
         errorText: fieldErrors['installment_count'],
       ),
       keyboardType: TextInputType.number,
@@ -594,9 +742,9 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
 
     final dateField = DateField(
       label: switch (_kind) {
-        _Kind.single => 'Vencimento',
-        _Kind.installment => 'Primeiro vencimento',
-        _Kind.recurring => 'Primeiro vencimento',
+        _Kind.single => 'Vencimento *',
+        _Kind.installment => 'Primeiro vencimento *',
+        _Kind.recurring => 'Primeiro vencimento *',
       },
       helperText: _kind == _Kind.recurring
           ? 'O dia escolhido será usado como referência nos meses seguintes.'
@@ -616,7 +764,10 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
       onChanged: () => setState(() {}),
       child: ListView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        shrinkWrap: isModal,
+        shrinkWrap: isModal || isDesktop,
+        physics: isDesktop && !isModal
+            ? const NeverScrollableScrollPhysics()
+            : null,
         padding: isModal
             ? EdgeInsets.only(
                 bottom: (MediaQuery.viewInsetsOf(context).bottom > 0 ? 32 : 0),
@@ -644,10 +795,12 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
           ),
           const SizedBox(height: 16),
           TextFormField(
+            key: _descriptionKey,
+            focusNode: _descriptionFocus,
             controller: _description,
             inputFormatters: const [UpperCaseTextFormatter()],
             decoration: InputDecoration(
-              labelText: 'Descrição',
+              labelText: 'Descrição *',
               hintText: 'Ex.: Aluguel, material da obra',
               errorText: fieldErrors['description'],
             ),
@@ -833,6 +986,16 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
                 onChanged: (date) => setState(() => _endDate = date),
               ),
           ],
+          if (_kind == _Kind.installment)
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Sugerir próximo dia útil bancário'),
+              subtitle: const Text(
+                'Para boletos comuns. Em tributos, use as datas da guia.',
+              ),
+              value: _suggestNextBankDay,
+              onChanged: (value) => setState(() => _suggestNextBankDay = value),
+            ),
           if (_kind != _Kind.single) ...[
             const SizedBox(height: 16),
             OutlinedButton(
@@ -847,25 +1010,65 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
           if (_kind == _Kind.installment && _scheduleCurrent) ...[
             const SizedBox(height: 8),
             Card(
-              child: Column(
-                children: [
-                  for (final item in schedule!)
-                    ListTile(
-                      key: ValueKey('schedule-${item.number}'),
-                      dense: true,
-                      title: Text(
-                        'Parcela ${item.number} · ${formatDateBr(item.dueDate)}',
-                      ),
-                      trailing: MoneyText(item.amount),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        Text(
+                          'Parcelas calculadas',
+                          style: theme.textTheme.titleSmall,
+                        ),
+                        if (_scheduleTotal != null)
+                          Container(
+                            key: const ValueKey('schedule-total-badge'),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'Total: ${_scheduleTotal!.brl}',
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: theme.colorScheme.onPrimaryContainer,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                ],
+                    const SizedBox(height: 8),
+                    Text(
+                      'Você pode ajustar a data e o valor de cada parcela antes de confirmar.',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    const Divider(height: 16),
+                    for (var i = 0; i < schedule!.length; i++)
+                      _buildScheduleItemRow(i, theme),
+                  ],
+                ),
               ),
             ),
           ],
           if (_kind == _Kind.recurring && _recurrenceCurrent)
             _RecurrenceReview(
               preview: recurrence!,
-              amount: Money.fromInput(_amount.text)!,
+              amount:
+                  Money.fromInput(_amount.text) ??
+                  Money.fromInput(_estimatedAmount.text) ??
+                  const Money(0),
               confirmPast: _confirmPast,
               onConfirmPast: (value) => setState(() => _confirmPast = value),
             ),
@@ -891,6 +1094,161 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
             style: theme.textTheme.bodySmall,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildScheduleItemRow(int index, ThemeData theme) {
+    final item = _schedule![index];
+    while (_scheduleAmountControllers.length <= index) {
+      _scheduleAmountControllers.add(
+        TextEditingController(
+          text: _schedule![_scheduleAmountControllers.length].amount.plain,
+        ),
+      );
+    }
+    final controller = _scheduleAmountControllers[index];
+    final isDesktop = MediaQuery.sizeOf(context).width >= 640;
+
+    return Padding(
+      key: ValueKey('schedule-${item.number}'),
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.35,
+          ),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Parcela ${item.number}',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                MoneyText(
+                  item.amount,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (isDesktop)
+              Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: OutlinedButton.icon(
+                      key: ValueKey('schedule-date-${item.number}'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        alignment: Alignment.centerLeft,
+                      ),
+                      icon: const Icon(Icons.calendar_today_outlined, size: 16),
+                      label: Text(
+                        'Vencimento: ${formatDateBr(item.dueDate)}',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                      onPressed: () async {
+                        final current = parseApiDate(item.dueDate);
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: current,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (picked != null) {
+                          _onScheduleDateChanged(index, picked);
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: TextFormField(
+                      key: ValueKey('schedule-amount-${item.number}'),
+                      controller: controller,
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        labelText: 'Valor',
+                        prefixText: 'R\$ ',
+                      ),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      onChanged: (text) =>
+                          _onScheduleAmountChanged(index, text),
+                    ),
+                  ),
+                ],
+              )
+            else
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  OutlinedButton.icon(
+                    key: ValueKey('schedule-date-${item.number}'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                      alignment: Alignment.centerLeft,
+                    ),
+                    icon: const Icon(Icons.calendar_today_outlined, size: 16),
+                    label: Text(
+                      'Vencimento: ${formatDateBr(item.dueDate)}',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    onPressed: () async {
+                      final current = parseApiDate(item.dueDate);
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: current,
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2100),
+                      );
+                      if (picked != null) {
+                        _onScheduleDateChanged(index, picked);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    key: ValueKey('schedule-amount-${item.number}'),
+                    controller: controller,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      labelText: 'Valor da parcela',
+                      prefixText: 'R\$ ',
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    onChanged: (text) => _onScheduleAmountChanged(index, text),
+                  ),
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }

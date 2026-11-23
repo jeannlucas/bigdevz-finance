@@ -37,7 +37,7 @@ void main() {
       expect(cat.icon, 'restaurant');
       expect(cat.color, '#E57373');
       expect(cat.isDefault, isTrue);
-      expect(cat.iconData, Icons.restaurant_rounded);
+      expect(cat.iconData, Icons.restaurant);
       expect(cat.colorValue, const Color(0xFFE57373));
 
       final serialized = cat.toJson();
@@ -53,7 +53,7 @@ void main() {
       });
 
       expect(fallbackCat.isIncome, isTrue);
-      expect(fallbackCat.iconData, Icons.category_rounded);
+      expect(fallbackCat.iconData, Icons.category);
       expect(fallbackCat.colorValue, isA<Color>());
     });
   });
@@ -200,7 +200,7 @@ void main() {
       );
 
       expect(find.text('TRANSPORTE'), findsOneWidget);
-      expect(find.byIcon(Icons.directions_car_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.directions_car), findsOneWidget);
     });
 
     testWidgets('CategoryBadge renders in compact mode', (tester) async {
@@ -220,7 +220,7 @@ void main() {
       );
 
       expect(find.text('SALÁRIO'), findsOneWidget);
-      expect(find.byIcon(Icons.work_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.work), findsOneWidget);
     });
 
     testWidgets('CategoryPickerField loads and displays categories', (

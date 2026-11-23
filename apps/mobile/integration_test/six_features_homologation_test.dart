@@ -269,13 +269,13 @@ void main() {
     // ========================================================================
     // 3. FLUXO WISE: REGISTRO DE DESPESA NO DÉBITO COM TECLADO NA TELA
     // ========================================================================
-    final directExpenseBtn = find.text(
-      'Registrar despesa paga (débito em conta)',
+    final directExpenseBtn = find.byKey(
+      const ValueKey('summary_direct_expense_button'),
     );
     expect(
       directExpenseBtn,
       findsOneWidget,
-      reason: 'Botão "Registrar despesa paga (débito em conta)" é obrigatório no Dashboard PF',
+      reason: 'Botão "Registrar despesa paga" é obrigatório no Dashboard PF',
     );
     await tester.tap(directExpenseBtn);
     await settle(30);

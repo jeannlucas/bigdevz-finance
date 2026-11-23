@@ -206,4 +206,66 @@ class VariableRecurrenceTest extends TestCase
             $this->assertEquals('open', $occ->status);
         }
     }
+
+    public function test_can_create_variable_recurrence_with_initial_amount_for_first_occurrence(): void
+    {
+        // PEND-002 / AC-FIN-031: Recorrência variável com valor inicial informado (R$ 362,05)
+        $response = $this->postJson("/api/spaces/{$this->pf->id}/payables", [
+            'kind' => 'recurring',
+            'description' => 'Sanepar Água e Esgoto',
+            'is_variable' => true,
+            'amount' => '362.05', // R$ 362,05 na primeira fatura
+            'estimated_amount' => '350.00', // Estimativa opcional
+            'start_date' => '2026-11-09',
+            'approved_until' => '2027-01-01',
+            'confirm_past' => true,
+        ], [
+            'Idempotency-Key' => 'var-rec-with-initial-amount-1',
+        ]);
+
+        $response->assertCreated();
+
+        $recurrence = Recurrence::where('space_id', $this->pf->id)
+            ->where('description', 'SANEPAR ÁGUA E ESGOTO')
+            ->firstOrFail();
+
+        $this->assertTrue((bool) $recurrence->is_variable);
+        $this->assertEquals(36205, $recurrence->amount_cents);
+        $this->assertEquals(35000, $recurrence->estimated_amount_cents);
+
+        $occurrences = $recurrence->occurrences()->orderBy('due_date')->get();
+        $this->assertCount(3, $occurrences);
+
+        // 1ª ocorrência (2026-11-09): valor inicial confirmado de R$ 362,05
+        $firstOcc = $occurrences[0];
+        $this->assertEquals('2026-11-09', $firstOcc->due_date->toDateString());
+        $this->assertEquals(36205, $firstOcc->amount_cents);
+        $this->assertEquals(0, $firstOcc->paid_cents);
+        $this->assertContains($firstOcc->status, ['open', 'overdue']);
+
+        // 2ª ocorrência (2026-12-09): continua como awaiting_amount (null)
+        $secondOcc = $occurrences[1];
+        $this->assertEquals('2026-12-09', $secondOcc->due_date->toDateString());
+        $this->assertNull($secondOcc->amount_cents);
+        $this->assertEquals('awaiting_amount', $secondOcc->status);
+
+        // 3ª ocorrência (2027-01-09): continua como awaiting_amount (null)
+        $thirdOcc = $occurrences[2];
+        $this->assertEquals('2027-01-09', $thirdOcc->due_date->toDateString());
+        $this->assertNull($thirdOcc->amount_cents);
+        $this->assertEquals('awaiting_amount', $thirdOcc->status);
+
+        // Saldo bancário permanece 100% inalterado (R$ 1.000,00)
+        $this->account->refresh();
+        $this->assertEquals(100000, $this->account->balanceCents());
+
+        // Reexecução do gerador preserva a 1ª ocorrência com R$ 362,05 e não altera as demais
+        app(GenerateObligations::class)->forRecurrence($recurrence, '2027-02-01');
+        $firstOcc->refresh();
+        $this->assertEquals(36205, $firstOcc->amount_cents);
+        $secondOcc->refresh();
+        $this->assertNull($secondOcc->amount_cents);
+        $thirdOcc->refresh();
+        $this->assertNull($thirdOcc->amount_cents);
+    }
 }

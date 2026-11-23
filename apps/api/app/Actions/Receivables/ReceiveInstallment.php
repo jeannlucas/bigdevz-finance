@@ -65,6 +65,10 @@ class ReceiveInstallment
                     'received_on' => 'A data do recebimento não pode ser anterior ao saldo inicial da conta ('.$account->opening_balance_date->format('d/m/Y').').',
                 ]);
             }
+            if ($installment->amount_cents === null) {
+                $installment->amount_cents = $amountCents;
+                $installment->save();
+            }
             if ($amountCents > $installment->remainingCents()) {
                 throw ValidationException::withMessages([
                     'amount' => 'O valor excede o restante da parcela ('.Money::fromCents($installment->remainingCents()).').',

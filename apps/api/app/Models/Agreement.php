@@ -13,26 +13,48 @@ class Agreement extends Model
     use NormalizesFinancialText;
 
     protected $fillable = [
+        'kind',
+        'is_variable',
         'description',
+        'amount_cents',
+        'estimated_amount_cents',
         'total_cents',
         'installment_count',
         'first_due_date',
+        'start_date',
+        'reference_day',
+        'end_date',
+        'initial_until',
         'category_id',
         'edited_at',
         'cancelled_at',
         'cancel_reason',
+        'idempotency_key',
     ];
 
     protected function casts(): array
     {
         return [
+            'kind' => 'string',
+            'is_variable' => 'boolean',
+            'amount_cents' => 'integer',
+            'estimated_amount_cents' => 'integer',
             'total_cents' => 'integer',
             'installment_count' => 'integer',
             'first_due_date' => 'date:Y-m-d',
+            'start_date' => 'date:Y-m-d',
+            'reference_day' => 'integer',
+            'end_date' => 'date:Y-m-d',
+            'initial_until' => 'date:Y-m-d',
             'category_id' => 'integer',
             'edited_at' => 'datetime',
             'cancelled_at' => 'datetime',
         ];
+    }
+
+    public function isRecurring(): bool
+    {
+        return $this->kind === 'recurring';
     }
 
     protected function description(): Attribute

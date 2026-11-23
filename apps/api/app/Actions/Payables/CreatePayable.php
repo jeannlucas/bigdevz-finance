@@ -59,7 +59,7 @@ class CreatePayable
         });
     }
 
-    /** @param array{description: string, payee: ?string, total: string, installment_count: int, first_due_date: string} $data */
+    /** @param array{description: string, payee: ?string, total: string, installment_count: int, first_due_date: string, installments?: list<array{number: int, amount: string, due_date: string}>} $data */
     public function installments(User $user, Space $space, array $data, string $key, string $fingerprint): KeyedResult
     {
         return $this->keys->run($user, $space, $key, IdempotentOperations::PAYABLE, $fingerprint, function () use ($space, $data) {
@@ -67,7 +67,9 @@ class CreatePayable
             if ($categoryId !== null) {
                 $space->categories()->where('type', 'expense')->findOrFail($categoryId);
             }
-            $schedule = self::schedule($data['total'], (int) $data['installment_count'], $data['first_due_date']);
+            $schedule = ! empty($data['installments'])
+                ? $data['installments']
+                : self::schedule($data['total'], (int) $data['installment_count'], $data['first_due_date']);
             $plan = PayablePlan::create([
                 'space_id' => $space->id, 'description' => $data['description'], 'payee' => $data['payee'] ?? null,
                 'total_cents' => Money::toCents($data['total']), 'installment_count' => (int) $data['installment_count'],

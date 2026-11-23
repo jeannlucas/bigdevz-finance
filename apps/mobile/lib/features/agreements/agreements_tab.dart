@@ -394,7 +394,7 @@ class _AgreementsTabState extends State<AgreementsTab> {
                 onRefresh: refresh,
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1040),
+                    constraints: const BoxConstraints(maxWidth: 1280),
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(
                         AppTokens.p16,
@@ -556,7 +556,9 @@ class _AgreementsTabState extends State<AgreementsTab> {
                                       !adapter.isSettled &&
                                       adapter.installment.status !=
                                           InstallmentStatus.paid &&
-                                      adapter.installment.remaining.cents > 0,
+                                      (adapter.installment.isAwaitingAmount ||
+                                          adapter.installment.remaining.cents >
+                                              0),
                                   onQuickAction: (adapter) =>
                                       showAgreementModal(
                                         context,
@@ -601,9 +603,10 @@ class AgreementCard extends StatelessWidget {
     final theme = Theme.of(context);
     final obscure =
         context.watch<PreferencesController?>()?.obscureValues ?? false;
-    final progress = agreement.total.cents == 0
+    final totalCents = agreement.total?.cents ?? 0;
+    final progress = totalCents == 0
         ? 0.0
-        : (agreement.received.cents / agreement.total.cents).clamp(0.0, 1.0);
+        : (agreement.received.cents / totalCents).clamp(0.0, 1.0);
 
     final overdueCount = agreement.overdueInstallments;
     final overdueLabel = overdueCount == 1
@@ -804,7 +807,7 @@ class AgreementCard extends StatelessWidget {
                   const SizedBox(width: 5),
                   Expanded(
                     child: Text(
-                      '${agreement.paidInstallments} de ${agreement.installmentCount} parcelas pagas'
+                      '${agreement.isRecurring ? 'Recorrência mensal' : '${agreement.paidInstallments} de ${agreement.installmentCount} parcelas pagas'}'
                       '${agreement.nextDueDate != null ? ' · próx. ${formatDateBr(agreement.nextDueDate!)}' : ''}',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
@@ -836,13 +839,13 @@ class AgreementCard extends StatelessWidget {
       'overdue' =>
         installments.where((i) => i.overdue && !i.remaining.isZero).toList(),
       'today' => installments.where((i) {
-        if (i.remaining.isZero) return false;
+        if (!i.isAwaitingAmount && i.remaining.isZero) return false;
         // Hoje no fuso canônico da data de vencimento
         final today = toApiDate(DateTime.now());
         return i.dueDate == today;
       }).toList(),
       'next_30_days' => installments.where((i) {
-        if (i.remaining.isZero) return false;
+        if (!i.isAwaitingAmount && i.remaining.isZero) return false;
         final due = parseApiDate(i.dueDate);
         final now = DateUtils.dateOnly(DateTime.now());
         final tomorrow = now.add(const Duration(days: 1));
@@ -877,8 +880,10 @@ class AgreementCard extends StatelessWidget {
   }
 
   static Money _secondaryValue(Agreement agreement, String filter) {
-    if (_hasFilterSubset(filter)) return agreement.remaining;
-    return agreement.total;
+    if (_hasFilterSubset(filter)) {
+      return agreement.remaining;
+    }
+    return agreement.total ?? agreement.received;
   }
 
   static String _filterInstallmentMotivation(
