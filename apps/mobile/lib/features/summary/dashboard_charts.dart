@@ -380,9 +380,7 @@ class CashFlowThermometerCard extends StatelessWidget {
     final totalInflowCents =
         summary.receivedTotal.cents + summary.receivableRemaining.cents;
     final totalOutflowCents =
-        summary.payables.paidTotal.cents +
-        summary.payables.openTotal.cents +
-        summary.payables.overdueTotal.cents;
+        summary.payables.paidTotal.cents + summary.payables.openTotal.cents;
 
     final netMarginCents = totalInflowCents - totalOutflowCents;
     final isSurplus = netMarginCents >= 0;
@@ -513,7 +511,7 @@ class CashFlowThermometerCard extends StatelessWidget {
           ),
           const SizedBox(height: AppTokens.p12),
 
-          // Barra 2: Saídas & Compromissos (Pago + Aberto + Vencido)
+          // Barra 2: Saídas & Compromissos (Pago + Aberto)
           InkWell(
             onTap: onTapPayables,
             borderRadius: BorderRadius.circular(AppTokens.r8),

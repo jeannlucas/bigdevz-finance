@@ -33,8 +33,9 @@ class AgreementItemAdapter implements FinancialItemView {
   int? get categoryId => agreement.categoryId ?? agreement.category?.id;
 
   @override
-  String get kindLabel =>
-      '${agreement.paidInstallments}/${agreement.installmentCount} parcelas';
+  String get kindLabel => agreement.isRecurring
+      ? 'Recorrência mensal'
+      : '${agreement.paidInstallments}/${agreement.installmentCount} parcelas';
 
   @override
   String get statusLabel {
@@ -44,7 +45,10 @@ class AgreementItemAdapter implements FinancialItemView {
           ? '1 vencida'
           : '${agreement.overdueInstallments} vencidas';
     }
-    if (agreement.remaining.isZero) return 'Quitada';
+    if (isAwaitingAmount) return 'Aguardando valor';
+    if (agreement.remaining.isZero) {
+      return 'Quitada';
+    }
     return 'Em aberto';
   }
 
@@ -52,7 +56,10 @@ class AgreementItemAdapter implements FinancialItemView {
   StatusTone get statusTone {
     if (agreement.isCancelled) return StatusTone.neutral;
     if (agreement.overdueInstallments > 0) return StatusTone.danger;
-    if (agreement.remaining.isZero) return StatusTone.success;
+    if (isAwaitingAmount) return StatusTone.neutral;
+    if (agreement.remaining.isZero) {
+      return StatusTone.success;
+    }
     return StatusTone.neutral;
   }
 
@@ -68,10 +75,13 @@ class AgreementItemAdapter implements FinancialItemView {
       !agreement.isCancelled && agreement.overdueInstallments > 0;
 
   @override
-  bool get isAwaitingAmount => false;
+  bool get isAwaitingAmount =>
+      agreement.installments.any((installment) => installment.isAwaitingAmount);
 
   @override
-  bool get isSettled => agreement.isCancelled || agreement.remaining.isZero;
+  bool get isSettled =>
+      agreement.isCancelled ||
+      (!isAwaitingAmount && agreement.remaining.isZero);
 
   @override
   bool get isEligibleForBatch => false;
@@ -117,12 +127,14 @@ class AgreementInstallmentItemAdapter implements FinancialItemView {
   int? get categoryId => agreement.categoryId ?? agreement.category?.id;
 
   @override
-  String get kindLabel =>
-      'Parcela ${installment.number}/${agreement.installmentCount}';
+  String get kindLabel => agreement.isRecurring
+      ? 'Ocorrência ${installment.number}'
+      : 'Parcela ${installment.number}/${agreement.installmentCount}';
 
   @override
   String get statusLabel {
     if (agreement.isCancelled) return 'Cancelada';
+    if (installment.isAwaitingAmount) return 'Aguardando valor';
     if (installment.overdue && installment.status != InstallmentStatus.paid) {
       return installment.status == InstallmentStatus.partial
           ? 'Parcial · vencida'
@@ -133,7 +145,9 @@ class AgreementInstallmentItemAdapter implements FinancialItemView {
 
   @override
   StatusTone get statusTone {
-    if (agreement.isCancelled) return StatusTone.neutral;
+    if (agreement.isCancelled || installment.isAwaitingAmount) {
+      return StatusTone.neutral;
+    }
     if (installment.overdue && installment.status != InstallmentStatus.paid) {
       return StatusTone.danger;
     }
@@ -141,12 +155,13 @@ class AgreementInstallmentItemAdapter implements FinancialItemView {
       InstallmentStatus.paid => StatusTone.success,
       InstallmentStatus.partial => StatusTone.warning,
       InstallmentStatus.pending => StatusTone.neutral,
+      InstallmentStatus.awaitingAmount => StatusTone.neutral,
     };
   }
 
   @override
   Money? get pendingAmount {
-    if (agreement.isCancelled) return null;
+    if (agreement.isCancelled || installment.isAwaitingAmount) return null;
     if (installment.status == InstallmentStatus.paid) {
       return installment.received;
     }
@@ -163,13 +178,13 @@ class AgreementInstallmentItemAdapter implements FinancialItemView {
       !installment.remaining.isZero;
 
   @override
-  bool get isAwaitingAmount => false;
+  bool get isAwaitingAmount => installment.isAwaitingAmount;
 
   @override
   bool get isSettled =>
       agreement.isCancelled ||
       installment.status == InstallmentStatus.paid ||
-      installment.remaining.isZero;
+      (!installment.isAwaitingAmount && installment.remaining.isZero);
 
   @override
   bool get isEligibleForBatch => false;
@@ -181,7 +196,10 @@ class AgreementInstallmentItemAdapter implements FinancialItemView {
   bool get isPartial => installment.status == InstallmentStatus.partial;
 
   @override
-  String? get amountLabel => installment.status == InstallmentStatus.paid
-      ? 'Total recebido'
-      : 'Restante a receber';
+  String? get amountLabel {
+    if (installment.isAwaitingAmount) return 'Valor a definir';
+    return installment.status == InstallmentStatus.paid
+        ? 'Total recebido'
+        : 'Restante a receber';
+  }
 }

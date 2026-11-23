@@ -256,7 +256,7 @@ void main() {
       String description,
       String cents,
     ) async {
-      final descField = find.widgetWithText(TextFormField, 'Descrição');
+      final descField = find.widgetWithText(TextFormField, 'Descrição *');
       if (descField.evaluate().isEmpty) {
         await tester.scrollUntilVisible(
           descField,
@@ -307,7 +307,7 @@ void main() {
         PayableFormScreen(space: pf, today: DateTime(2026, 3, 15)),
       );
       expect(find.text('Cadastro aguardando confirmação'), findsOneWidget);
-      expect(find.widgetWithText(TextFormField, 'Descrição'), findsNothing);
+      expect(find.widgetWithText(TextFormField, 'Descrição *'), findsNothing);
 
       await pump(tester, const PayablesTab(space: pf));
       expect(find.textContaining('CONSERTO IT · Avulsa'), findsOneWidget);

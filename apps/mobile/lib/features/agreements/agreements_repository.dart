@@ -1,5 +1,6 @@
 import '../../core/api_client.dart';
 import '../../core/money.dart';
+import '../payables/payable.dart' show RecurrencePreview;
 import 'agreement.dart';
 
 class AgreementsListResult {
@@ -45,23 +46,70 @@ class AgreementsRepository {
             as Map<String, dynamic>,
       );
 
-  Future<Agreement> create(
+  Future<RecurrencePreview> recurrencePreview(
     int spaceId, {
-    required String description,
-    required Money total,
-    required int installmentCount,
-    required String firstDueDate,
-    int? categoryId,
-  }) async => Agreement.fromJson(
-    (await _api.post('/spaces/$spaceId/agreements', {
-          'description': description,
-          'total': total.toApi(),
-          'installment_count': installmentCount,
-          'first_due_date': firstDueDate,
-          'category_id': ?categoryId,
+    Money? amount,
+    required String startDate,
+    String? endDate,
+    bool isVariable = false,
+    Money? estimatedAmount,
+  }) async => RecurrencePreview.fromJson(
+    (await _api.post('/spaces/$spaceId/agreements/recurrence-preview', {
+          'amount': amount?.toApi(),
+          'start_date': startDate,
+          'end_date': endDate,
+          'is_variable': isVariable,
+          'estimated_amount': estimatedAmount?.toApi(),
         }))['data']
         as Map<String, dynamic>,
   );
+
+  Future<Agreement> create(
+    int spaceId, {
+    required String description,
+    Money? total,
+    int? installmentCount,
+    String? firstDueDate,
+    int? categoryId,
+    String kind = 'installment',
+    bool isVariable = false,
+    Money? amount,
+    Money? estimatedAmount,
+    String? startDate,
+    String? endDate,
+    String? approvedUntil,
+    bool confirmPast = false,
+    String? idempotencyKey,
+  }) async {
+    final body = <String, dynamic>{
+      'kind': kind,
+      'description': description,
+      'category_id': ?categoryId,
+    };
+    if (kind == 'recurring') {
+      body['is_variable'] = isVariable;
+      if (amount != null) body['amount'] = amount.toApi();
+      if (estimatedAmount != null) {
+        body['estimated_amount'] = estimatedAmount.toApi();
+      }
+      body['start_date'] = startDate;
+      if (endDate != null) body['end_date'] = endDate;
+      body['approved_until'] = approvedUntil;
+      body['confirm_past'] = confirmPast;
+    } else {
+      body['total'] = total?.toApi();
+      body['installment_count'] = installmentCount;
+      body['first_due_date'] = firstDueDate;
+    }
+    return Agreement.fromJson(
+      (await _api.post(
+            '/spaces/$spaceId/agreements',
+            body,
+            idempotencyKey: idempotencyKey,
+          ))['data']
+          as Map<String, dynamic>,
+    );
+  }
 
   Future<Installment> installment(int spaceId, int installmentId) async =>
       Installment.fromJson(

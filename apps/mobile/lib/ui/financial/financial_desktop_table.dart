@@ -69,7 +69,7 @@ class FinancialDesktopTableHeader extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           const Expanded(
-            flex: 3,
+            flex: 5,
             child: Text(
               'Descrição / Favorecido',
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
@@ -77,7 +77,7 @@ class FinancialDesktopTableHeader extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           const Expanded(
-            flex: 2,
+            flex: 3,
             child: Text(
               'Categoria',
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
@@ -248,7 +248,7 @@ class FinancialDesktopTableRow<T extends FinancialItemView>
 
                 // Descrição e Favorecido / Cliente
                 Expanded(
-                  flex: 3,
+                  flex: 5,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -286,7 +286,7 @@ class FinancialDesktopTableRow<T extends FinancialItemView>
 
                 // Categoria
                 Expanded(
-                  flex: 2,
+                  flex: 3,
                   child: item.category != null && item.category is Category
                       ? Align(
                           alignment: Alignment.centerLeft,

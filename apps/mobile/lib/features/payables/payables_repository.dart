@@ -36,11 +36,13 @@ class PayablesRepository {
     required Money total,
     required int count,
     required String firstDueDate,
+    bool suggestNextBankDay = false,
   }) async =>
       ((await _api.post('/spaces/$spaceId/payables/preview', {
                 'total': total.toApi(),
                 'installment_count': count,
                 'first_due_date': firstDueDate,
+                if (suggestNextBankDay) 'suggest_next_bank_day': true,
               }))['data']
               as List)
           .map((item) {

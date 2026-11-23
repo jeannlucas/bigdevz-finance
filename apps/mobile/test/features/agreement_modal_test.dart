@@ -106,6 +106,53 @@ void main() {
     );
   }
 
+  testWidgets('Ocorrência recebida abre o histórico para estorno', (
+    tester,
+  ) async {
+    final agreement =
+        (jsonDecode(jsonEncode(agreementResponse)) as Map)['data']
+            as Map<String, dynamic>;
+    final installment =
+        (agreement['installments'] as List).first as Map<String, dynamic>;
+    agreement.addAll({'kind': 'recurring', 'received': '1000.00'});
+    installment.addAll({
+      'received': '1000.00',
+      'remaining': '0.00',
+      'status': 'paid',
+    });
+    final api = ApiClient(
+      baseUrl: 'http://api.test/api',
+      client: MockClient((request) async {
+        final data = switch (request.url.path) {
+          '/api/spaces/1/agreements/5' => {'data': agreement},
+          '/api/spaces/1/installments/101' => {'data': installment},
+          _ => accountsResponse,
+        };
+        return http.Response(jsonEncode(data), 200);
+      }),
+    );
+    await tester.pumpWidget(
+      buildTestWidget(
+        api: api,
+        child: Builder(
+          builder: (context) => ElevatedButton(
+            onPressed: () =>
+                showAgreementModal(context, space: pf, agreementId: 5),
+            child: const Text('Abrir Modal'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Abrir Modal'));
+    await tester.pumpAndSettle();
+    final history = find.text('Ver recebimentos');
+    expect(history, findsOneWidget);
+    await tester.ensureVisible(history);
+    await tester.tap(history);
+    await tester.pumpAndSettle();
+    expect(find.text('Parcela'), findsOneWidget);
+  });
+
   testWidgets(
     'AgreementActionModal exibe detalhes do acordo, parcelas e permite dar baixa inline',
     (tester) async {

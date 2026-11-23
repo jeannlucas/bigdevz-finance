@@ -9,6 +9,7 @@ import '../../ui/app_tokens.dart';
 import '../../ui/confirm_changes_dialog.dart';
 import '../../ui/date_field.dart';
 import '../../ui/installment_summary_card.dart';
+import '../../ui/theme.dart';
 import '../accounts/account.dart';
 import '../accounts/accounts_repository.dart';
 import '../auth/auth_models.dart';
@@ -17,6 +18,7 @@ import '../categories/category_badge.dart';
 import '../categories/category_picker_field.dart';
 import 'agreement.dart';
 import 'agreements_repository.dart';
+import 'installment_screen.dart';
 import 'receipt_attempts.dart';
 
 /// Abre o modal interativo do Acordo / Conta a Receber.
@@ -131,7 +133,9 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
   List<Installment> get _pendingInstallments =>
       _agreement?.installments
           .where(
-            (i) => i.status != InstallmentStatus.paid && i.remaining.cents > 0,
+            (i) =>
+                i.status != InstallmentStatus.paid &&
+                (i.isAwaitingAmount || i.remaining.cents > 0),
           )
           .toList() ??
       [];
@@ -228,9 +232,12 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
           _loading = false;
           if (preselected != null &&
               preselected.status != InstallmentStatus.paid &&
-              preselected.remaining.cents > 0) {
+              (preselected.isAwaitingAmount ||
+                  preselected.remaining.cents > 0)) {
             _selectedInstallment = preselected;
-            _amountController.text = preselected.remaining.plain;
+            _amountController.text = preselected.isAwaitingAmount
+                ? ''
+                : preselected.remaining.plain;
             _selectedDate = DateUtils.dateOnly(DateTime.now());
             _selectedAccountId = null;
             _submitError = null;
@@ -251,7 +258,9 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
   void _startBaixa(Installment installment) {
     setState(() {
       _selectedInstallment = installment;
-      _amountController.text = installment.remaining.plain;
+      _amountController.text = installment.isAwaitingAmount
+          ? ''
+          : installment.remaining.plain;
       _selectedDate = DateUtils.dateOnly(DateTime.now());
       _selectedAccountId = null;
       _submitError = null;
@@ -418,7 +427,8 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
       return;
     }
 
-    if (amount.cents > installment.remaining.cents) {
+    if (installment.amount != null &&
+        amount.cents > installment.remaining.cents) {
       setState(
         () => _submitError =
             'O valor não pode ser maior que o saldo restante da parcela.',
@@ -426,7 +436,9 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
       return;
     }
 
-    final kind = amount.cents == installment.remaining.cents
+    final kind =
+        installment.amount == null ||
+            amount.cents == installment.remaining.cents
         ? ReceiptKind.total
         : ReceiptKind.partial;
 
@@ -645,7 +657,7 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
         ? const Color(0xFF1E5BB8)
         : const Color(0xFF0F8A5F);
 
-    final total = agreement.total;
+    final total = agreement.total ?? agreement.received;
     final received = agreement.received;
     final remaining = agreement.remaining;
     final progress = total.cents > 0
@@ -699,9 +711,11 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
                       spacing: 8,
                       children: [
                         Text(
-                          agreement.installmentCount == 1
-                              ? 'Recebimento à vista'
-                              : '${agreement.installmentCount} parcelas',
+                          agreement.isRecurring
+                              ? 'Recorrência mensal'
+                              : (agreement.installmentCount == 1
+                                    ? 'Recebimento à vista'
+                                    : '${agreement.installmentCount} parcelas'),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -720,7 +734,7 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
                 IconButton(
                   icon: const Icon(Icons.edit_outlined, size: 20),
                   tooltip: 'Editar conta a receber',
-                  onPressed: _editAgreement,
+                  onPressed: agreement.isRecurring ? null : _editAgreement,
                 ),
                 IconButton(
                   icon: Icon(
@@ -874,7 +888,9 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Parcelas (${agreement.installmentCount})',
+                    agreement.isRecurring
+                        ? 'Ocorrências (${agreement.installments.length})'
+                        : 'Parcelas (${agreement.installmentCount})',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
@@ -906,7 +922,9 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
               for (final inst in agreement.installments) ...[
                 _InstallmentCard(
                   installment: inst,
-                  totalInstallments: agreement.installmentCount,
+                  totalInstallments:
+                      agreement.installmentCount ??
+                      agreement.installments.length,
                   primaryColor: primaryColor,
                   isCancelled: agreement.isCancelled,
                   isSelectable:
@@ -917,6 +935,24 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
                   isSelected: _selectedInstallmentIds.contains(inst.id),
                   onToggleSelect: () => _toggleInstallment(inst.id),
                   onDarBaixa: () => _startBaixa(inst),
+                  onViewReceipts:
+                      agreement.isRecurring &&
+                          (!inst.received.isZero || inst.receipts.isNotEmpty)
+                      ? () async {
+                          await Navigator.of(context).push<void>(
+                            spaceRoute<void>(
+                              isPf: widget.space.isPf,
+                              child: InstallmentScreen(
+                                space: widget.space,
+                                installmentId: inst.id,
+                              ),
+                            ),
+                          );
+                          if (!mounted) return;
+                          await _loadData();
+                          if (mounted) widget.onUpdated?.call();
+                        }
+                      : null,
                 ),
                 const SizedBox(height: 10),
               ],
@@ -1179,7 +1215,8 @@ class _AgreementModalContentState extends State<_AgreementModalContent> {
                     if (m == null || m.cents <= 0) {
                       return 'O valor deve ser maior que zero';
                     }
-                    if (m.cents > installment.remaining.cents) {
+                    if (!installment.isAwaitingAmount &&
+                        m.cents > installment.remaining.cents) {
                       return 'O valor excede o saldo restante (${installment.remaining.brl})';
                     }
                     return null;
@@ -1673,6 +1710,7 @@ class _InstallmentCard extends StatelessWidget {
     required this.totalInstallments,
     required this.primaryColor,
     required this.onDarBaixa,
+    this.onViewReceipts,
     this.isCancelled = false,
     this.isSelectable = false,
     this.isSelected = false,
@@ -1683,6 +1721,7 @@ class _InstallmentCard extends StatelessWidget {
   final int totalInstallments;
   final Color primaryColor;
   final VoidCallback onDarBaixa;
+  final VoidCallback? onViewReceipts;
   final bool isCancelled;
   final bool isSelectable;
   final bool isSelected;
@@ -1693,7 +1732,7 @@ class _InstallmentCard extends StatelessWidget {
     final theme = Theme.of(context);
     final isPaid =
         installment.status == InstallmentStatus.paid ||
-        installment.remaining.cents == 0;
+        (!installment.isAwaitingAmount && installment.remaining.cents == 0);
     final isOverdue = installment.overdue;
 
     return InkWell(
@@ -1779,12 +1818,27 @@ class _InstallmentCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    installment.amount.brl,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+                  installment.amount != null
+                      ? Text(
+                          installment.amount!.brl,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        )
+                      : Text(
+                          installment.isAwaitingAmount
+                              ? 'Aguardando valor'
+                              : '',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontStyle: FontStyle.italic,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                  if (onViewReceipts != null)
+                    TextButton(
+                      onPressed: onViewReceipts,
+                      child: const Text('Ver recebimentos'),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -1892,9 +1946,9 @@ class _EditAgreementDialogState extends State<EditAgreementDialog> {
     );
     _selectedCategory = agr.categoryId;
     _countController = TextEditingController(
-      text: agr.installmentCount.toString(),
+      text: (agr.installmentCount ?? 1).toString(),
     );
-    _mode = agr.installmentCount > 1
+    _mode = (agr.installmentCount ?? 1) > 1
         ? _EditInstallmentMode.byInstallment
         : _EditInstallmentMode.byTotal;
 
@@ -1904,8 +1958,8 @@ class _EditAgreementDialogState extends State<EditAgreementDialog> {
 
     _amountController = TextEditingController(
       text: _mode == _EditInstallmentMode.byInstallment
-          ? initialPerInstallment.plain
-          : agr.total.plain,
+          ? (initialPerInstallment?.plain ?? '')
+          : (agr.total?.plain ?? ''),
     );
 
     if (agr.installments.isNotEmpty) {
@@ -1964,7 +2018,7 @@ class _EditAgreementDialogState extends State<EditAgreementDialog> {
     final computed = _computedTotal;
     if (computed == null) return false;
     final agr = widget.agreement;
-    return computed.cents != agr.total.cents ||
+    return computed.cents != (agr.total?.cents ?? 0) ||
         _parsedCount != agr.installmentCount ||
         toApiDate(_firstDueDate) !=
             (agr.installments.isNotEmpty
@@ -2006,11 +2060,11 @@ class _EditAgreementDialogState extends State<EditAgreementDialog> {
       );
     }
 
-    if (total.cents != agr.total.cents) {
+    if (total.cents != (agr.total?.cents ?? 0)) {
       changes.add(
         ChangeDifference(
           label: 'Valor total',
-          oldValue: agr.total.brl,
+          oldValue: agr.total?.brl ?? 'R\$ 0,00',
           newValue: total.brl,
         ),
       );

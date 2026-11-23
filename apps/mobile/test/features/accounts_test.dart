@@ -244,7 +244,7 @@ void main() {
         await tapText(tester, 'Banco PF');
         await tapText(tester, 'Editar conta');
         await tester.enterText(
-          find.widgetWithText(TextFormField, 'Nome da conta'),
+          find.widgetWithText(TextFormField, 'Nome da conta *'),
           'Banco Novo',
         );
         await tapText(tester, 'Cancelar');
@@ -252,7 +252,7 @@ void main() {
 
         await tapText(tester, 'Editar conta');
         await tester.enterText(
-          find.widgetWithText(TextFormField, 'Nome da conta'),
+          find.widgetWithText(TextFormField, 'Nome da conta *'),
           'Banco Novo',
         );
         await tapText(tester, 'Salvar alterações');

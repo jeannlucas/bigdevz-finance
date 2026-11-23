@@ -22,6 +22,73 @@ class CategoryPickerField extends StatefulWidget {
   final int? selectedCategoryId;
   final ValueChanged<int?> onChanged;
 
+  static String _normalizeSortKey(String text) {
+    return text
+        .toLowerCase()
+        .replaceAll(RegExp(r'[áàâãä]'), 'a')
+        .replaceAll(RegExp(r'[éèêë]'), 'e')
+        .replaceAll(RegExp(r'[íìîï]'), 'i')
+        .replaceAll(RegExp(r'[óòôõö]'), 'o')
+        .replaceAll(RegExp(r'[úùûü]'), 'u')
+        .replaceAll(RegExp(r'[ç]'), 'c');
+  }
+
+  /// Organiza a lista plana de categorias em árvore determinística:
+  /// 1. Categorias pai ordenadas alfabeticamente.
+  /// 2. Imediatamente após cada pai, suas filhas ordenadas alfabeticamente.
+  /// 3. Categorias órfãs agrupadas ordenadamente ao final.
+  static List<Category> organizeHierarchy(List<Category> list) {
+    if (list.isEmpty) return [];
+
+    final parents = <Category>[];
+    final childrenByParent = <int, List<Category>>{};
+    final orphans = <Category>[];
+
+    final parentIds = <int>{};
+    for (final cat in list) {
+      if (!cat.isSubcategory) {
+        parentIds.add(cat.id);
+      }
+    }
+
+    for (final cat in list) {
+      if (!cat.isSubcategory) {
+        parents.add(cat);
+      } else if (cat.parentId != null && parentIds.contains(cat.parentId)) {
+        childrenByParent.putIfAbsent(cat.parentId!, () => []).add(cat);
+      } else {
+        orphans.add(cat);
+      }
+    }
+
+    parents.sort(
+      (a, b) => _normalizeSortKey(a.name).compareTo(_normalizeSortKey(b.name)),
+    );
+
+    for (final children in childrenByParent.values) {
+      children.sort(
+        (a, b) =>
+            _normalizeSortKey(a.name).compareTo(_normalizeSortKey(b.name)),
+      );
+    }
+
+    orphans.sort(
+      (a, b) => _normalizeSortKey(a.name).compareTo(_normalizeSortKey(b.name)),
+    );
+
+    final ordered = <Category>[];
+    for (final parent in parents) {
+      ordered.add(parent);
+      final children = childrenByParent[parent.id];
+      if (children != null) {
+        ordered.addAll(children);
+      }
+    }
+    ordered.addAll(orphans);
+
+    return ordered;
+  }
+
   @override
   State<CategoryPickerField> createState() => _CategoryPickerFieldState();
 }
@@ -78,9 +145,15 @@ class _CategoryPickerFieldState extends State<CategoryPickerField> {
     );
     int? selectedParentId;
 
-    final potentialParents = (_categories ?? [])
-        .where((c) => !c.isSubcategory && c.type == widget.type)
-        .toList();
+    final potentialParents =
+        (_categories ?? [])
+            .where((c) => !c.isSubcategory && c.type == widget.type)
+            .toList()
+          ..sort(
+            (a, b) =>
+                CategoryPickerField._normalizeSortKey(a.name)
+                    .compareTo(CategoryPickerField._normalizeSortKey(b.name)),
+          );
 
     final created = await showDialog<Category>(
       context: context,
@@ -218,7 +291,8 @@ class _CategoryPickerFieldState extends State<CategoryPickerField> {
       );
     }
 
-    final categories = _categories ?? [];
+    final rawCategories = _categories ?? [];
+    final categories = CategoryPickerField.organizeHierarchy(rawCategories);
     Category? selectedCategory;
     if (widget.selectedCategoryId != null) {
       for (final cat in categories) {
@@ -263,6 +337,51 @@ class _CategoryPickerFieldState extends State<CategoryPickerField> {
               onPressed: _showCreateCategoryDialog,
             ),
           ),
+          selectedItemBuilder: (BuildContext context) {
+            return [
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Sem categoria'),
+              ),
+              for (final cat in categories)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: cat.isSubcategory
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                toFinancialUpper(cat.name),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (cat.parentName != null &&
+                                cat.parentName!.isNotEmpty) ...[
+                              const SizedBox(width: 6),
+                              Text(
+                                '• ${toFinancialUpper(cat.parentName!)}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Theme.of(context).colorScheme.outline,
+                                  fontWeight: FontWeight.normal,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ],
+                        )
+                      : Text(
+                          toFinancialUpper(cat.name),
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                ),
+            ];
+          },
           items: [
             const DropdownMenuItem<int?>(
               value: null,
@@ -273,24 +392,54 @@ class _CategoryPickerFieldState extends State<CategoryPickerField> {
                 value: cat.id,
                 child: Row(
                   children: [
-                    if (cat.isSubcategory) const SizedBox(width: 12),
-                    Container(
-                      width: 14,
-                      height: 14,
-                      decoration: BoxDecoration(
-                        color: cat.colorValue,
-                        shape: BoxShape.circle,
+                    if (cat.isSubcategory) ...[
+                      const SizedBox(width: 20),
+                      Text(
+                        '↳',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.outline,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(cat.iconData, size: 16, color: cat.colorValue),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        toFinancialUpper(cat.fullName),
-                        overflow: TextOverflow.ellipsis,
+                      const SizedBox(width: 6),
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: cat.colorValue,
+                          shape: BoxShape.circle,
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 6),
+                      Icon(cat.iconData, size: 15, color: cat.colorValue),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          toFinancialUpper(cat.name),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ] else ...[
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: cat.colorValue,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(cat.iconData, size: 16, color: cat.colorValue),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          toFinancialUpper(cat.name),
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

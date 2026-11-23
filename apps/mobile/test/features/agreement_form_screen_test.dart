@@ -63,7 +63,7 @@ void main() {
 
       // Altera para 3 parcelas
       final countField = find.ancestor(
-        of: find.text('Quantidade de parcelas'),
+        of: find.text('Quantidade de parcelas *'),
         matching: find.byType(TextFormField),
       );
       expect(countField, findsOneWidget);
@@ -116,12 +116,12 @@ void main() {
 
       // Campos Parcelas e Primeiro vencimento em 2 colunas (Row)
       expect(
-        find.ancestor(of: find.text('Parcelas'), matching: find.byType(Row)),
+        find.ancestor(of: find.text('Parcelas *'), matching: find.byType(Row)),
         findsWidgets,
       );
       expect(
         find.ancestor(
-          of: find.text('Primeiro vencimento'),
+          of: find.text('Primeiro vencimento *'),
           matching: find.byType(Row),
         ),
         findsWidgets,
@@ -240,24 +240,24 @@ void main() {
 
       // Preenche descrição
       await tester.enterText(
-        find.widgetWithText(TextFormField, 'Descrição'),
+        find.widgetWithText(TextFormField, 'Descrição *'),
         'Venda Parcelada',
       );
 
       // Altera quantidade de parcelas para 10
       final countField = find.ancestor(
-        of: find.text('Quantidade de parcelas'),
+        of: find.text('Quantidade de parcelas *'),
         matching: find.byType(TextFormField),
       );
       await tester.enterText(countField, '10');
       await tester.pumpAndSettle();
 
       // Verifica que o seletor de modo aparece e o padrão é "Valor da parcela"
-      expect(find.text('Valor da parcela'), findsWidgets);
+      expect(find.text('Valor da parcela *'), findsWidgets);
 
       // Preenche o valor de cada parcela: R$ 250,00
       await tester.enterText(
-        find.widgetWithText(TextFormField, 'Valor da parcela'),
+        find.widgetWithText(TextFormField, 'Valor da parcela *'),
         '25000',
       );
       await tester.pumpAndSettle();

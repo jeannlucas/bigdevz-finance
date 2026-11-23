@@ -35,7 +35,7 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
   - O dia da primeira parcela define o dia de referência fixo para todas as parcelas subsequentes.
   - Em meses cujo total de dias for menor que o dia de referência (ex.: dia 31 em fevereiro com 28/29 dias ou abril com 30 dias), o vencimento deve cair no último dia do mês correspondente.
   - Nos meses posteriores com duração suficiente, o dia de referência original deve ser restaurado (ex.: 31/01 -> 28/02 -> 31/03). Anos bissextos devem considerar 29 de fevereiro.
-  - Vencimentos não são antecipados nem postergados por feriados ou finais de semana no cronograma contratual.
+  - O cronograma contratual usa datas civis. A prévia de novos carnês pode sugerir ajustes opcionais conforme AC-FIN-033.
 
 ---
 
@@ -229,6 +229,19 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
   - As telas de Dashboard (`SummaryTab`) e Extrato (`StatementTab`) possuem contenção de largura máxima (`maxWidth: 1040`) centralizada em monitores widescreen desktop, eliminando campos dispersos e esticados.
   - O Extrato (`StatementTab`) integra barra de período canônica (`FinancialPeriodBar`), filtros por direção (Todos, Entradas, Saídas), conta bancária e categoria, chips visuais de filtros ativos com remoção individual, botão de limpeza rápida ("Limpar filtros") e estado vazio contextual com ação de restauração.
   - Lançamentos no Extrato utilizam obrigatoriamente a formatação brasileira de datas (`formatDateBr`, `dd/MM/yyyy`) e distinção visual nítida de sinal e cor entre entradas (`+ R$`) e saídas (`- R$`).
+- **AC-UI-010 [Identificação Visual de Obrigatoriedade e Foco Automático no Primeiro Erro em Formulários Financeiros]:**
+  - Em todos os formulários financeiros modais e telas de cadastro/edição (`PayableFormScreen`, `PayableEditScreen`, `AgreementFormScreen`, `AccountFormScreen`, `AccountEditScreen`), compartilhados entre os espaços Pessoa Física (PF) e Pessoa Jurídica (PJ):
+    1. **Identificação Visual Prévia:** Todo campo de preenchimento obrigatório deve conter um asterisco explícito no rótulo (`*`), garantindo identificação visual clara antes de qualquer tentativa de submissão e acessibilidade semântica (a cor não é a única indicação de obrigatoriedade).
+    2. **Campos Opcionais:** Campos opcionais recebem a indicação explícita e suave `(opcional)` no rótulo (ex.: `Beneficiário (opcional)`, `Categoria (opcional)`, `Data limite (opcional)`, `Estimativa de valor (opcional, para planejamento)`, `Motivo da alteração (opcional)`).
+    3. **Dinamismo por Modalidade Contratual:** Campos condicionais adaptam seus rótulos em tempo real de acordo com a modalidade selecionada:
+       - *Avulsa:* `Valor *` e `Vencimento *`.
+       - *Parcelada:* `Valor total *` (ou `Valor da parcela *` conforme o modo de cálculo), `Número de parcelas *` (ou `Parcelas *` em desktop) e `Primeiro vencimento *`.
+       - *Recorrência Fixa:* `Valor mensal *` e `Primeiro vencimento *`.
+       - *Recorrência Variável:* `Valor da primeira ocorrência (opcional)` e `Primeiro vencimento *`. O valor é opcional na modalidade variável e não impede o avanço/salvamento.
+    4. **Validação Inline e Erro Imediato:** Quando o usuário tenta submeter ou avançar no formulário com campos inválidos ou pendentes:
+       - As mensagens de validação aparecem inline imediatamente adjacentes aos campos com erro (ex.: *"Informe a descrição."*, *"Informe o valor."*, *"De 1 a 1200 parcelas."*, *"Informe um nome."*, *"Informe o saldo inicial."*).
+       - O formulário requisita foco automaticamente e rola suavemente (`Scrollable.ensureVisible` com `alignment: 0.1` e duração adaptativa) até o **primeiro campo inválido na ordem visual** (de cima para baixo), mesmo que o campo esteja abaixo da dobra ou oculto pela rolagem.
+    5. **Preservação de Dados e Tolerância a Campos Ocultos:** Campos preenchidos validamente não são limpos em caso de erro; campos ocultos pela modalidade corrente ou opcionais jamais bloqueiam a submissão. Ao sanar os erros pendentes, o envio é concluído com sucesso.
 
 ---
 
@@ -282,6 +295,88 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
     2. Hash SHA-256 do arquivo JavaScript principal `main.dart.js` idêntico ao hash do bundle compilado para a release (`EXPECTED_WEB_HASH`).
   - Qualquer divergência entre o backend publicado e o bundle web servido bloqueia a promoção e aciona falha no pipeline via `scripts/verify-production-release.sh`.
 
+- **AC-FIN-032 [Persistência de Carnês e Parcelamentos com Valores e Vencimentos Customizados]:**
+  - O backend permite o cadastro de parcelamentos (`kind: 'installment'`) informando opcionalmente a coleção explícita de parcelas (`installments: list<array{number: int, amount: string, due_date: string}>`).
+  - Validações determinísticas obrigatórias:
+    1. Quantidade de itens no array idêntica ao `installment_count`.
+    2. Numeração sequencial contígua de 1 até `installment_count`.
+    3. Cada parcela possui valor monetário estritamente positivo (`amount > 0`) e no limite suportado (`MoneyAmount`).
+    4. Cada parcela possui data de vencimento válida no formato `Y-m-d`.
+    5. A data da primeira parcela (`number == 1`) deve ser idêntica a `first_due_date`.
+    6. As parcelas devem respeitar ordenação cronológica não-decrescente (`due_date[i] >= due_date[i-1]`).
+    7. A soma algébrica exata dos centavos de todas as parcelas (`sum(amount_cents)`) deve ser rigorosamente igual ao `total_cents` (`total` do plano). Divergências geram rejeição atômica `422 Unprocessable Entity` com erro explicativo no campo `total`.
+  - Se `installments` for omitido, o sistema preserva 100% de compatibilidade retroativa, dividindo o valor total de forma determinística via `InstallmentSchedule::generate`.
+  - Cada parcela é gravada como obrigação prevista individual (`Payable`) associada ao plano (`PayablePlan`), mantendo idempotência por chave e isolamento estrito por espaço multi-tenant (`space_id`).
+
+- **AC-UI-011 [Edição de Valores e Vencimentos na Prévia de Parcelamento]:**
+  - No formulário de Contas a Pagar (`PayableFormScreen`), a seção de prévia do cronograma de parcelamento exibe cards/linhas interativas permitindo editar individualmente a data de vencimento e o valor de cada parcela antes da gravação.
+  - Ao alterar o valor de qualquer parcela, o total agregado do plano é recalculado e atualizado instantaneamente na interface sem necessidade de nova requisição ao servidor.
+  - Ao alterar o vencimento de uma parcela, a data é atualizada com seletor de data (`DateField` / date picker formatado `DD/MM/AAAA`).
+  - O envio do formulário transmite a lista de parcelas customizadas confirmadas na prévia, persistindo com exatidão matemática os mesmos valores e datas na API.
+
+- **AC-FIN-033 [Sugestão de Próximo Dia Útil Bancário na Prévia de Carnês]:**
+  - Para novos carnês de boletos comuns, a opção “Sugerir próximo dia útil bancário” começa desativada. O usuário usa as datas da guia para tributos.
+  - Quando ativada, a prévia gera as datas contratuais mensais e avança cada data não útil de forma independente. O calendário nacional usa sábados, domingos, feriados bancários fixos e móveis e o último dia de expediente restrito do ano. Referências: [Resolução CMN 4.880](https://www.bcb.gov.br/estabilidadefinanceira/exibenormativo?numero=4880&tipo=RESOLU%C3%87%C3%83O+CMN) e [calendário Febraban](https://portal.febraban.org.br/Noticia/4413/pt_br).
+  - O ajuste preserva o dia de referência da série e a distribuição monetária. A data editada manualmente prevalece, inclusive ao recalcular a prévia com a mesma data de referência e quantidade. Cabe ao usuário informar datas específicas de feriados locais ou do emissor.
+  - O backend calcula a sugestão somente na prévia. O cadastro persiste as datas confirmadas por parcela, preservando o contrato de criação e a edição manual.
+
+- **AC-FIN-034 [Receitas Mensais Recorrentes Fixas e Variáveis no Módulo A Receber]:**
+  - O módulo A Receber (`agreements`) suporta contratos de receita contínua mensal (`kind = 'recurring'`), categorizados em modalidade de valor fixo (`is_variable = false`) ou valor variável (`is_variable = true`).
+  - No modo fixo, o valor mensal (`amount_cents`) é obrigatório no cadastro e replica seu valor exato em todas as ocorrências geradas da série.
+  - No modo variável, o usuário pode definir um valor estimado opcional (`estimated_amount_cents`) e, opcionalmente, informar o valor da primeira ocorrência (`amount_cents` na data inicial `due_date == start_date`). Ocorrências sem valor confirmado nascem com `amount_cents = null` e situação `awaiting_amount` ("Aguardando valor"). A prévia mantém a estimativa separada do valor inicial confirmado.
+  - O cadastro de receita recorrente representa uma projeção orçamentária e jamais altera o saldo disponível das contas bancárias até a efetiva liquidação via recebimento.
+  - A operação exige cabeçalho `Idempotency-Key` por espaço. Replays da mesma requisição com a mesma chave devolvem o contrato já existente e suas ocorrências sem duplicidade.
+
+- **AC-FIN-035 [Geração Periódica, Horizonte e Preservação de Data de Referência em Receitas Recorrentes]:**
+  - A geração de ocorrências (`installments`) de receitas recorrentes projeta ciclos mensais até o horizonte canônico (`horizon = now + 12 meses`) ou até a data limite final (`end_date`), quando configurada.
+  - A chave de unicidade composta `(agreement_id, cycle)` no banco garante idempotência estrita: reexecuções da geração nunca duplicam ciclos existentes nem alteram ocorrências já baixadas, confirmadas ou editadas.
+  - A data de vencimento de cada ocorrência preserva deterministicamente o dia de referência (`reference_day`) do cadastro, utilizando `MonthlyDate::shift`: em meses curtos (ex.: 28 ou 29 em fevereiro, 30 em abril/junho/setembro/novembro), o vencimento recai no último dia válido do mês e retorna ao dia de referência no mês seguinte.
+  - Quando a data inicial for retroativa em relação à data atual, a criação exige confirmação explícita (`confirm_past = true`) das ocorrências nascidas no passado.
+
+- **AC-FIN-036 [Liquidação e Estorno de Ocorrências Recorrentes com Preservação de Saldo e Auditoria]:**
+  - A liquidação de qualquer ocorrência de receita recorrente ocorre pela Action atômica `ReceiveInstallment`, creditando a conta bancária indicada na data de recebimento e registrando a respectiva movimentação em `account_movements`.
+  - Ocorrências variáveis com `amount_cents = null` podem ter seu valor confirmado no próprio ato do recebimento, fixando `amount_cents = amountReceived` e quitando o lançamento.
+  - O estorno de recebimento de receita recorrente via `ReverseReceipt` reverte o crédito na conta bancária através de contra-movimentação negativa idêntica, preserva auditoria em `receipt_reversals` e `obligation_changes`, e restaura a ocorrência para situação pendente ou aguardando valor, sem alterar outros ciclos da série. O usuário acessa o recebimento e seu estorno pelo histórico da ocorrência.
+
+- **AC-UI-012 [Interface de Cadastro de Receitas Recorrentes com Prévia e Alternância Ergonômica]:**
+  - No formulário de cadastro de conta a receber (`AgreementFormScreen`), o usuário pode selecionar o tipo `Recorrente` via seletor de segmento (`Avulsa | Parcelada | Recorrente`).
+  - Em modo Recorrente:
+    - Alternador ergonômico entre `Valor Fixo` e `Valor Variável`.
+    - No modo fixo, exibe o campo obrigatório `"Valor mensal"`.
+    - No modo variável, exibe os campos `"Valor da 1ª ocorrência (opcional)"` e `"Valor estimado mensal (opcional)"`.
+    - Campo de data de início (`DateField`) e campo de data de término opcional.
+    - Botão de prévia interativa com modal demonstrando o cronograma projetado de ocorrências, quantidade de ocorrências passadas/vencidas e checkbox mandatório de confirmação de ocorrências passadas quando aplicável.
+    - No `AgreementsTab` e no `AgreementModal`, ocorrências com `amount == null` exibem rótulo destacado `"Aguardando valor"` com tom neutro e botão de baixa/definição de valor inline.
+- **AC-FIN-030 [Termômetro de Fluxo de Caixa no Dashboard Sem Dupla Contagem]:**
+  - O card de Fluxo de Caixa (`CashFlowThermometerCard`) consolida Entradas Projetadas (recebido + a receber) e Saídas & Compromissos Projetados (pago + aberto).
+  - O contrato da API (`SpaceController::payables`) estabelece que o campo `open_total` já computa a totalidade das contas a pagar em aberto com valor definido (tanto vencidas quanto a vencer).
+  - O total de Saídas & Compromissos calcula estritamente a soma de pagamentos liquidados com o saldo total em aberto (`paid_total + open_total`) em centavos inteiros (`int`). É expressamente vedada a soma adicional de `overdue_total`, evitando dupla contagem de obrigações em atraso.
+  - A margem líquida projetada (`netMarginCents = totalInflowCents - totalOutflowCents`) governa o estado visual do card: quando negativa (`netMarginCents < 0`), o card exibe o alerta de insuficiência ("Atenção: vai faltar R$ X,XX") calculado exatamente pela diferença em centavos inteiros, sem distorções causadas por duplicidade de parcelas vencidas.
+- **AC-UI-008 [Ergonomia Widescreen e Grid Multi-Colunas nas Telas Principais]:**
+  - Aplica contenção de largura máxima padronizada de 1280px (`maxWidth: 1280`) nas cinco telas principais da aplicação: Dashboard (`SummaryTab`), Extrato (`StatementTab`), A Pagar (`PayablesTab`), A Receber (`AgreementsTab`) e Contas (`AccountsTab`), com margens responsivas centralizadas e padding de 24px em desktop (>= 840px) e 16px em mobile (< 840px).
+  - No Dashboard (`SummaryTab`), em desktop widescreen (`isDesktop`), os blocos de Contas a Pagar (`_ModernPayablesCard`) e Acesso às Contas (`_AccountsAccessCard`) são organizados lado a lado em duas colunas equivalentes, equilibrando a altura visual em conjunto com os cards executivos de saldos bancários e fluxo de caixa.
+  - Na tela de Contas (`AccountsTab`), em desktop widescreen com mais de uma conta ativa cadastrada, a listagem adota visualização em grade multi-colunas (`Wrap` com largura flexível para cada card), eliminando estiramento excessivo em monitores ultrawide.
+  - Na tabela executiva desktop compartilhada (`FinancialDesktopTable`), as proporções de colunas de texto são expandidas para `flex: 5` na Descrição, `flex: 3` na Categoria e `flex: 2` no Tipo/Parcela, preservando as larguras mínimas fixas de Vencimento (96px), Situação (110px), Valor (120px) e Ações (90px), eliminando truncamento precoce de nomes e subcategorias sem prejudicar a leitura numérica.
+  - Mantém a ergonomia touch original em telas compactas e smartphones (< 840px), preservando listas verticais de coluna única, bottom sheets e padding de 16px.
+
+- **AC-UI-009 [Botão Integrado de Despesa Paga no Dashboard]:**
+  - Na seção de Ações Rápidas do Dashboard (`_QuickActionsSection`), o botão de registro direto de despesa utiliza o rótulo objetivo e conciso `"Registrar despesa paga"`.
+  - Em telas desktop (>= 840px), o botão possui largura controlada com `maxWidth: 320` alinhado à esquerda na seção de ações, evitando estiramento horizontal desproporcional. Em telas mobile (< 840px), ocupa 100% da largura útil com altura mínima de toque de 44px (`minHeight: 44`).
+  - Adota estilo visual tonal (`FilledButton.tonalIcon`) com ícone representativo (`Icons.receipt_long_rounded` ou `Icons.payment_rounded`), mantendo consistência com o tema visual do sistema em PF e PJ.
+  - O acionamento abre o modal unificado de despesa rápida (`showDirectExpenseModal`) preservando a integridade do lançamento financeiro em conta e no extrato.
+- **AC-FIN-031 [Primeira Ocorrência de Recorrência Variável com Valor Inicial Confirmado]:**
+  - Ao cadastrar uma recorrência com valor variável (`is_variable = true`), o usuário pode opcionalmente preencher o valor monetário da primeira fatura/ocorrência no campo `amount`.
+  - Quando informado no cadastro, esse valor inicial é atribuído estritamente como `amount_cents` confirmado da ocorrência vinculada ao primeiro vencimento (`due_date == start_date`), nascendo com status `open` (ou `overdue` se a data for anterior ao dia atual) e `paid_cents = 0`.
+  - Todas as ocorrências subsequentes da série (`due_date > start_date`) continuam nascendo com `amount_cents = null` e situação `awaiting_amount` ("Aguardando valor").
+  - Caso o usuário não informe valor inicial (`amount = null`), todas as ocorrências (inclusive a primeira) nascem com `amount_cents = null` e situação `awaiting_amount`.
+  - Reexecuções do gerador de obrigações (`GenerateObligations::forRecurrence` e `all()`) preservam o valor da primeira ocorrência e das demais sem alteração, sem duplicidade e sem sobrescrever dados.
+  - O cadastro de recorrência variável continua representando um compromisso orçamentário em aberto e jamais altera o saldo disponível da conta bancária até que haja pagamento efetivo registrado.
+
+- **AC-UI-007 [Rótulo Conciso e Não Truncado do Campo de Valor em Recorrência Variável]:**
+  - No formulário de cadastro de conta a pagar (`PayableFormScreen`), quando a modalidade selecionada for Recorrente (`_Kind.recurring`):
+    - Em modo Valor Fixo (`!_isVariable`): o rótulo do campo de valor exibe `"Valor mensal"`.
+    - Em modo Valor Variável (`_isVariable`): o rótulo do campo de valor exibe `"Valor da 1ª ocorrência (opcional)"`, formulado de forma concisa e legível, sem sofrer truncamento por reticências em viewports estreitos (mobile 375pt) nem na disposição em colunas lado a lado no desktop widescreen.
+
 ---
 
 ## 3. Matriz de Rastreabilidade (Spec ↔ Código ↔ Testes)
@@ -320,9 +415,22 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
 | **AC-FIN-027** | `bank_catalog.dart`, `account_form_screen.dart`, `account_edit_screen.dart` | `bank_catalog_test.dart`, `account_form_test.dart` |
 | **AC-FIN-028** | `AlertState.php`, `AlertController.php`, `notifications_modal.dart` | `AlertsTest.php`, `notifications_modal_test.dart` |
 | **AC-FIN-029** | `scripts/build-web.sh`, `scripts/vps-deploy.sh`, `deploy.yml`, `scripts/verify-production-release.sh` | `test-release-verification.sh`, `test-deploy-integrated-simulation.sh` |
+| **AC-FIN-032** | `PayableController.php`, `CreatePayable.php`, `PayablePlan.php` | `EditableInstallmentPlanTest.php` |
+| **AC-FIN-033** | `NationalBankCalendar.php`, `PayableController.php`, `payable_form_screen.dart` | `EditableInstallmentPlanTest.php`, `editable_installment_schedule_test.dart` |
+| **AC-FIN-034** | `Agreement.php`, `Installment.php`, `CreateAgreement.php`, `GenerateReceivables.php`, `AgreementController.php` | `RecurringReceivableTest.php` |
+| **AC-FIN-035** | `GenerateReceivables.php`, `MonthlyDate.php`, `AgreementController.php` | `RecurringReceivableTest.php` |
+| **AC-FIN-036** | `ReceiveInstallment.php`, `ReverseReceipt.php`, `agreement_modal.dart` | `RecurringReceivableTest.php`, `agreement_modal_test.dart` |
+| **AC-FIN-030** | `dashboard_charts.dart`, `SpaceController.php` | `dashboard_charts_test.dart` |
+| **AC-FIN-031** | `CreatePayable.php`, `GenerateObligations.php`, `PayableController.php` | `VariableRecurrenceTest.php` |
 | **AC-UI-001** | `agreement_form_screen.dart`, `agreement_modal.dart`, `payable_modal.dart`, `payables_tab.dart` | `agreements_tab_test.dart`, `agreement_modal_test.dart`, `payable_modal_test.dart` |
 | **AC-UI-002** | `financial_search_bar.dart`, `payables_tab.dart`, `agreements_tab.dart`, `statement_tab.dart` | `financial_search_and_sort_test.dart`, `financial_agenda_test.dart` |
 | **AC-UI-003** | `FinancialPeriodBar`, `FinancialPeriodSelection` (suporte a `custom` e `showDateRangePicker`) | `financial_search_and_sort_test.dart`, `financial_agenda_test.dart` |
 | **AC-UI-004** | `FinancialOverdueBanner`, `payables_tab.dart`, `agreements_tab.dart` | `agreements_tab_test.dart`, `payables_test.dart` |
 | **AC-UI-005** | `FinancialDesktopTableRow`, `MoneyText`, `Tooltip` | `financial_desktop_table_test.dart`, `agreements_tab_test.dart` |
 | **AC-UI-006** | `statement_tab.dart`, `summary_tab.dart`, `FinancialPeriodBar`, filtros por direção/conta/categoria | `statement_tab_test.dart`, `summary_test.dart` |
+| **AC-UI-011** | `payable_form_screen.dart`, `payables_repository.dart` | `editable_installment_schedule_test.dart` |
+| **AC-UI-012** | `agreement_form_screen.dart`, `agreement_item_adapter.dart`, `agreement_modal.dart` | `recurring_receivable_form_test.dart`, `agreements_tab_test.dart` |
+| **AC-UI-008** | `summary_tab.dart`, `statement_tab.dart`, `payables_tab.dart`, `agreements_tab.dart`, `accounts_tab.dart`, `financial_desktop_table.dart` | `widescreen_and_direct_expense_test.dart` |
+| **AC-UI-009** | `summary_tab.dart`, `direct_expense_modal.dart` | `widescreen_and_direct_expense_test.dart`, `six_features_homologation_test.dart` |
+| **AC-UI-007** | `payable_form_screen.dart` | `payable_form_modal_test.dart` |
+| **AC-UI-010** | `payable_form_screen.dart`, `payable_edit_screen.dart`, `agreement_form_screen.dart`, `account_form_screen.dart`, `account_edit_screen.dart`, `widgets.dart` | `form_validation_and_required_indicators_test.dart` |
