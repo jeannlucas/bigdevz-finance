@@ -179,3 +179,11 @@ A branch `fix/entrega-frontend-web-pipeline-deploy` implementa a solução de en
 - PEND-011 / AC-UI-015: a falha foi reproduzida com `flutter test test/features/editable_installment_schedule_test.dart`. O formatador monetário aplicado aos campos mobile e desktop tornou o teste verde.
 - PEND-012 / AC-CAT-013: `./scripts/build-web.sh --env=local` gerou uma URL de recursos por conteúdo. O Chrome local carregou o manifesto e a fonte versionados com HTTP 200. A reprodução no perfil que apresentou o problema em produção continua pendente.
 - `make check` passou sem falhas. Logs e captura em `../evidencias-wise-pendencias/`. Correções preparadas para a release v1.5.1.
+
+## PEND-013 — Carteira Wise e moedas no Dashboard
+
+- Branch local `feature/carteira-wise`, baseada em `origin/dev` no commit `aeb88ad`. Sem commit, push ou publicação.
+- Cadastros de moeda e conversões usam chaves idempotentes do espaço e locks na conta. O saldo BRL continua no extrato, e os lançamentos em moeda estrangeira ficam nas tabelas da carteira. Conversões são estornadas por lançamentos compensatórios. A entrada BRL aproveita o fluxo existente de transferências.
+- A carteira exibe as moedas cadastradas e calcula o equivalente estimado com cotações manuais datadas. O Dashboard lista os saldos no espaço ativo e respeita a ocultação de valores.
+- Cobertura em `WiseWalletTest.php` e `wise_dashboard_test.dart`. Build Web local e inspeção no Chrome a 1440 e 390 pixels com uma API simulada. A criação de JPY foi refletida ao voltar ao Dashboard.
+- Especificação em `specs/carteira-wise/carteira-wise.md`. Evidências de qualidade e de interface em `../evidencias-carteira-wise/`.

@@ -15,7 +15,7 @@ class IdempotencyKey extends Model
         'space_id', 'user_id', 'key', 'operation', 'fingerprint', 'status',
         'errors', 'receipt_id', 'receipt_reversal_id', 'account_opening_adjustment_id',
         'payable_id', 'payable_plan_id', 'recurrence_id', 'payment_id', 'payment_reversal_id',
-        'transfer_id', 'transfer_reversal_id', 'loan_id',
+        'transfer_id', 'transfer_reversal_id', 'loan_id', 'wise_currency_id', 'wise_conversion_id',
     ];
 
     protected function casts(): array

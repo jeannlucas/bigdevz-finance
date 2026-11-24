@@ -57,6 +57,10 @@ class StatementResource extends JsonResource
             return 'loan_disbursement';
         }
 
+        if ($this->wise_conversion_id) {
+            return 'wise_conversion';
+        }
+
         return 'movement';
     }
 
@@ -84,6 +88,7 @@ class StatementResource extends JsonResource
             'loan_disbursement' => $this->loanDisbursement?->kind === 'granted'
                 ? 'Empréstimo concedido: '.($this->loanDisbursement->title ?? '')
                 : 'Empréstimo tomado: '.($this->loanDisbursement?->title ?? ''),
+            'wise_conversion' => 'Conversão de moeda Wise',
             default => 'Movimentação financeira',
         };
     }

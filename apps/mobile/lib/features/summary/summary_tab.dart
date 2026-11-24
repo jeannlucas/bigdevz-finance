@@ -9,6 +9,7 @@ import '../../ui/widgets.dart';
 import '../accounts/account.dart';
 import '../accounts/account_form_screen.dart';
 import '../accounts/accounts_repository.dart';
+import '../accounts/wise_wallet_panel.dart';
 import '../auth/auth_models.dart';
 import '../payables/direct_expense_modal.dart';
 import '../settings/preferences_controller.dart';
@@ -119,6 +120,15 @@ class _SummaryTabState extends State<SummaryTab> {
                         widget.onOpenTab(2, filter: filter),
                   ),
                   const SizedBox(height: 20),
+                  if (accounts.any(
+                    (account) => account.wiseCurrencies.isNotEmpty,
+                  )) ...[
+                    WiseDashboardCard(
+                      accounts: accounts,
+                      obscure: obscureBalance,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   ExecutiveDashboardCharts(
                     summary: summary,
                     accounts: accounts,

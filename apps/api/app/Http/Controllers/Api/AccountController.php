@@ -17,7 +17,9 @@ use App\Rules\MoneyAmount;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class AccountController extends Controller
 {
@@ -83,7 +85,14 @@ class AccountController extends Controller
         if (array_key_exists('bank_id', $data)) {
             $updates['bank_id'] = $data['bank_id'];
         }
-        $model->update($updates);
+        DB::transaction(function () use ($space, $model, $updates) {
+            $account = $space->accounts()->lockForUpdate()->findOrFail($model->id);
+            if (array_key_exists('bank_id', $updates) && $account->bank_id === 'wise'
+                && $updates['bank_id'] !== 'wise' && $account->wiseCurrencies()->exists()) {
+                throw ValidationException::withMessages(['bank_id' => 'A conta possui uma carteira Wise com moedas cadastradas.']);
+            }
+            $account->update($updates);
+        });
 
         return new AccountResource($this->find($space, $model->id));
     }
@@ -162,6 +171,6 @@ class AccountController extends Controller
 
     private function withTotals($query)
     {
-        return $query->withSum('movements', 'amount_cents')->withMin('movements', 'effective_date');
+        return $query->with('wiseCurrencies')->withSum('movements', 'amount_cents')->withMin('movements', 'effective_date');
     }
 }

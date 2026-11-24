@@ -16,6 +16,7 @@ import 'account_edit_screen.dart';
 import 'accounts_repository.dart';
 import 'opening_adjustment_screen.dart';
 import 'opening_adjustments.dart';
+import 'wise_wallet_panel.dart';
 
 /// Detalhe da conta: cartão institucional, dados de abertura, ações de gestão
 /// (editar nome, corrigir abertura, arquivar ou reativar) e histórico auditado.
@@ -121,6 +122,19 @@ class AccountScreen extends StatelessWidget {
                 ),
 
                 const SizedBox(height: 16),
+
+                if (account.bankId == 'wise')
+                  Align(
+                    alignment: Alignment.center,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 760),
+                      child: WiseWalletPanel(
+                        account: account,
+                        spaceId: space.id,
+                        refresh: refresh,
+                      ),
+                    ),
+                  ),
 
                 // DETALHES DE ABERTURA
                 Card(
