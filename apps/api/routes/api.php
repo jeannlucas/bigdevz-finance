@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\CashFlowController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\InstallmentController;
 use App\Http\Controllers\Api\OfxReconciliationController;
+use App\Http\Controllers\Api\PasswordRecoveryController;
 use App\Http\Controllers\Api\PayableController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ReceiptController;
@@ -71,6 +72,8 @@ Route::get('/health', function () {
     ], $code);
 });
 
+Route::post('/auth/forgot-password', [PasswordRecoveryController::class, 'requestLink'])->middleware('throttle:5,1,forgot-password');
+Route::post('/auth/reset-password', [PasswordRecoveryController::class, 'reset'])->middleware('throttle:10,1,reset-password');
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
 
 Route::middleware('auth:sanctum')->group(function () {

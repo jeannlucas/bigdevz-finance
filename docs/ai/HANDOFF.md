@@ -193,3 +193,29 @@ A branch `fix/entrega-frontend-web-pipeline-deploy` implementa a solução de en
 - Branch `feature/release-configuracoes-wise`, baseada em `origin/dev` (`8d47ae9`). Integra AC-UI-016, AC-WISE-009 e AC-EMP-009.
 - A migração só retira a estrutura vazia de Empréstimos. Se houver registros ou referências, o deploy interrompe a migração antes da alteração.
 - O build Web incorpora a versão SemVer e o número da execução. A remoção das rotas de Empréstimos justifica a versão major `v2.0.0`.
+
+## Login Web responsivo
+
+- Branch local `feature/login-web`, baseada em `origin/dev` (`8554445`). Trabalho local, sem commit, push ou deploy.
+- AC-UI-017 em `specs/financeiro/financeiro.md`. Painel de marca e formulário centralizados lado a lado no desktop e empilhados em telas estreitas. O crédito institucional abre o site da BigDev.Z em nova aba no Web. No app nativo, o controle copia o endereço.
+- Build com `./scripts/build-web.sh --env=local`. Verificação no Chrome a 1440 e 390 px com API simulada, incluindo o link e o acesso ao Dashboard. Evidências em `../evidencias-login-web/`.
+- `make check` passou com 394 testes Flutter, 238 testes Laravel e as verificações de infraestrutura. Logs e capturas foram salvos no diretório de evidências.
+
+## Recuperação de senha
+
+- AC-AUTH-001 na mesma branch local `feature/login-web`, com o redesign aprovado. Implementados solicitação pelo login, notificação de recuperação e redefinição Web com o broker Laravel. A troca de senha revoga os tokens Sanctum da conta.
+- O envio exige SMTP. Há parâmetros de exemplo em `.env.production.example`. Entrega real de e-mails e publicação em produção ainda pendentes.
+- `make check` passou com 396 testes Flutter, 240 testes Laravel e as verificações de infraestrutura. Build Web local e Chrome com API simulada conferidos. Evidências em `../evidencias-recuperacao-senha/`.
+- AC-AUTH-001 atualizado para mínimo de 8 caracteres e uma letra, incluindo letras acentuadas. Testes rejeitam 7 caracteres e senha só numérica. `make check` e build Web passaram. Captura atual em `../evidencias-recuperacao-senha/recovery-reset-minimo-8.png`.
+
+## Layout do e-mail de recuperação
+
+- AC-AUTH-002 na branch `feature/login-web`. A notificação usa templates HTML e texto simples. A validade exibida vem da configuração do broker Laravel. A prévia com dados fictícios foi conferida a 760 e 390 px. Evidências em `../evidencias-email-recuperacao/`.
+- O alias SSH `bigdevz` expirou na conexão e o Tailscale local estava parado. A porta 25 de saída e o PTR da VPS ainda precisam ser verificados. O domínio principal usa Titan para MX e SPF. Para Postfix próprio, usar um subdomínio de envio evita alterações nos registros atuais do domínio principal. Envio real ainda pendente.
+- `make check` passou com zero erros, incluindo 396 testes Flutter, 241 testes Laravel e as verificações de infraestrutura.
+
+## Postfix próprio e DNS do Finance
+
+- SSH restabelecido. Postfix e OpenDKIM instalados e ativos na VPS. SMTP restrito à rede privada do Finance e ao loopback. O Gmail aceitou o teste enviado pelo contêiner da API (fila 2E27820640A, resposta 250 2.0.0 OK).
+- Registros A, SPF, DKIM e DMARC foram publicados na HostGator para mail.finance.bigdevz.com. Ambos os servidores DNS autoritativos responderam, e opendkim-testkey confirmou a chave. O domínio principal mantém Titan.
+- A branch feature/login-web inclui os parâmetros SMTP do Compose para o próximo deploy. A publicação da branch e o teste do botão em produção continuam pendentes.

@@ -3,12 +3,20 @@ import 'package:flutter/material.dart';
 import 'bootstrap.dart';
 import 'core/config.dart';
 import 'core/token_storage.dart';
+import 'features/auth/password_recovery_link_native.dart'
+    if (dart.library.js_interop) 'features/auth/password_recovery_link_web.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     final baseUrl = apiBaseUrl;
-    runApp(buildApp(baseUrl: baseUrl, storage: const SecureSessionStorage()));
+    runApp(
+      buildApp(
+        baseUrl: baseUrl,
+        storage: const SecureSessionStorage(),
+        recoveryLink: takePasswordRecoveryLink(),
+      ),
+    );
   } on EnvironmentConfigurationException catch (e) {
     runApp(EnvironmentConfigurationErrorApp(message: e.message));
   } catch (e) {

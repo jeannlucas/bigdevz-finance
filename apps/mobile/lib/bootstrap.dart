@@ -24,6 +24,7 @@ Widget buildApp({
   required String baseUrl,
   required SessionStorage storage,
   http.Client? client,
+  ({String email, String token})? recoveryLink,
 }) {
   final api = ApiClient(baseUrl: baseUrl, client: client);
   return MultiProvider(
@@ -75,6 +76,6 @@ Widget buildApp({
         },
       ),
     ],
-    child: const FinanceApp(),
+    child: FinanceApp(recoveryLink: recoveryLink),
   );
 }
