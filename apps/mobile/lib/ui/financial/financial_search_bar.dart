@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/dates.dart';
 import '../../features/categories/category.dart';
 import '../../features/categories/category_filter_chip.dart';
+import '../app_icons.dart';
 import '../app_tokens.dart';
 import 'financial_item_view.dart';
 
@@ -442,152 +443,188 @@ List<T> filterAndSortFinancialItems<T extends FinancialItemView>(
 }
 
 /// Abre o Bottom Sheet deslizante com filtros avançados no Mobile.
+/// Agrupa os filtros visíveis da página no desktop.
+class FinancialFilterPanel extends StatelessWidget {
+  const FinancialFilterPanel({
+    super.key,
+    required this.period,
+    required this.controls,
+    this.onClear,
+  });
+
+  final Widget period;
+  final Widget controls;
+  final VoidCallback? onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      key: const ValueKey('financial-filter-panel'),
+      padding: const EdgeInsets.all(AppTokens.p12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppTokens.r12),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: AppTokens.p16,
+            runSpacing: AppTokens.p8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              const Icon(Icons.date_range_outlined, size: 18),
+              Text('Período', style: theme.textTheme.labelLarge),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 330),
+                child: period,
+              ),
+              if (onClear != null)
+                TextButton(
+                  onPressed: onClear,
+                  child: const Text('Limpar filtros'),
+                ),
+            ],
+          ),
+          const Divider(height: 18),
+          controls,
+        ],
+      ),
+    );
+  }
+}
+
+/// Estado vazio contextual dentro da área de resultados.
+class FinancialEmptyPanel extends StatelessWidget {
+  const FinancialEmptyPanel({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.action,
+  });
+
+  final List<List<dynamic>> icon;
+  final String title;
+  final String message;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460),
+        child: Card.outlined(
+          margin: const EdgeInsets.all(AppTokens.p16),
+          child: Padding(
+            padding: const EdgeInsets.all(AppTokens.p20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AppIcon(icon, size: 24, color: theme.colorScheme.primary),
+                const SizedBox(height: 12),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleMedium,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium,
+                ),
+                if (action != null) ...[
+                  const SizedBox(height: 12),
+                  Center(child: action),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 Future<void> showFinancialFiltersSheet({
   required BuildContext context,
   required String currentStatus,
   required Map<String, String> statusOptions,
   required ValueChanged<String> onStatusSelected,
-  required FinancialPeriodFilter currentPeriod,
-  required ValueChanged<FinancialPeriodFilter> onPeriodSelected,
   required int? currentCategoryId,
   required ValueChanged<int?> onCategorySelected,
   required int spaceId,
   required String categoryType,
-  required VoidCallback onClearAll,
 }) async {
-  await showModalBottomSheet<void>(
+  var status = currentStatus;
+  var categoryId = currentCategoryId;
+
+  final apply = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(AppTokens.r20)),
-    ),
-    builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setSheetState) {
-        final theme = Theme.of(ctx);
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (ctx, update) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Filtros', style: Theme.of(ctx).textTheme.titleLarge),
+              const SizedBox(height: 12),
+              const Text('Situação'),
+              Wrap(
+                spacing: 8,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Filtros avançados',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          onClearAll();
-                          setSheetState(() {});
-                        },
-                        child: const Text('Limpar todos'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Situação / Status
-                  Text(
-                    'Situação',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: theme.colorScheme.onSurfaceVariant,
+                  for (final entry in statusOptions.entries)
+                    ChoiceChip(
+                      label: Text(entry.value),
+                      selected: status == entry.key,
+                      onSelected: (_) => update(() => status = entry.key),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: [
-                      for (final entry in statusOptions.entries)
-                        ChoiceChip(
-                          label: Text(entry.value),
-                          selected: currentStatus == entry.key,
-                          onSelected: (selected) {
-                            if (selected) {
-                              onStatusSelected(entry.key);
-                              setSheetState(() {});
-                            }
-                          },
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Período de Vencimento
-                  Text(
-                    'Período de vencimento',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: [
-                      for (final p in FinancialPeriodFilter.values)
-                        ChoiceChip(
-                          label: Text(p.label),
-                          selected: currentPeriod == p,
-                          onSelected: (selected) {
-                            if (selected) {
-                              onPeriodSelected(p);
-                              setSheetState(() {});
-                            }
-                          },
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Categoria
-                  Text(
-                    'Categoria',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: CategoryFilterChip(
-                      spaceId: spaceId,
-                      type: categoryType,
-                      selectedCategoryId: currentCategoryId,
-                      onChanged: (catId) {
-                        onCategorySelected(catId);
-                        setSheetState(() {});
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
+                ],
+              ),
+              const SizedBox(height: 12),
+              CategoryFilterChip(
+                spaceId: spaceId,
+                type: categoryType,
+                selectedCategoryId: categoryId,
+                onChanged: (id) => update(() => categoryId = id),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                children: [
                   FilledButton(
-                    onPressed: () => Navigator.of(ctx).pop(),
+                    onPressed: () => Navigator.of(ctx).pop(true),
                     child: const Text('Aplicar filtros'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(false),
+                    child: const Text('Cancelar'),
                   ),
                 ],
               ),
-            ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     ),
   );
+  if (apply != true || !context.mounted) return;
+  if (status != currentStatus) onStatusSelected(status);
+  if (categoryId != currentCategoryId) onCategorySelected(categoryId);
 }
 
 /// Barra de busca textual e controles de ordenação e filtros rápidos.
-class FinancialSearchBar extends StatelessWidget {
+class FinancialSearchBar extends StatefulWidget {
   const FinancialSearchBar({
     super.key,
     required this.query,
@@ -612,6 +649,30 @@ class FinancialSearchBar extends StatelessWidget {
   final VoidCallback? onClearAllFilters;
 
   @override
+  State<FinancialSearchBar> createState() => _FinancialSearchBarState();
+}
+
+class _FinancialSearchBarState extends State<FinancialSearchBar> {
+  late final _controller = TextEditingController(text: widget.query);
+
+  @override
+  void didUpdateWidget(covariant FinancialSearchBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_controller.text != widget.query) {
+      _controller.value = TextEditingValue(
+        text: widget.query,
+        selection: TextSelection.collapsed(offset: widget.query.length),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
@@ -627,16 +688,11 @@ class FinancialSearchBar extends StatelessWidget {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(minHeight: 44),
                 child: TextField(
-                  controller: TextEditingController.fromValue(
-                    TextEditingValue(
-                      text: query,
-                      selection: TextSelection.collapsed(offset: query.length),
-                    ),
-                  ),
-                  onChanged: onQueryChanged,
+                  controller: _controller,
+                  onChanged: widget.onQueryChanged,
                   textInputAction: TextInputAction.search,
                   decoration: InputDecoration(
-                    hintText: hintText,
+                    hintText: widget.hintText,
                     hintStyle: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant.withValues(
                         alpha: 0.7,
@@ -644,10 +700,10 @@ class FinancialSearchBar extends StatelessWidget {
                       fontSize: 13,
                     ),
                     prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                    suffixIcon: query.isNotEmpty
+                    suffixIcon: widget.query.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.clear_rounded, size: 18),
-                            onPressed: () => onQueryChanged(''),
+                            onPressed: () => widget.onQueryChanged(''),
                             tooltip: 'Limpar busca',
                           )
                         : null,
@@ -690,17 +746,15 @@ class FinancialSearchBar extends StatelessWidget {
 
             // Menu de Ordenação
             PopupMenuButton<FinancialSortOption>(
-              icon: Icon(
-                sort.icon,
-                size: 20,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              tooltip: 'Ordenar: ${sort.label}',
+              icon: MediaQuery.sizeOf(context).width >= 840
+                  ? null
+                  : Icon(widget.sort.icon, size: 20),
+              tooltip: 'Ordenar: ${widget.sort.label}',
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(AppTokens.r12),
               ),
-              initialValue: sort,
-              onSelected: onSortChanged,
+              initialValue: widget.sort,
+              onSelected: widget.onSortChanged,
               itemBuilder: (context) => [
                 for (final opt in FinancialSortOption.values)
                   PopupMenuItem(
@@ -710,7 +764,7 @@ class FinancialSearchBar extends StatelessWidget {
                         Icon(
                           opt.icon,
                           size: 18,
-                          color: opt == sort
+                          color: opt == widget.sort
                               ? theme.colorScheme.primary
                               : theme.colorScheme.onSurfaceVariant,
                         ),
@@ -719,17 +773,17 @@ class FinancialSearchBar extends StatelessWidget {
                           child: Text(
                             opt.label,
                             style: TextStyle(
-                              fontWeight: opt == sort
+                              fontWeight: opt == widget.sort
                                   ? FontWeight.w700
                                   : FontWeight.w500,
-                              color: opt == sort
+                              color: opt == widget.sort
                                   ? theme.colorScheme.primary
                                   : null,
                               fontSize: 13,
                             ),
                           ),
                         ),
-                        if (opt == sort)
+                        if (opt == widget.sort)
                           Icon(
                             Icons.check_rounded,
                             size: 16,
@@ -739,16 +793,29 @@ class FinancialSearchBar extends StatelessWidget {
                     ),
                   ),
               ],
+              child: MediaQuery.sizeOf(context).width < 840
+                  ? null
+                  : Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(widget.sort.icon, size: 18),
+                          const SizedBox(width: 8),
+                          const Text('Ordenar'),
+                        ],
+                      ),
+                    ),
             ),
 
             // Botão de Filtros Avançados
-            if (onOpenFilters != null) ...[
+            if (widget.onOpenFilters != null) ...[
               const SizedBox(width: 4),
               Badge(
-                isLabelVisible: activeFiltersCount > 0,
-                label: Text('$activeFiltersCount'),
+                isLabelVisible: widget.activeFiltersCount > 0,
+                label: Text('${widget.activeFiltersCount}'),
                 child: IconButton.outlined(
-                  onPressed: onOpenFilters,
+                  onPressed: widget.onOpenFilters,
                   icon: const Icon(Icons.tune_rounded, size: 18),
                   tooltip: 'Filtros',
                   style: IconButton.styleFrom(
@@ -765,25 +832,26 @@ class FinancialSearchBar extends StatelessWidget {
         ),
 
         // Chips de Filtros Ativos
-        if (activeFilterChips.isNotEmpty || query.isNotEmpty) ...[
+        if (widget.activeFilterChips.isNotEmpty || widget.query.isNotEmpty) ...[
           const SizedBox(height: 8),
           Wrap(
             spacing: 6,
             runSpacing: 6,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              if (query.isNotEmpty)
+              if (widget.query.isNotEmpty)
                 InputChip(
-                  label: Text('Busca: "$query"'),
-                  onDeleted: () => onQueryChanged(''),
+                  label: Text('Busca: "${widget.query}"'),
+                  onDeleted: () => widget.onQueryChanged(''),
                   deleteIconColor: theme.colorScheme.onSurfaceVariant,
                   visualDensity: VisualDensity.compact,
                 ),
-              ...activeFilterChips,
-              if (onClearAllFilters != null &&
-                  (activeFilterChips.isNotEmpty || query.isNotEmpty))
+              ...widget.activeFilterChips,
+              if (widget.onClearAllFilters != null &&
+                  (widget.activeFilterChips.isNotEmpty ||
+                      widget.query.isNotEmpty))
                 TextButton(
-                  onPressed: onClearAllFilters,
+                  onPressed: widget.onClearAllFilters,
                   style: TextButton.styleFrom(
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -806,12 +874,14 @@ class FinancialPeriodBar extends StatelessWidget {
     required this.selection,
     required this.onChanged,
     this.overdueCount = 0,
+    this.showOverdue = true,
     this.now,
   });
 
   final FinancialPeriodSelection selection;
   final ValueChanged<FinancialPeriodSelection> onChanged;
   final int overdueCount;
+  final bool showOverdue;
   final DateTime? now;
 
   Future<void> _pickCustomRange(BuildContext context) async {
@@ -844,7 +914,6 @@ class FinancialPeriodBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isCurrent = selection.isCurrentMonth(now);
     final isMonth = selection.type == FinancialPeriodType.month;
 
     return Container(
@@ -880,6 +949,27 @@ class FinancialPeriodBar extends StatelessWidget {
               onSelected: (val) {
                 if (val == 'current') {
                   onChanged(FinancialPeriodSelection.currentMonth(now));
+                } else if (val == 'last7' ||
+                    val == 'last30' ||
+                    val == 'next7' ||
+                    val == 'next30') {
+                  final today = DateUtils.dateOnly(now ?? DateTime.now());
+                  final upcoming = val == 'next7' || val == 'next30';
+                  final start = upcoming
+                      ? today
+                      : DateTime(
+                          today.year,
+                          today.month,
+                          today.day - (val == 'last7' ? 6 : 29),
+                        );
+                  final end = upcoming
+                      ? DateTime(
+                          today.year,
+                          today.month,
+                          today.day + (val == 'next7' ? 6 : 29),
+                        )
+                      : today;
+                  onChanged(FinancialPeriodSelection.custom(start, end));
                 } else if (val == 'overdue') {
                   onChanged(FinancialPeriodSelection.overdue());
                 } else if (val == 'custom') {
@@ -891,97 +981,44 @@ class FinancialPeriodBar extends StatelessWidget {
               itemBuilder: (ctx) => [
                 PopupMenuItem(
                   value: 'current',
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.calendar_month_rounded,
-                        size: 18,
-                        color: isCurrent
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Mês atual (${formatMonthYearBr(now ?? DateTime.now())})',
-                        style: TextStyle(
-                          fontWeight: isCurrent
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    'Mês atual (${formatMonthYearBr(now ?? DateTime.now())})',
                   ),
                 ),
-                PopupMenuItem(
-                  value: 'overdue',
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.warning_amber_rounded,
-                        size: 18,
-                        color: AppTokens.expense,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        overdueCount > 0
-                            ? 'Vencidas ($overdueCount)'
-                            : 'Vencidas',
-                        style: TextStyle(
-                          fontWeight:
-                              selection.type == FinancialPeriodType.overdue
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                        ),
-                      ),
-                    ],
+                if (showOverdue) ...[
+                  const PopupMenuItem(
+                    value: 'next7',
+                    child: Text('Próximos 7 dias'),
                   ),
-                ),
-                PopupMenuItem(
+                  const PopupMenuItem(
+                    value: 'next30',
+                    child: Text('Próximos 30 dias'),
+                  ),
+                  PopupMenuItem(
+                    value: 'overdue',
+                    child: Text(
+                      overdueCount > 0
+                          ? 'Vencidas ($overdueCount)'
+                          : 'Vencidas',
+                    ),
+                  ),
+                ] else ...[
+                  const PopupMenuItem(
+                    value: 'last7',
+                    child: Text('Últimos 7 dias'),
+                  ),
+                  const PopupMenuItem(
+                    value: 'last30',
+                    child: Text('Últimos 30 dias'),
+                  ),
+                ],
+                const PopupMenuItem(
                   value: 'custom',
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.date_range_rounded,
-                        size: 18,
-                        color: selection.type == FinancialPeriodType.custom
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Intervalo personalizado...',
-                        style: TextStyle(
-                          fontWeight:
-                              selection.type == FinancialPeriodType.custom
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                        ),
-                      ),
-                    ],
-                  ),
+                  child: Text('Intervalo personalizado...'),
                 ),
-                PopupMenuItem(
+                const PopupMenuItem(
                   value: 'all',
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.all_inclusive_rounded,
-                        size: 18,
-                        color: selection.type == FinancialPeriodType.all
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Todos os períodos',
-                        style: TextStyle(
-                          fontWeight: selection.type == FinancialPeriodType.all
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                        ),
-                      ),
-                    ],
-                  ),
+                  child: Text('Todos os períodos'),
                 ),
               ],
               child: Padding(

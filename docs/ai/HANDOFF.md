@@ -153,3 +153,22 @@ A branch `fix/entrega-frontend-web-pipeline-deploy` implementa a solução de en
 3. **Fechamento do Incidente:** O incidente da v1.3.0 será considerado formalmente **ENCERRADO** apenas após o deploy da `v1.3.1` ser aprovado pela barreira dupla pública com:
    - `https://finance.bigdevz.com/api/health` respondendo com o SHA da release `v1.3.1`.
    - `https://finance.bigdevz.com/main.dart.js` respondendo com o hash SHA-256 do bundle compilado correspondente.
+
+## Checkpoint — filtros e listagens do Finance Web
+
+- Branch local `feature/filtros-operacoes-web`, aberta a partir de `origin/dev` em `37930cf`. Diff de trabalho disponível para revisão.
+- A Pagar, A Receber e Extrato usam um painel de filtros coerente no desktop, com atalhos de período funcionais, categorias pesquisáveis e estados vazios contextuais. No mobile, o painel conserva o fluxo de aplicar ou cancelar.
+- Critério `AC-UI-014` validado com teste de widget para o recorte e homologação com dados fictícios. Consulte os logs de `make check`, build web e capturas em `../evidencias-filtros/`.
+- Próximo passo: revisão do diff e das capturas web antes de integração.
+## Dashboard de prioridades e projeção de curto prazo
+
+- Branch local `feature/dashboard-prioridades`, a partir de `origin/dev` (`37930cf`). AC-UI-013 traz vencidos, próximos 30 dias e valores a informar para o início do Dashboard, com listas filtradas. A carteira e a distribuição por bancos ficaram agrupadas e a ação de despesa paga usa o estilo tonal do tema.
+- AC-FIN-037 define a projeção do caixa em centavos a partir do saldo disponível, mais a receber e menos a pagar de hoje até hoje + 30 dias. A janela exclui vencidos, cancelados e valores ainda não informados. A previsão fica indisponível se a API ainda não expuser a entrada do período.
+- A ausência dos atalhos contextuais foi demonstrada pela falha inicial do teste Flutter de navegação. A verificação final com `make check` aprovou 15 testes de domínio, 393 Flutter e 242 Laravel com 2.284 asserções, além das verificações de infraestrutura.
+- `./scripts/build-web.sh --env=local` e homologação em Chrome com dados fictícios passaram. A soma da amostra foi R$ 61.400,20 + R$ 9.562,05 − R$ 7.585,97 = R$ 63.376,28. O atalho abriu A Pagar com filtro ativo. Capturas e logs em `../evidencias-dashboard/`.
+- Próximo passo: revisão das alterações locais. Produção permanece na v1.4.0.
+
+## Integração das melhorias Web
+
+- `feature/release-melhorias-web` reúne dashboard e filtros sobre `origin/dev` em `37930cf`. O atalho do dashboard continua abrindo A Pagar com o filtro selecionado.
+- `make check` e `./scripts/build-web.sh --env=local` passaram na árvore integrada. Evidências em `../evidencias-release-web/`.

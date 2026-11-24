@@ -26,6 +26,13 @@ class SpaceController extends Controller
         $space = $this->space($request, $space);
         $accounts = $space->accounts()->withSum('movements', 'amount_cents')->get();
         $installments = $space->installments()->get();
+        $today = GenerateObligations::today();
+        $until = Carbon::parse($today)->addDays(30)->toDateString();
+        $upcomingReceivables = $space->installments()
+            ->whereBetween('due_date', [$today, $until])
+            ->whereColumn('received_cents', '<', 'amount_cents')
+            ->whereHas('agreement', fn ($query) => $query->whereNull('cancelled_at'))
+            ->get();
 
         return response()->json(['data' => [
             'space' => new SpaceResource($space),
@@ -37,9 +44,10 @@ class SpaceController extends Controller
             'agreements_count' => $space->agreements()->count(),
             'received_total' => Money::sum($installments->pluck('received_cents')),
             'receivable_remaining' => Money::sum($installments->map(fn ($item) => $item->remainingCents())),
+            'receivable_due_next_30_days_total' => Money::sum($upcomingReceivables->map(fn ($item) => $item->remainingCents())),
             'overdue_installments' => $installments->filter(fn ($item) => $item->isOverdue())->count(),
             // A pagar: previsto, separado do saldo (obrigação não reduz saldo).
-            'payables' => $this->payables($space),
+            'payables' => $this->payables($space, $today, $until),
             'categories_summary' => [
                 'expenses' => $this->expenseCategoriesSummary($space),
                 'incomes' => $this->incomeCategoriesSummary($space),
@@ -52,10 +60,8 @@ class SpaceController extends Controller
      * contam à parte. "Próximos 30 dias" inclui hoje. Pago líquido é o
      * realizado (pagamentos menos estornos), de todas as obrigações.
      */
-    private function payables(Space $space): array
+    private function payables(Space $space, string $today, string $until): array
     {
-        $today = GenerateObligations::today();
-        $until = Carbon::parse($today)->addDays(30)->toDateString();
         $open = $space->payables()->whereNull('cancelled_at')->whereNotNull('amount_cents')->whereColumn('paid_cents', '<', 'amount_cents');
         $remaining = 'COALESCE(SUM(amount_cents - paid_cents), 0)';
 

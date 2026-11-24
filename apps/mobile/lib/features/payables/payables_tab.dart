@@ -48,6 +48,7 @@ class _PayablesTabState extends State<PayablesTab> {
   static const _filters = {
     'open': 'Em aberto',
     'overdue': 'Vencidas',
+    'next_30_days': 'Próximos 30 dias',
     'awaiting_amount': 'Valor a informar',
     'paid': 'Pagas',
     'cancelled': 'Canceladas',
@@ -63,11 +64,15 @@ class _PayablesTabState extends State<PayablesTab> {
   final Set<int> _selectedPayableIds = {};
   String _searchQuery = '';
   FinancialSortOption _sortOption = FinancialSortOption.dueDateAsc;
-  late FinancialPeriodSelection _periodSelection =
+  late FinancialPeriodSelection _periodSelection = _initialPeriod;
+
+  FinancialPeriodSelection get _initialPeriod =>
       widget.initialPeriod ??
-      (widget.initialFilter == 'overdue'
-          ? FinancialPeriodSelection.overdue()
-          : FinancialPeriodSelection.currentMonth());
+      switch (widget.initialFilter) {
+        'overdue' => FinancialPeriodSelection.overdue(),
+        'next_30_days' || 'awaiting_amount' => FinancialPeriodSelection.all(),
+        _ => FinancialPeriodSelection.currentMonth(),
+      };
   final Set<FinancialDueDateGroup> _expandedGroups = {
     FinancialDueDateGroup.overdue,
     FinancialDueDateGroup.today,
@@ -95,7 +100,9 @@ class _PayablesTabState extends State<PayablesTab> {
       _filter = newFilter;
       if (newFilter == 'overdue') {
         _periodSelection = FinancialPeriodSelection.overdue();
-      } else if (newFilter == 'all') {
+      } else if (newFilter == 'all' ||
+          newFilter == 'next_30_days' ||
+          newFilter == 'awaiting_amount') {
         _periodSelection = FinancialPeriodSelection.all();
       } else if (newFilter == 'open') {
         _periodSelection = FinancialPeriodSelection.currentMonth();
@@ -141,11 +148,7 @@ class _PayablesTabState extends State<PayablesTab> {
     if (widget.initialFilter != oldWidget.initialFilter ||
         widget.initialPeriod != oldWidget.initialPeriod) {
       setState(() {
-        if (widget.initialPeriod != null) {
-          _periodSelection = widget.initialPeriod!;
-        } else if (widget.initialFilter == 'overdue') {
-          _periodSelection = FinancialPeriodSelection.overdue();
-        }
+        _periodSelection = _initialPeriod;
         _filter = widget.initialFilter == 'overdue'
             ? 'open'
             : widget.initialFilter;
@@ -171,6 +174,22 @@ class _PayablesTabState extends State<PayablesTab> {
     final pending = _pending;
     final textScaler = MediaQuery.textScalerOf(context);
     final chipsHeight = (44.0 * textScaler.scale(1.0) + 8.0).clamp(52.0, 96.0);
+
+    final desktopFilters = MediaQuery.sizeOf(context).width >= 840;
+    void clearFilters() => setState(() {
+      _filter = 'open';
+      _selectedCategoryId = null;
+      _searchQuery = '';
+      _sortOption = FinancialSortOption.dueDateAsc;
+      _periodSelection = FinancialPeriodSelection.currentMonth();
+    });
+
+    void openCards() => Navigator.of(context).push(
+      spaceRoute(
+        isPf: space.isPf,
+        child: CardsScreen(space: space),
+      ),
+    );
 
     return Column(
       children: [
@@ -211,69 +230,136 @@ class _PayablesTabState extends State<PayablesTab> {
               children: [
                 Text(
                   'A pagar',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
-                  ),
+                  style:
+                      (desktopFilters
+                              ? Theme.of(context).textTheme.headlineSmall
+                              : Theme.of(context).textTheme.titleMedium)
+                          ?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.2,
+                          ),
                 ),
-                FilledButton.tonalIcon(
-                  onPressed: () => showPayableFormModal(context, space: space),
-                  icon: const AppIcon(AppIcons.add, size: 18),
-                  label: const Text('Nova conta a pagar'),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(0, 38),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    if (desktopFilters)
+                      OutlinedButton.icon(
+                        onPressed: openCards,
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 38),
+                          textStyle: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        icon: const AppIcon(AppIcons.card, size: 16),
+                        label: const Text('Cartões e recorrências'),
+                      ),
+                    FilledButton.tonalIcon(
+                      onPressed: () =>
+                          showPayableFormModal(context, space: space),
+                      icon: const AppIcon(AppIcons.add, size: 18),
+                      label: const Text('Nova conta a pagar'),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 38),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
-                    textStyle: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  ],
                 ),
               ],
             ),
           ),
         ),
-        SizedBox(
-          height: chipsHeight,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppTokens.p16,
-              vertical: 6,
+        if (desktopFilters)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: FinancialFilterPanel(
+              period: FinancialPeriodBar(
+                selection: _periodSelection,
+                onChanged: (period) =>
+                    setState(() => _periodSelection = period),
+              ),
+              onClear:
+                  _filter != 'open' ||
+                      _selectedCategoryId != null ||
+                      _searchQuery.isNotEmpty ||
+                      !_periodSelection.isCurrentMonth()
+                  ? clearFilters
+                  : null,
+              controls: Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    'Situação',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  for (final entry in _filters.entries.where(
+                    (item) => item.key != 'next_30_days' || _filter == item.key,
+                  ))
+                    ChoiceChip(
+                      label: Text(entry.value),
+                      selected: _filter == entry.key,
+                      onSelected: (_) => _selectFilter(entry.key),
+                    ),
+                  CategoryFilterChip(
+                    spaceId: space.id,
+                    type: 'expense',
+                    selectedCategoryId: _selectedCategoryId,
+                    onChanged: (id) => setState(() => _selectedCategoryId = id),
+                  ),
+                ],
+              ),
             ),
-            children: [
-              for (final MapEntry(key: value, value: label) in _filters.entries)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(label),
-                    selected: _filter == value,
-                    onSelected: (_) => _selectFilter(value),
-                  ),
-                ),
-              CategoryFilterChip(
-                spaceId: space.id,
-                type: 'expense',
-                selectedCategoryId: _selectedCategoryId,
-                onChanged: (catId) =>
-                    setState(() => _selectedCategoryId = catId),
+          )
+        else
+          SizedBox(
+            height: chipsHeight,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppTokens.p16,
+                vertical: 6,
               ),
-              ActionChip(
-                avatar: const AppIcon(AppIcons.card, size: 16),
-                label: const Text('Cartões e recorrências'),
-                onPressed: () => Navigator.of(context).push(
-                  spaceRoute(
-                    isPf: space.isPf,
-                    child: CardsScreen(space: space),
+              children: [
+                for (final MapEntry(key: value, value: label)
+                    in _filters.entries.where(
+                      (item) =>
+                          item.key != 'next_30_days' || _filter == item.key,
+                    ))
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(label),
+                      selected: _filter == value,
+                      onSelected: (_) => _selectFilter(value),
+                    ),
                   ),
+                CategoryFilterChip(
+                  spaceId: space.id,
+                  type: 'expense',
+                  selectedCategoryId: _selectedCategoryId,
+                  onChanged: (catId) =>
+                      setState(() => _selectedCategoryId = catId),
                 ),
-              ),
-            ],
+                ActionChip(
+                  avatar: const AppIcon(AppIcons.card, size: 16),
+                  label: const Text('Cartões e recorrências'),
+                  onPressed: openCards,
+                ),
+              ],
+            ),
           ),
-        ),
         Expanded(
           child: LoadView<List<Payable>>(
             key: ValueKey('payables-$_filter-$_selectedCategoryId'),
@@ -283,12 +369,23 @@ class _PayablesTabState extends State<PayablesTab> {
               categoryId: _selectedCategoryId,
             ),
             isEmpty: (items) => items.isEmpty,
-            empty: (context, _) => EmptyState(
+            empty: (context, _) => FinancialEmptyPanel(
               icon: AppIcons.payables,
               title: 'Nada em "${_filters[_filter]}"',
-              message:
-                  'Cadastre contas a pagar avulsas, parceladas ou recorrentes. '
-                  'Faturas de cartão aparecem com valor a informar.',
+              message: 'Ajuste os filtros para consultar outras contas.',
+              action: _filter != 'all' || _selectedCategoryId != null
+                  ? OutlinedButton(
+                      onPressed: () {
+                        clearFilters();
+                        _selectFilter('all');
+                      },
+                      child: const Text('Ver todas'),
+                    )
+                  : FilledButton.tonal(
+                      onPressed: () =>
+                          showPayableFormModal(context, space: space),
+                      child: const Text('Cadastrar conta'),
+                    ),
             ),
             builder: (context, items, refresh) {
               final eligibleItems = items.where(_isEligible).toList();
@@ -369,7 +466,7 @@ class _PayablesTabState extends State<PayablesTab> {
                                         if (filteredAdapters.length !=
                                             adapters.length)
                                           Text(
-                                            '• ${filteredAdapters.length} no período',
+                                            '• ${filteredAdapters.length} no recorte',
                                             style: Theme.of(context)
                                                 .textTheme
                                                 .bodySmall
@@ -447,15 +544,16 @@ class _PayablesTabState extends State<PayablesTab> {
                                   ],
                                 ),
                               ),
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 10),
-                                child: FinancialPeriodBar(
-                                  selection: _periodSelection,
-                                  overdueCount: overdueCount,
-                                  onChanged: (sel) =>
-                                      setState(() => _periodSelection = sel),
+                              if (!desktopFilters)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: FinancialPeriodBar(
+                                    selection: _periodSelection,
+                                    overdueCount: overdueCount,
+                                    onChanged: (sel) =>
+                                        setState(() => _periodSelection = sel),
+                                  ),
                                 ),
-                              ),
                               FinancialOverdueBanner(
                                 overdueCount: overdueCount,
                                 isOverdueMode:
@@ -488,25 +586,21 @@ class _PayablesTabState extends State<PayablesTab> {
                                           ? 1
                                           : 0) +
                                       (_selectedCategoryId != null ? 1 : 0),
-                                  onOpenFilters: () => showFinancialFiltersSheet(
-                                    context: context,
-                                    currentStatus: _filter,
-                                    statusOptions: _filters,
-                                    onStatusSelected: _selectFilter,
-                                    currentPeriod: FinancialPeriodFilter.all,
-                                    onPeriodSelected: (p) {},
-                                    currentCategoryId: _selectedCategoryId,
-                                    onCategorySelected: (c) =>
-                                        setState(() => _selectedCategoryId = c),
-                                    spaceId: space.id,
-                                    categoryType: 'expense',
-                                    onClearAll: () => setState(() {
-                                      _filter = 'open';
-                                      _periodSelection =
-                                          FinancialPeriodSelection.currentMonth();
-                                      _selectedCategoryId = null;
-                                    }),
-                                  ),
+                                  onOpenFilters: desktopFilters
+                                      ? null
+                                      : () => showFinancialFiltersSheet(
+                                          context: context,
+                                          currentStatus: _filter,
+                                          statusOptions: _filters,
+                                          onStatusSelected: _selectFilter,
+                                          currentCategoryId:
+                                              _selectedCategoryId,
+                                          onCategorySelected: (c) => setState(
+                                            () => _selectedCategoryId = c,
+                                          ),
+                                          spaceId: space.id,
+                                          categoryType: 'expense',
+                                        ),
                                   activeFilterChips: [
                                     if (_filter != 'open')
                                       InputChip(

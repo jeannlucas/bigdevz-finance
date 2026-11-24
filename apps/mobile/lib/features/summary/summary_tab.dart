@@ -111,12 +111,38 @@ class _SummaryTabState extends State<SummaryTab> {
                   ),
                   const SizedBox(height: 18),
 
-                  // Grid de Ações Rápidas (Navegação contextual direta para funcionalidades existentes)
-                  _QuickActionsSection(
+                  _DashboardPriorities(
                     space: space,
-                    onOpenTab: widget.onOpenTab,
+                    payables: summary.payables,
+                    obscure: obscureBalance,
+                    onOpenPayables: (filter) =>
+                        widget.onOpenTab(2, filter: filter),
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 20),
+                  ExecutiveDashboardCharts(
+                    summary: summary,
+                    accounts: accounts,
+                    obscure: obscureBalance,
+                    showCategories: false,
+                    accountsAccess: _AccountsAccessCard(
+                      key: const ValueKey('summary_accounts_access_card'),
+                      accountsCount: summary.accountsCount,
+                      archivedCount: summary.archivedAccountsCount,
+                      isDark: isDark,
+                      space: space,
+                      onTap: () {
+                        if (summary.accountsCount == 0) {
+                          showAccountFormModal(context, space: space);
+                        } else {
+                          widget.onOpenTab(3);
+                        }
+                      },
+                    ),
+                    onOpenAccounts: () => widget.onOpenTab(3),
+                    onOpenPayables: () =>
+                        widget.onOpenTab(2, filter: 'next_30_days'),
+                  ),
+                  const SizedBox(height: 20),
 
                   // Métricas em Destaque: A Receber (Previsto vs Realizado)
                   Text(
@@ -181,73 +207,17 @@ class _SummaryTabState extends State<SummaryTab> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  if (isDesktop)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: _ModernPayablesCard(
-                            key: const ValueKey('summary_modern_payables_card'),
-                            payables: summary.payables,
-                            obscure: obscureBalance,
-                            isDark: isDark,
-                            onTap: () => widget.onOpenTab(2),
-                          ),
-                        ),
-                        const SizedBox(width: AppTokens.p16),
-                        Expanded(
-                          child: _AccountsAccessCard(
-                            key: const ValueKey('summary_accounts_access_card'),
-                            accountsCount: summary.accountsCount,
-                            archivedCount: summary.archivedAccountsCount,
-                            isDark: isDark,
-                            space: space,
-                            onTap: () {
-                              if (summary.accountsCount == 0) {
-                                showAccountFormModal(context, space: space);
-                              } else {
-                                widget.onOpenTab(3);
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-                    )
-                  else ...[
-                    _ModernPayablesCard(
-                      key: const ValueKey('summary_modern_payables_card'),
-                      payables: summary.payables,
-                      obscure: obscureBalance,
-                      isDark: isDark,
-                      onTap: () => widget.onOpenTab(2),
-                    ),
-                    const SizedBox(height: 20),
-                    _AccountsAccessCard(
-                      key: const ValueKey('summary_accounts_access_card'),
-                      accountsCount: summary.accountsCount,
-                      archivedCount: summary.archivedAccountsCount,
-                      isDark: isDark,
-                      space: space,
-                      onTap: () {
-                        if (summary.accountsCount == 0) {
-                          showAccountFormModal(context, space: space);
-                        } else {
-                          widget.onOpenTab(3);
-                        }
-                      },
-                    ),
-                  ],
-                  const SizedBox(height: 20),
-
-                  // Gráficos e Inteligência Visual Executiva (Donut de Bancos + Fluxo de Caixa)
-                  ExecutiveDashboardCharts(
-                    summary: summary,
-                    accounts: accounts,
+                  _ModernPayablesCard(
+                    key: const ValueKey('summary_modern_payables_card'),
+                    payables: summary.payables,
                     obscure: obscureBalance,
-                    onOpenAccounts: () => widget.onOpenTab(3),
-                    onOpenReceivables: () =>
-                        widget.onOpenTab(1, filter: 'open'),
-                    onOpenPayables: () => widget.onOpenTab(2, filter: 'open'),
+                    isDark: isDark,
+                    onTap: () => widget.onOpenTab(2),
+                  ),
+                  const SizedBox(height: 20),
+                  CategoryDistributionDonutCard(
+                    categories: summary.categories,
+                    obscure: obscureBalance,
                   ),
                   const SizedBox(height: 24),
                 ],
@@ -549,164 +519,131 @@ class _BalanceHeroCard extends StatelessWidget {
 }
 
 /// Seção de Ações Rápidas: navegação direta para os fluxos reais existentes no app
-class _QuickActionsSection extends StatelessWidget {
-  const _QuickActionsSection({required this.space, required this.onOpenTab});
-
-  final Space space;
-  final void Function(int tab, {String? filter}) onOpenTab;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isDesktop = MediaQuery.sizeOf(context).width >= 840;
-
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _QuickActionButton(
-                icon: AppIcons.receivables,
-                label: 'A receber',
-                color: space.isPf ? AppTokens.brandPrimary : AppTokens.pjSeed,
-                isDark: isDark,
-                onTap: () => onOpenTab(1),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _QuickActionButton(
-                icon: AppIcons.payables,
-                label: 'A pagar',
-                color: AppTokens.expense,
-                isDark: isDark,
-                onTap: () => onOpenTab(2),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _QuickActionButton(
-                icon: AppIcons.accounts,
-                label: 'Contas',
-                color: const Color(0xFF0EA5E9),
-                isDark: isDark,
-                onTap: () => onOpenTab(3),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        if (isDesktop)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 320),
-              child: FilledButton.tonalIcon(
-                key: const ValueKey('summary_direct_expense_button'),
-                onPressed: () => showDirectExpenseModal(context, space: space),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(0, 40),
-                  backgroundColor: AppTokens.expense.withValues(
-                    alpha: isDark ? 0.22 : 0.12,
-                  ),
-                  foregroundColor: isDark
-                      ? const Color(0xFFFCA5A5)
-                      : AppTokens.expense,
-                ),
-                icon: Icon(
-                  Icons.receipt_long_rounded,
-                  size: 18,
-                  color: isDark ? const Color(0xFFFCA5A5) : AppTokens.expense,
-                ),
-                label: const Text('Registrar despesa paga'),
-              ),
-            ),
-          )
-        else
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.tonalIcon(
-              key: const ValueKey('summary_direct_expense_button'),
-              onPressed: () => showDirectExpenseModal(context, space: space),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(44),
-                backgroundColor: AppTokens.expense.withValues(
-                  alpha: isDark ? 0.22 : 0.12,
-                ),
-                foregroundColor: isDark
-                    ? const Color(0xFFFCA5A5)
-                    : AppTokens.expense,
-              ),
-              icon: Icon(
-                Icons.receipt_long_rounded,
-                size: 18,
-                color: isDark ? const Color(0xFFFCA5A5) : AppTokens.expense,
-              ),
-              label: const Text('Registrar despesa paga'),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _QuickActionButton extends StatelessWidget {
-  const _QuickActionButton({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.isDark,
-    required this.onTap,
+class _DashboardPriorities extends StatelessWidget {
+  const _DashboardPriorities({
+    required this.space,
+    required this.payables,
+    required this.obscure,
+    required this.onOpenPayables,
   });
 
-  final List<List<dynamic>> icon;
-  final String label;
-  final Color color;
-  final bool isDark;
-  final VoidCallback onTap;
+  final Space space;
+  final PayablesSummary payables;
+  final bool obscure;
+  final ValueChanged<String> onOpenPayables;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final items = [
+      (
+        label: 'Vencidos',
+        value: obscure ? 'R\$ ••••' : payables.overdueTotal.brl,
+        detail: '${payables.overdueCount} em atraso',
+        color: payables.overdueCount > 0
+            ? theme.colorScheme.error
+            : theme.colorScheme.onSurface,
+        filter: 'overdue',
+      ),
+      (
+        label: 'Próximos 30 dias',
+        value: obscure ? 'R\$ ••••' : payables.dueNext30DaysTotal.brl,
+        detail: 'Desde hoje, sem vencidos',
+        color: theme.colorScheme.onSurface,
+        filter: 'next_30_days',
+      ),
+      (
+        label: 'Valores a informar',
+        value: '${payables.awaitingAmountCount}',
+        detail: 'Fora dos totais',
+        color: theme.colorScheme.onSurface,
+        filter: 'awaiting_amount',
+      ),
+    ];
 
-    return Material(
-      color: theme.colorScheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTokens.r16),
-        side: BorderSide(
-          color: isDark ? AppTokens.darkBorder : AppTokens.lightBorder,
-          width: 1,
-        ),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTokens.r16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: isDark ? 0.2 : 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: AppIcon(icon, size: 20, color: color),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 660;
+        const gap = 12.0;
+        final width = wide
+            ? (constraints.maxWidth - gap * 2) / 3
+            : constraints.maxWidth;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Prioridades de pagamento', style: theme.textTheme.titleSmall),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: [
+                for (final item in items)
+                  SizedBox(
+                    width: width,
+                    child: Card(
+                      margin: EdgeInsets.zero,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(AppTokens.r16),
+                        onTap: () => onOpenPayables(item.filter),
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppTokens.p16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      item.label,
+                                      style: theme.textTheme.titleSmall,
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.chevron_right,
+                                    size: 18,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                item.value,
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: item.color,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
+                                ),
+                              ),
+                              Text(
+                                item.detail,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: gap),
+            SizedBox(
+              width: wide ? 320 : double.infinity,
+              child: FilledButton.tonalIcon(
+                key: const ValueKey('summary_direct_expense_button'),
+                onPressed: () => showDirectExpenseModal(context, space: space),
+                style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+                icon: const Icon(Icons.receipt_long_rounded, size: 18),
+                label: const Text('Registrar despesa paga'),
               ),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -886,7 +823,7 @@ class _ModernPayablesCard extends StatelessWidget {
                   label,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: alert
-                        ? AppTokens.expense
+                        ? theme.colorScheme.error
                         : theme.colorScheme.onSurfaceVariant,
                     fontWeight: alert ? FontWeight.w600 : FontWeight.w400,
                     fontSize: 13,
@@ -899,7 +836,7 @@ class _ModernPayablesCard extends StatelessWidget {
                   'R\$ ••••',
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    color: alert ? AppTokens.expense : null,
+                    color: alert ? theme.colorScheme.error : null,
                   ),
                 )
               else
@@ -911,7 +848,7 @@ class _ModernPayablesCard extends StatelessWidget {
                       value,
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
-                        color: alert ? AppTokens.expense : null,
+                        color: alert ? theme.colorScheme.error : null,
                       ),
                     ),
                   ),
@@ -967,13 +904,13 @@ class _ModernPayablesCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              payableRow('Em aberto', payables.openTotal),
+              payableRow('Compromissos em aberto', payables.openTotal),
               payableRow(
                 'Vencido (${payables.overdueCount})',
                 payables.overdueTotal,
                 alert: payables.overdueCount > 0,
               ),
-              payableRow('Próximos 30 dias', payables.dueNext30DaysTotal),
+              payableRow('A vencer em 30 dias', payables.dueNext30DaysTotal),
               const Divider(height: 18),
               payableRow('Pago (líquido, realizado)', payables.paidTotal),
               if (payables.awaitingAmountCount > 0)
@@ -984,7 +921,9 @@ class _ModernPayablesCard extends StatelessWidget {
                     '${payables.awaitingAmountCount == 1 ? 'fatura' : 'faturas'} '
                     'com valor a informar (fora dos totais)',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppTokens.warning,
+                      color: isDark
+                          ? const Color(0xFFFBBF24)
+                          : const Color(0xFF92400E),
                       fontWeight: FontWeight.w600,
                       fontSize: 12,
                     ),

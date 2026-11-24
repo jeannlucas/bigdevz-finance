@@ -18,6 +18,7 @@ use App\Models\Payable;
 use App\Models\PayablePlan;
 use App\Models\Recurrence;
 use App\Rules\MoneyAmount;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -31,7 +32,7 @@ class PayableController extends Controller
 {
     use HandlesIdempotency;
 
-    private const STATUSES = ['all', 'open', 'overdue', 'paid', 'cancelled', 'awaiting_amount'];
+    private const STATUSES = ['all', 'open', 'overdue', 'next_30_days', 'paid', 'cancelled', 'awaiting_amount'];
 
     public function index(Request $request, string $space): AnonymousResourceCollection
     {
@@ -51,6 +52,8 @@ class PayableController extends Controller
         match ($status) {
             'open' => $query->whereNull('cancelled_at')->whereNotNull('amount_cents')->whereColumn('paid_cents', '<', 'amount_cents'),
             'overdue' => $query->whereNull('cancelled_at')->whereNotNull('amount_cents')->whereColumn('paid_cents', '<', 'amount_cents')->where('due_date', '<', $today),
+            'next_30_days' => $query->whereNull('cancelled_at')->whereNotNull('amount_cents')->whereColumn('paid_cents', '<', 'amount_cents')
+                ->whereBetween('due_date', [$today, Carbon::parse($today)->addDays(30)->toDateString()]),
             'paid' => $query->whereNull('cancelled_at')->whereColumn('paid_cents', '=', 'amount_cents'),
             'cancelled' => $query->whereNotNull('cancelled_at'),
             'awaiting_amount' => $query->whereNull('cancelled_at')->whereNull('amount_cents'),

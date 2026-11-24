@@ -30,6 +30,7 @@ void main() {
       receivableRemaining: Money(
         300000,
       ), // R$ 3.000,00 a receber -> Total Entradas: R$ 15.000,00
+      receivableDueNext30DaysTotal: Money(300000),
       accountsCount: 2,
       agreementsCount: 3,
       overdueInstallments: 0,
@@ -73,12 +74,12 @@ void main() {
 
         // Card Termômetro de Fluxo de Caixa
         expect(find.text('Fluxo de Caixa'), findsOneWidget);
-        expect(find.text('Entradas'), findsOneWidget);
-        expect(find.text('Saídas & Compromissos'), findsOneWidget);
-        expect(find.textContaining('Previsão de sobra'), findsOneWidget);
-        expect(find.textContaining(r'R$ 7.000,00'), findsOneWidget);
-        expect(find.textContaining(r'R$ 8.000,00'), findsOneWidget);
-        expect(find.textContaining(r'R$ 6.000,00'), findsWidgets);
+        expect(find.text('Entradas previstas'), findsOneWidget);
+        expect(find.text('Saídas previstas'), findsOneWidget);
+        expect(find.text('Saldo projetado ao fim do período'), findsOneWidget);
+        expect(find.text(r'R$ 11.000,00'), findsOneWidget);
+        expect(find.text(r'R$ 2.000,00'), findsOneWidget);
+        expect(find.text(r'R$ 6.000,00'), findsWidgets);
       },
     );
 
@@ -107,7 +108,7 @@ void main() {
     });
 
     testWidgets(
-      'AC-FIN-030: consolida Saídas & Compromissos sem dupla contagem de vencidos e exibe alerta de insuficiência',
+      'AC-FIN-037: exclui vencidos do horizonte e mostra saldo projetado negativo',
       (tester) async {
         // Cenário sintético PEND-001 / AC-FIN-030:
         // R$ 520,29 vencidos + R$ 439,59 a vencer = R$ 959,88 em aberto (openTotal)
@@ -117,6 +118,7 @@ void main() {
           balance: Money(0),
           receivedTotal: Money(0),
           receivableRemaining: Money(0),
+          receivableDueNext30DaysTotal: Money(0),
           accountsCount: 1,
           agreementsCount: 0,
           overdueInstallments: 0,
@@ -148,13 +150,12 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // 1. Total correto de Saídas & Compromissos: R$ 959,88 (sem inflar para R$ 1.480,17)
-        expect(find.text('Saídas & Compromissos'), findsOneWidget);
-        expect(find.text(r'R$ 959,88'), findsOneWidget);
-
-        // 2. Alerta de insuficiência com entradas e saldo controlados:
-        // totalInflow (0) - totalOutflow (959,88) = déficit de R$ 959,88
-        expect(find.text(r'Atenção: vai faltar R$ 959,88'), findsOneWidget);
+        expect(find.text('Saídas previstas'), findsOneWidget);
+        expect(find.text(r'R$ 439,59'), findsOneWidget);
+        expect(find.text('Saldo projetado ao fim do período'), findsOneWidget);
+        expect(find.textContaining('Vencidos ficam fora'), findsOneWidget);
+        expect(find.text(const Money(-43959).brl), findsOneWidget);
+        expect(find.textContaining(r'R$ 959,88'), findsNothing);
       },
     );
   });
