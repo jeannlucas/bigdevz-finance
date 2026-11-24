@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\SpaceController;
 use App\Http\Controllers\Api\SpaceMemberController;
 use App\Http\Controllers\Api\StatementController;
 use App\Http\Controllers\Api\TransferController;
+use App\Http\Controllers\Api\WiseWalletController;
 use Illuminate\Support\Facades\Route;
 
 // IDs são numéricos e cabem em BIGINT; o resto vira 404 antes do banco.
@@ -89,6 +90,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/accounts', [AccountController::class, 'store']);
         Route::get('/accounts/{account}', [AccountController::class, 'show']);
         Route::patch('/accounts/{account}', [AccountController::class, 'update']);
+        Route::get('/accounts/{account}/wise/conversions', [WiseWalletController::class, 'history']);
+        Route::post('/accounts/{account}/wise/conversions', [WiseWalletController::class, 'convert']);
+        Route::post('/accounts/{account}/wise/conversions/{conversion}/reversal', [WiseWalletController::class, 'reverse']);
+        Route::patch('/accounts/{account}/wise/currencies/{currency}/quote', [WiseWalletController::class, 'quote']);
+        Route::post('/accounts/{account}/wise/currencies', [WiseWalletController::class, 'storeCurrency']);
         Route::post('/accounts/{account}/archive', [AccountController::class, 'archive']);
         Route::post('/accounts/{account}/unarchive', [AccountController::class, 'unarchive']);
         Route::post('/accounts/{account}/opening-adjustment', [AccountController::class, 'adjustOpening']);

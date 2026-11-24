@@ -20,6 +20,7 @@ class AccountResource extends JsonResource
             'opening_balance' => Money::fromCents($this->opening_balance_cents),
             'opening_balance_date' => $this->opening_balance_date->toDateString(),
             'balance' => Money::fromCents($this->balanceCents()),
+            'wise_currencies' => WiseCurrencyResource::collection($this->whenLoaded('wiseCurrencies')),
             'archived_at' => $this->archived_at?->toIso8601String(),
             // Limite para a data de abertura: nenhuma movimentação antes dela.
             'first_movement_date' => $this->when(

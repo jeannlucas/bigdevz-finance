@@ -1,4 +1,5 @@
 import '../../core/money.dart';
+import 'wise_currency.dart';
 
 class Account {
   const Account({
@@ -11,6 +12,7 @@ class Account {
     this.archivedAt,
     this.firstMovementDate,
     this.openingAdjustments = const [],
+    this.wiseCurrencies = const [],
   });
 
   factory Account.fromJson(Map<String, dynamic> json) => Account(
@@ -22,6 +24,9 @@ class Account {
     balance: Money.parse(json['balance'] as String),
     archivedAt: json['archived_at'] as String?,
     firstMovementDate: json['first_movement_date'] as String?,
+    wiseCurrencies: (json['wise_currencies'] as List? ?? const [])
+        .map((item) => WiseCurrency.fromJson(item as Map<String, dynamic>))
+        .toList(),
     openingAdjustments: (json['opening_adjustments'] as List? ?? const [])
         .map((item) => OpeningAdjustment.fromJson(item as Map<String, dynamic>))
         .toList(),
@@ -44,6 +49,8 @@ class Account {
 
   /// Correções do saldo inicial/data de abertura, mais recentes primeiro.
   final List<OpeningAdjustment> openingAdjustments;
+
+  final List<WiseCurrency> wiseCurrencies;
 
   bool get isArchived => archivedAt != null;
 }
