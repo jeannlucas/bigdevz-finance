@@ -10,7 +10,6 @@ use App\Http\Controllers\Api\CardController;
 use App\Http\Controllers\Api\CashFlowController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\InstallmentController;
-use App\Http\Controllers\Api\LoanController;
 use App\Http\Controllers\Api\OfxReconciliationController;
 use App\Http\Controllers\Api\PayableController;
 use App\Http\Controllers\Api\PaymentController;
@@ -102,9 +101,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/transfers', [TransferController::class, 'store']);
         Route::get('/transfers/{transfer}', [TransferController::class, 'show']);
         Route::post('/transfers/{transfer}/reversal', [TransferController::class, 'reverse']);
-        Route::get('/loans', [LoanController::class, 'index']);
-        Route::post('/loans', [LoanController::class, 'store']);
-        Route::get('/loans/{loan}', [LoanController::class, 'show']);
         Route::get('/agreements', [AgreementController::class, 'index']);
         Route::post('/agreements/recurrence-preview', [AgreementController::class, 'recurrencePreview']);
         Route::post('/agreements', [AgreementController::class, 'store']);

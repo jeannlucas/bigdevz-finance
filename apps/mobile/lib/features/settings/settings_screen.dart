@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/config.dart';
+import '../../core/dates.dart';
 import '../../ui/app_brand.dart';
 import '../../ui/app_icons.dart';
-import '../../ui/app_tokens.dart';
 import '../audit/audit_screen.dart';
 import '../auth/session_controller.dart';
 import '../categories/categories_screen.dart';
@@ -14,22 +14,8 @@ import '../planning/planning_screen.dart';
 import '../reconciliation/ofx_screen.dart';
 import 'preferences_controller.dart';
 
-/// Central de Configurações do BigDev.Z Finance:
-/// - Aparência: Automático (sistema), Claro, Escuro
-/// - Privacidade: Ocultar valores financeiros por padrão
-/// - Sobre o aplicativo: Identidade institucional e versão
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
-
-  static String _formatDate(String iso) {
-    try {
-      final parts = iso.split('-');
-      if (parts.length == 3) {
-        return '${parts[2]}/${parts[1]}/${parts[0]}';
-      }
-    } catch (_) {}
-    return iso;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,366 +41,255 @@ class SettingsScreen extends StatelessWidget {
       }
     }
 
+    final space = context.watch<SessionController?>()?.activeSpace;
+    final hasTools = space != null && (space.isAdmin || space.isFinancial);
+
+    void open(Widget screen) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+    }
+
+    final preferencesSections = [
+      _SettingsSection(
+        title: 'Aparência',
+        subtitle: 'Escolha o tema neste dispositivo.',
+        icon: AppIcons.sun,
+        tiles: [
+          for (final (mode, title, description, icon) in [
+            (
+              ThemeMode.system,
+              'Automático',
+              'Acompanha o tema do dispositivo.',
+              AppIcons.computer,
+            ),
+            (
+              ThemeMode.light,
+              'Claro',
+              'Usa sempre o tema claro.',
+              AppIcons.sun,
+            ),
+            (
+              ThemeMode.dark,
+              'Escuro',
+              'Usa sempre o tema escuro.',
+              AppIcons.moon,
+            ),
+          ])
+            _ThemeOptionTile(
+              title: title,
+              subtitle: description,
+              icon: icon,
+              selected: preferences.themeMode == mode,
+              onTap: () => preferences.setThemeMode(mode),
+            ),
+        ],
+      ),
+      _SettingsSection(
+        title: 'Privacidade',
+        subtitle: 'Visibilidade dos valores neste dispositivo.',
+        icon: AppIcons.viewOff,
+        tiles: [
+          SwitchListTile.adaptive(
+            value: preferences.hideValuesByDefault,
+            onChanged: preferences.isSavingPrivacy ? null : onTogglePrivacy,
+            title: const Text('Ocultar valores por padrão'),
+            subtitle: Text(
+              preferences.isSavingPrivacy
+                  ? 'Salvando preferência...'
+                  : 'Iniciar com os valores ocultos nas telas compatíveis.',
+            ),
+          ),
+        ],
+      ),
+    ];
+
+    final spaceSections = [
+      if (space != null)
+        _SettingsSection(
+          title: 'Categorias',
+          subtitle: space.label,
+          icon: AppIcons.wallet,
+          tiles: [
+            _SettingsLink(
+              icon: Icons.category_rounded,
+              title: 'Gerenciar Categorias',
+              subtitle: 'Organize receitas e despesas deste espaço.',
+              onTap: () => showCategoriesManagementModal(context, space: space),
+            ),
+          ],
+        ),
+      if (hasTools) ...[
+        _SettingsSection(
+          title: 'Ferramentas financeiras',
+          subtitle: 'Planejamento e conferência de extratos.',
+          icon: AppIcons.wallet,
+          tiles: [
+            _SettingsLink(
+              icon: Icons.insights_rounded,
+              title: 'Fluxo de Caixa e Planejamento',
+              subtitle: 'Projete o saldo diário para 30, 60 ou 90 dias.',
+              onTap: () => open(PlanningScreen(space: space)),
+            ),
+            _SettingsLink(
+              icon: Icons.receipt_long_rounded,
+              title: 'Conciliação Bancária OFX',
+              subtitle: 'Importe um extrato e confira as correspondências.',
+              onTap: () => open(OfxScreen(space: space)),
+            ),
+          ],
+        ),
+        _SettingsSection(
+          title: 'Segurança e Governança',
+          subtitle: 'Histórico e controles do espaço.',
+          icon: AppIcons.lock,
+          tiles: [
+            _SettingsLink(
+              icon: Icons.history_edu_rounded,
+              title: 'Auditoria e Conformidade',
+              subtitle: 'Consulte alterações, estornos e cancelamentos.',
+              onTap: () => open(const AuditScreen()),
+            ),
+            if (space.isAdmin)
+              _SettingsLink(
+                icon: space.closedUntil == null
+                    ? Icons.lock_open_rounded
+                    : Icons.lock_clock_rounded,
+                title: 'Período Contábil',
+                subtitle: space.closedUntil == null
+                    ? 'Aberto para movimentações e correções.'
+                    : 'Fechado até ${formatDateBr(space.closedUntil!)}',
+                onTap: () => AccountingPeriodDialog.show(context, space: space),
+              ),
+            if (space.isAdmin && !space.isPf)
+              _SettingsLink(
+                icon: Icons.group_rounded,
+                title: 'Equipe e Perfis de Acesso',
+                subtitle: 'Gerencie os membros e permissões da empresa.',
+                onTap: () => open(const SpaceMembersScreen()),
+              ),
+          ],
+        ),
+      ],
+    ];
+
+    final about = _SettingsSection(
+      title: 'Sobre o aplicativo',
+      subtitle: 'Identificação do build em uso.',
+      icon: AppIcons.info,
+      tiles: [
+        ListTile(
+          leading: GorillaSymbol(size: 28, color: theme.colorScheme.primary),
+          title: const Text('BigDev.Z Finance'),
+          subtitle: const Text(appVersionLabel),
+        ),
+        ListTile(
+          title: const Text('Ambiente'),
+          subtitle: Text(currentEnvironment.label),
+        ),
+        const ListTile(title: Text('Licença'), subtitle: Text('MIT')),
+      ],
+    );
+
     return Scaffold(
       appBar: AppBar(title: const Text('Configurações')),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppTokens.p16,
-          vertical: AppTokens.p16,
-        ),
-        children: [
-          // SEÇÃO A: APARÊNCIA
-          _SectionHeader(
-            title: 'Aparência',
-            subtitle: 'Escolha como o aplicativo é exibido.',
-            icon: AppIcons.sun,
-          ),
-          const SizedBox(height: 10),
-          Card(
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              children: [
-                _ThemeOptionTile(
-                  title: 'Automático',
-                  subtitle: 'Acompanha a aparência do dispositivo.',
-                  icon: AppIcons.computer,
-                  selected: preferences.themeMode == ThemeMode.system,
-                  onTap: () => preferences.setThemeMode(ThemeMode.system),
-                ),
-                const Divider(height: 1, indent: 56),
-                _ThemeOptionTile(
-                  title: 'Claro',
-                  subtitle: 'Usar sempre a aparência clara.',
-                  icon: AppIcons.sun,
-                  selected: preferences.themeMode == ThemeMode.light,
-                  onTap: () => preferences.setThemeMode(ThemeMode.light),
-                ),
-                const Divider(height: 1, indent: 56),
-                _ThemeOptionTile(
-                  title: 'Escuro',
-                  subtitle: 'Usar sempre a aparência escura.',
-                  icon: AppIcons.moon,
-                  selected: preferences.themeMode == ThemeMode.dark,
-                  onTap: () => preferences.setThemeMode(ThemeMode.dark),
-                ),
-              ],
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final desktop = constraints.maxWidth >= 840;
+          return SingleChildScrollView(
+            padding: EdgeInsets.symmetric(
+              horizontal: desktop ? 32 : 16,
+              vertical: 20,
             ),
-          ),
-          const SizedBox(height: 24),
-
-          // SEÇÃO B: PRIVACIDADE FINANCEIRA
-          _SectionHeader(
-            title: 'Privacidade',
-            subtitle: 'Controle a visibilidade dos valores financeiros.',
-            icon: AppIcons.viewOff,
-          ),
-          const SizedBox(height: 10),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: SwitchListTile.adaptive(
-                value: preferences.hideValuesByDefault,
-                onChanged: preferences.isSavingPrivacy ? null : onTogglePrivacy,
-                title: const Text(
-                  'Ocultar valores por padrão',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                subtitle: Text(
-                  preferences.isSavingPrivacy
-                      ? 'Salvando preferência...'
-                      : 'Iniciar com os valores financeiros ocultos.',
-                ),
-                secondary: const AppIcon(AppIcons.viewOff, size: 22),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // SEÇÃO C: CATEGORIAS FINANCEIRAS
-          _SectionHeader(
-            title: 'Categorias',
-            subtitle: 'Personalize as categorias de receitas e despesas.',
-            icon: AppIcons.wallet,
-          ),
-          const SizedBox(height: 10),
-          Card(
-            clipBehavior: Clip.antiAlias,
-            child: ListTile(
-              leading: const Icon(Icons.category_rounded),
-              title: const Text('Gerenciar Categorias'),
-              subtitle: const Text(
-                'Visualizar, criar e editar categorias deste espaço',
-              ),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () {
-                final space = context.read<SessionController?>()?.activeSpace;
-                if (space != null) {
-                  showCategoriesManagementModal(context, space: space);
-                }
-              },
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // SEÇÃO D: SEGURANÇA E GOVERNANÇA (ADMINISTRADOR E FINANCEIRO)
-          Builder(
-            builder: (context) {
-              final space = context.watch<SessionController?>()?.activeSpace;
-              if (space == null || (!space.isAdmin && !space.isFinancial)) {
-                return const SizedBox.shrink();
-              }
-
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _SectionHeader(
-                    title: 'Segurança e Governança',
-                    subtitle: 'Auditoria de movimentações, fechamento contábil e equipe.',
-                    icon: AppIcons.lock,
-                  ),
-                  const SizedBox(height: 10),
-                  Card(
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      children: [
-                        // Auditoria e Conformidade
-                        ListTile(
-                          leading: const Icon(
-                            Icons.history_edu_rounded,
-                            color: AppTokens.brandPrimary,
-                          ),
-                          title: const Text('Auditoria e Conformidade'),
-                          subtitle: const Text(
-                            'Linha do tempo de alterações, estornos e cancelamentos',
-                          ),
-                          trailing: const Icon(Icons.chevron_right_rounded),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const AuditScreen(),
-                              ),
-                            );
-                          },
-                        ),
-
-                        // Fluxo de Caixa Realizado vs. Previsto
-                        const Divider(height: 1, indent: 56),
-                        ListTile(
-                          leading: const Icon(
-                            Icons.insights_rounded,
-                            color: Color(0xFF10B981),
-                          ),
-                          title: const Text('Fluxo de Caixa e Planejamento'),
-                          subtitle: const Text(
-                            'Projeção para 30, 60 e 90 dias com saldo diário e filtros',
-                          ),
-                          trailing: const Icon(Icons.chevron_right_rounded),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => PlanningScreen(space: space),
-                              ),
-                            );
-                          },
-                        ),
-
-                        // Conciliação Bancária OFX
-                        const Divider(height: 1, indent: 56),
-                        ListTile(
-                          leading: const Icon(
-                            Icons.receipt_long_rounded,
-                            color: Color(0xFF0284C7),
-                          ),
-                          title: const Text('Conciliação Bancária OFX'),
-                          subtitle: const Text(
-                            'Importe extratos OFX, confira correspondências e elimine duplicidades',
-                          ),
-                          trailing: const Icon(Icons.chevron_right_rounded),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => OfxScreen(space: space),
-                              ),
-                            );
-                          },
-                        ),
-
-                        // Período Contábil (Apenas Administrador)
-                        if (space.isAdmin) ...[
-                          const Divider(height: 1, indent: 56),
-                          ListTile(
-                            leading: Icon(
-                              space.closedUntil != null
-                                  ? Icons.lock_clock_rounded
-                                  : Icons.lock_open_rounded,
-                              color: space.closedUntil != null
-                                  ? AppTokens.warning
-                                  : AppTokens.income,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1120),
+                child: desktop
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              children: [...preferencesSections, about],
                             ),
-                            title: const Text('Período Contábil'),
-                            subtitle: Text(
-                              space.closedUntil != null
-                                  ? 'Fechado até ${_formatDate(space.closedUntil!)}'
-                                  : 'Aberto para movimentações e correções',
-                            ),
-                            trailing: const Icon(Icons.chevron_right_rounded),
-                            onTap: () {
-                              AccountingPeriodDialog.show(
-                                context,
-                                space: space,
-                              );
-                            },
                           ),
+                          const SizedBox(width: 24),
+                          Expanded(child: Column(children: spaceSections)),
                         ],
-
-                        // Gestão de Equipe e Perfis (Apenas Administrador em Espaço PJ)
-                        if (space.isAdmin && !space.isPf) ...[
-                          const Divider(height: 1, indent: 56),
-                          ListTile(
-                            leading: const Icon(
-                              Icons.group_rounded,
-                              color: Color(0xFF0284C7),
-                            ),
-                            title: const Text('Equipe e Perfis de Acesso'),
-                            subtitle: const Text(
-                              'Gerencie os membros da empresa e alçadas de permissão',
-                            ),
-                            trailing: const Icon(Icons.chevron_right_rounded),
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const SpaceMembersScreen(),
-                                ),
-                              );
-                            },
-                          ),
+                      )
+                    : Column(
+                        children: [
+                          ...preferencesSections,
+                          ...spaceSections,
+                          about,
                         ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-              );
-            },
-          ),
-
-          // SEÇÃO D: SOBRE O APLICATIVO
-          _SectionHeader(
-            title: 'Sobre o aplicativo',
-            subtitle: 'Informações do BigDev.Z Finance.',
-            icon: AppIcons.info,
-          ),
-          const SizedBox(height: 10),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(AppTokens.p20),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      GorillaSymbol(size: 32, color: theme.colorScheme.primary),
-                      const SizedBox(width: 10),
-                      Text(
-                        'BigDev',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.5,
-                        ),
                       ),
-                      Text(
-                        '.Z',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w900,
-                          color: AppTokens.brandSeed,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'FINANCE',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.5,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Finanças pessoais e da empresa, separadas.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 12),
-                  const Divider(),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Ambiente',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      Text(
-                        currentEnvironment.label,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Versão',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      Text(
-                        appVersionLabel,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Licença',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      Text(
-                        'MIT Open Source',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
               ),
             ),
-          ),
-          const SizedBox(height: 32),
-        ],
+          );
+        },
       ),
     );
   }
+}
+
+class _SettingsSection extends StatelessWidget {
+  const _SettingsSection({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.tiles,
+  });
+
+  final String title;
+  final String subtitle;
+  final List<List<dynamic>> icon;
+  final List<Widget> tiles;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 20),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SectionHeader(title: title, subtitle: subtitle, icon: icon),
+        const SizedBox(height: 8),
+        Card(
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              for (var index = 0; index < tiles.length; index++) ...[
+                if (index > 0)
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                tiles[index],
+              ],
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _SettingsLink extends StatelessWidget {
+  const _SettingsLink({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
+    title: Text(title),
+    subtitle: Text(subtitle),
+    trailing: const Icon(Icons.chevron_right_rounded),
+    onTap: onTap,
+  );
 }
 
 class _SectionHeader extends StatelessWidget {

@@ -19,7 +19,6 @@ class AccountMovement extends Model
         'payment_reversal_id',
         'transfer_id',
         'transfer_reversal_id',
-        'loan_disbursement_id',
         'category_id',
         'wise_conversion_id',
         'amount_cents',
@@ -81,12 +80,6 @@ class AccountMovement extends Model
     public function transferReversal(): BelongsTo
     {
         return $this->belongsTo(TransferReversal::class);
-    }
-
-    /** @return BelongsTo<Loan, $this> */
-    public function loanDisbursement(): BelongsTo
-    {
-        return $this->belongsTo(Loan::class, 'loan_disbursement_id');
     }
 
     public function isCredit(): bool

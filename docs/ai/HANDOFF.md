@@ -187,3 +187,9 @@ A branch `fix/entrega-frontend-web-pipeline-deploy` implementa a solução de en
 - A carteira exibe as moedas cadastradas e calcula o equivalente estimado com cotações manuais datadas. O Dashboard lista os saldos no espaço ativo e respeita a ocultação de valores.
 - Cobertura em `WiseWalletTest.php` e `wise_dashboard_test.dart`. Build Web local e inspeção no Chrome a 1440 e 390 pixels com uma API simulada. A criação de JPY foi refletida ao voltar ao Dashboard.
 - Especificação em `specs/carteira-wise/carteira-wise.md`. Evidências de qualidade e de interface em `../evidencias-carteira-wise/`.
+
+## Release Web — Configurações, bandeiras da Wise e retirada de Empréstimos
+
+- Branch `feature/release-configuracoes-wise`, baseada em `origin/dev` (`8d47ae9`). Integra AC-UI-016, AC-WISE-009 e AC-EMP-009.
+- A migração só retira a estrutura vazia de Empréstimos. Se houver registros ou referências, o deploy interrompe a migração antes da alteração.
+- O build Web incorpora a versão SemVer e o número da execução. A remoção das rotas de Empréstimos justifica a versão major `v2.0.0`.

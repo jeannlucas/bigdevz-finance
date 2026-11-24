@@ -17,12 +17,10 @@ void main() {
     backend.routes['GET /spaces/1/agreements'] = {'data': []};
     backend.routes['GET /spaces/1/accounts'] = {'data': []};
     backend.routes['GET /spaces/1/statement'] = {'data': []};
-    backend.routes['GET /spaces/1/loans'] = {'data': []};
     backend.routes['GET /spaces/2/payables'] = {'data': []};
     backend.routes['GET /spaces/2/agreements'] = {'data': []};
     backend.routes['GET /spaces/2/accounts'] = {'data': []};
     backend.routes['GET /spaces/2/statement'] = {'data': []};
-    backend.routes['GET /spaces/2/loans'] = {'data': []};
   });
 
   Future<void> launchApp(WidgetTester tester) async {
@@ -52,6 +50,14 @@ void main() {
     'HomeShell: renderiza espaço PF padrão com tema Azul Profundo e dados de PF',
     (tester) async {
       await launchApp(tester);
+
+      // AC-EMP-009: o menu compacto mantém as opções de conta sem Empréstimos.
+      await tester.tap(find.byTooltip('Conta'));
+      await tester.pumpAndSettle();
+      expect(find.text('Categorias'), findsOneWidget);
+      expect(find.text('Empréstimos'), findsNothing);
+      await tester.tapAt(const Offset(64, 500));
+      await tester.pumpAndSettle();
 
       // Valida espaço inicial PF
       expect(find.text('Saldo disponível'), findsOneWidget);
@@ -223,7 +229,7 @@ void main() {
       expect(find.text('A receber'), findsWidgets);
       expect(find.text('A pagar'), findsWidgets);
       expect(find.text('Contas'), findsWidgets);
-      expect(find.text('Empréstimos'), findsNothing);
+      expect(find.byTooltip('Empréstimos'), findsNothing);
 
       // Clicar em Extrato navega para a aba de Extrato
       await tester.tap(find.text('Extrato'));

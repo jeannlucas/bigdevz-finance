@@ -13,7 +13,6 @@ import 'features/alerts/alerts_repository.dart';
 import 'features/auth/auth_repository.dart';
 import 'features/auth/session_controller.dart';
 import 'features/categories/categories_repository.dart';
-import 'features/loans/loans_repository.dart';
 import 'features/payables/payable_creations.dart';
 import 'features/payables/payables_repository.dart';
 import 'features/settings/preferences_controller.dart';
@@ -39,7 +38,6 @@ Widget buildApp({
         ),
       ),
       Provider(create: (_) => AgreementsRepository(api)),
-      Provider(create: (_) => LoansRepository(api)),
       Provider(create: (_) => StatementRepository(api)),
       Provider(create: (_) => PayablesRepository(api)),
       Provider(

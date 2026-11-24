@@ -1,5 +1,22 @@
 # Especificação Permanente da Capability de Empréstimos (Empréstimos e Financiamentos)
 
+> **Status:** módulo retirado. Os critérios AC-EMP-001 a AC-EMP-008
+> abaixo documentam a implementação histórica. O critério vigente é
+> **AC-EMP-009**.
+
+## AC-EMP-009 — Retirada do módulo
+
+A navegação web e móvel não oferece o módulo e a API desativa as rotas de
+Empréstimos. A migração bloqueia a tabela e as referências durante a inspeção,
+remove a estrutura somente se não houver empréstimos ou referências a eles
+e aborta antes de qualquer alteração de esquema se encontrar dados. As
+chaves de recusas históricas são preservadas. Categorias, contas a pagar,
+contas a receber, extrato e carteira Wise continuam independentes.
+
+**Rastreabilidade:** migração `2026_11_24_093000_retire_empty_loans_module.php`,
+`LoanRetirementTest.php` e `home_shell_test.dart`.
+
+
 > **Capability:** `emprestimos`<br>
 > **Status:** Ativo / Canônico<br>
 > **Referência de Governança:** `~/AGENTS.md`, `specs/README.md`, `specs/financeiro/financeiro.md`, ADRs `0001` a `0006`.<br>

@@ -379,6 +379,7 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
 
 - **AC-UI-014 [Filtros e Estados de Consulta das Operações Web]:** Extrato, A Pagar e A Receber agrupam os filtros de período e de seleção em uma área visível no desktop, inclusive com resultados vazios. O Extrato oferece intervalos dos últimos 7 e 30 dias, incluindo hoje. A agenda oferece próximos 7 e 30 dias e mantém intervalo personalizado. O seletor de categorias apresenta a hierarquia e permite pesquisar pelo nome e pelo caminho. Os estados vazios orientam a próxima ação. O mobile mantém controles compactos e só aplica mudanças do painel ao confirmar. As tabelas mantêm valores, datas e categorias legíveis, com situação identificada em coluna própria.
 - **AC-UI-015 [Entrada Monetária no Cronograma]:** Os campos de valor das parcelas descartam caracteres não numéricos, exibem centavos no formato brasileiro e mantêm o total exato durante a edição no desktop e no mobile.
+- **AC-UI-016 [Configurações Responsivas e Identificação da Release]:** Configurações limita a largura e agrupa preferências e atalhos em duas colunas no desktop e uma no mobile. Ferramentas financeiras e governança preservam as permissões e o espaço ativo. A versão exibida e `version.json` devem corresponder à tag e ao número do build publicados pelo pipeline web.
 
 ## 3. Matriz de Rastreabilidade (Spec ↔ Código ↔ Testes)
 
@@ -439,3 +440,4 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
 | **AC-FIN-037** | `SpaceController.php`, `dashboard_charts.dart` | `PayablesTest.php`, `dashboard_charts_test.dart` |
 | **AC-UI-013** | `summary_tab.dart`, `PayableController.php`, `payables_tab.dart` | `summary_test.dart`, `home_shell_test.dart`, `PayablesTest.php` |
 | **AC-UI-015** | `payable_form_screen.dart` | `editable_installment_schedule_test.dart` |
+| **AC-UI-016** | `settings_screen.dart`, `build-web.sh`, `deploy.yml` | `preferences_test.dart`, verificação de `version.json` no build |

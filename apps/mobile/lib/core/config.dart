@@ -187,7 +187,7 @@ String resolveApiBaseUrl({
 String get apiBaseUrl =>
     resolveApiBaseUrl(isWeb: kIsWeb, runtimeUri: kIsWeb ? Uri.base : null);
 
-/// Versão e número de build sincronizados com pubspec.yaml.
+/// Versão e número de build incorporados ao artefato durante a compilação.
 const String appVersion = String.fromEnvironment(
   'APP_VERSION',
   defaultValue: '1.0.0',
