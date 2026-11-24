@@ -303,3 +303,14 @@ Para intervenções estruturais ou manutenções planejadas:
   - **Releases de Deploy:** **Zero RPO** (snapshot compulsório criado imediatamente antes de qualquer `migrate`).
 - **Recovery Time Objective (RTO):**
   - Restauração completa de banco e aplicação através do `./scripts/rollback-production.sh`: **inferior a 10 minutos**.
+
+## SMTP de recuperação
+
+O Postfix escuta no gateway privado da rede Docker do Finance (172.20.0.1:25)
+e no loopback da VPS. A entrega externa exige TLS. O OpenDKIM assina com
+o seletor finance e o único remetente autorizado é recuperacao@mail.finance.bigdevz.com.
+
+A HostGator publica SPF, DKIM e DMARC em mail.finance.bigdevz.com.
+Se o gateway Docker mudar, alinhe a escuta do Postfix, a regra do firewall
+e MAIL_HOST no Compose. Se o IP público mudar, revise o SPF, a saída na
+porta 25 e o DNS reverso.
