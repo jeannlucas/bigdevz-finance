@@ -215,33 +215,15 @@ class FinancialDesktopTableRow<T extends FinancialItemView>
                   const SizedBox(width: 8),
                 ],
 
-                // Vencimento
+                // A situação da obrigação é exibida na coluna de status.
                 SizedBox(
                   width: 96,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        formatDateBr(item.dueDate),
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: item.isOverdue && !item.isSettled
-                              ? AppTokens.expense
-                              : theme.colorScheme.onSurface,
-                        ),
-                      ),
-                      if (item.isOverdue && !item.isSettled)
-                        Text(
-                          'Vencida',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: AppTokens.expense,
-                          ),
-                        ),
-                    ],
+                  child: Text(
+                    formatDateBr(item.dueDate),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -355,9 +337,6 @@ class FinancialDesktopTableRow<T extends FinancialItemView>
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w800,
-                              color: item.isOverdue && !item.isSettled
-                                  ? AppTokens.expense
-                                  : null,
                             ),
                           ),
                   ),

@@ -174,6 +174,15 @@ class _AgreementsTabState extends State<AgreementsTab> {
     final textScaler = MediaQuery.textScalerOf(context);
     final chipsHeight = (44.0 * textScaler.scale(1.0) + 8.0).clamp(52.0, 96.0);
 
+    final desktopFilters = MediaQuery.sizeOf(context).width >= 840;
+    void clearFilters() => setState(() {
+      _filter = 'open';
+      _selectedCategoryId = null;
+      _searchQuery = '';
+      _sortOption = FinancialSortOption.dueDateAsc;
+      _periodSelection = FinancialPeriodSelection.currentMonth();
+    });
+
     return Column(
       children: [
         // Cabeçalho da aba Contas a receber com ação principal (layout adaptativo)
@@ -194,10 +203,14 @@ class _AgreementsTabState extends State<AgreementsTab> {
               children: [
                 Text(
                   'Contas a receber',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
-                  ),
+                  style:
+                      (desktopFilters
+                              ? theme.textTheme.headlineSmall
+                              : theme.textTheme.titleMedium)
+                          ?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.2,
+                          ),
                 ),
                 FilledButton.tonalIcon(
                   onPressed: () =>
@@ -221,103 +234,145 @@ class _AgreementsTabState extends State<AgreementsTab> {
           ),
         ),
         // Barra de filtros com ChoiceChip e indicador de rolagem fluído e sutil
-        SizedBox(
-          height: chipsHeight,
-          child: Stack(
-            children: [
-              ListView(
-                controller: _chipsScrollController,
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppTokens.p16,
-                  vertical: 6,
-                ),
+        if (desktopFilters)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: FinancialFilterPanel(
+              period: FinancialPeriodBar(
+                selection: _periodSelection,
+                onChanged: (period) =>
+                    setState(() => _periodSelection = period),
+              ),
+              onClear:
+                  _filter != 'open' ||
+                      _selectedCategoryId != null ||
+                      _searchQuery.isNotEmpty ||
+                      !_periodSelection.isCurrentMonth()
+                  ? clearFilters
+                  : null,
+              controls: Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  for (final MapEntry(key: value, value: label)
-                      in _filters.entries)
-                    Padding(
-                      key: _chipKeys[value],
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(label),
-                        selected: _filter == value,
-                        onSelected: (_) => _selectFilter(value),
-                      ),
+                  Text(
+                    'Situação',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  for (final entry in _filters.entries)
+                    ChoiceChip(
+                      label: Text(entry.value),
+                      selected: _filter == entry.key,
+                      onSelected: (_) => _selectFilter(entry.key),
                     ),
                   CategoryFilterChip(
                     spaceId: space.id,
                     type: 'income',
                     selectedCategoryId: _selectedCategoryId,
-                    onChanged: (catId) =>
-                        setState(() => _selectedCategoryId = catId),
+                    onChanged: (id) => setState(() => _selectedCategoryId = id),
                   ),
                 ],
               ),
-              // Gradiente / seta sutil à esquerda
-              if (_canScrollLeft)
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  child: IgnorePointer(
-                    child: Container(
-                      width: 28,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                          colors: [
-                            indicatorColor,
-                            indicatorColor.withValues(alpha: 0.0),
-                          ],
+            ),
+          )
+        else
+          SizedBox(
+            height: chipsHeight,
+            child: Stack(
+              children: [
+                ListView(
+                  controller: _chipsScrollController,
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTokens.p16,
+                    vertical: 6,
+                  ),
+                  children: [
+                    for (final MapEntry(key: value, value: label)
+                        in _filters.entries)
+                      Padding(
+                        key: _chipKeys[value],
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(label),
+                          selected: _filter == value,
+                          onSelected: (_) => _selectFilter(value),
                         ),
                       ),
-                      alignment: Alignment.centerLeft,
-                      padding: const EdgeInsets.only(left: 4),
-                      child: Icon(
-                        Icons.chevron_left_rounded,
-                        size: 16,
-                        color: theme.colorScheme.onSurfaceVariant.withValues(
-                          alpha: 0.6,
+                    CategoryFilterChip(
+                      spaceId: space.id,
+                      type: 'income',
+                      selectedCategoryId: _selectedCategoryId,
+                      onChanged: (catId) =>
+                          setState(() => _selectedCategoryId = catId),
+                    ),
+                  ],
+                ),
+                // Gradiente / seta sutil à esquerda
+                if (_canScrollLeft)
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    child: IgnorePointer(
+                      child: Container(
+                        width: 28,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            colors: [
+                              indicatorColor,
+                              indicatorColor.withValues(alpha: 0.0),
+                            ],
+                          ),
+                        ),
+                        alignment: Alignment.centerLeft,
+                        padding: const EdgeInsets.only(left: 4),
+                        child: Icon(
+                          Icons.chevron_left_rounded,
+                          size: 16,
+                          color: theme.colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.6,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              // Gradiente / seta sutil à direita
-              if (_canScrollRight)
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  bottom: 0,
-                  child: IgnorePointer(
-                    child: Container(
-                      width: 28,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.centerRight,
-                          end: Alignment.centerLeft,
-                          colors: [
-                            indicatorColor,
-                            indicatorColor.withValues(alpha: 0.0),
-                          ],
+                // Gradiente / seta sutil à direita
+                if (_canScrollRight)
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    child: IgnorePointer(
+                      child: Container(
+                        width: 28,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.centerRight,
+                            end: Alignment.centerLeft,
+                            colors: [
+                              indicatorColor,
+                              indicatorColor.withValues(alpha: 0.0),
+                            ],
+                          ),
                         ),
-                      ),
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.only(right: 4),
-                      child: Icon(
-                        Icons.chevron_right_rounded,
-                        size: 16,
-                        color: theme.colorScheme.onSurfaceVariant.withValues(
-                          alpha: 0.6,
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 4),
+                        child: Icon(
+                          Icons.chevron_right_rounded,
+                          size: 16,
+                          color: theme.colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.6,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
-        ),
         Expanded(
           child: LoadView<AgreementsListResult>(
             key: ValueKey(
@@ -330,19 +385,29 @@ class _AgreementsTabState extends State<AgreementsTab> {
             ),
             isEmpty: (result) => result.items.isEmpty,
             emptyWithData: (context, result, _) {
-              if (result.totalCount == 0) {
-                return const EmptyState(
+              if (result.totalCount == 0 &&
+                  _selectedCategoryId == null &&
+                  _filter == 'open') {
+                return FinancialEmptyPanel(
                   icon: AppIcons.receivables,
                   title: 'Você ainda não tem contas a receber',
-                  message: 'Cadastre sua primeira venda parcelada ou valor a receber para acompanhar vencimentos e entradas. Valores previstos não alteram o saldo bancário.',
+                  message: 'Cadastre uma receita avulsa, parcelada ou recorrente para acompanhar os vencimentos.',
+                  action: FilledButton.tonal(
+                    onPressed: () =>
+                        showAgreementFormModal(context, space: space),
+                    child: const Text('Cadastrar receita'),
+                  ),
                 );
               }
-              return EmptyState(
+              return FinancialEmptyPanel(
                 icon: AppIcons.receivables,
                 title: 'Nenhuma conta a receber neste filtro',
-                message: 'Tente outro filtro ou consulte Todas.',
+                message: 'Ajuste o período, a situação ou a categoria para consultar outras contas.',
                 action: OutlinedButton(
-                  onPressed: () => _selectFilter('all'),
+                  onPressed: () {
+                    clearFilters();
+                    _selectFilter('all');
+                  },
                   child: const Text('Ver todas'),
                 ),
               );
@@ -434,15 +499,16 @@ class _AgreementsTabState extends State<AgreementsTab> {
                               ],
                             ),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: FinancialPeriodBar(
-                              selection: _periodSelection,
-                              overdueCount: overdueCount,
-                              onChanged: (sel) =>
-                                  setState(() => _periodSelection = sel),
+                          if (!desktopFilters)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: FinancialPeriodBar(
+                                selection: _periodSelection,
+                                overdueCount: overdueCount,
+                                onChanged: (sel) =>
+                                    setState(() => _periodSelection = sel),
+                              ),
                             ),
-                          ),
                           FinancialOverdueBanner(
                             overdueCount: overdueCount,
                             isOverdueMode:
@@ -472,25 +538,20 @@ class _AgreementsTabState extends State<AgreementsTab> {
                                   (_filter != 'open' ? 1 : 0) +
                                   (!_periodSelection.isCurrentMonth() ? 1 : 0) +
                                   (_selectedCategoryId != null ? 1 : 0),
-                              onOpenFilters: () => showFinancialFiltersSheet(
-                                context: context,
-                                currentStatus: _filter,
-                                statusOptions: _filters,
-                                onStatusSelected: _selectFilter,
-                                currentPeriod: FinancialPeriodFilter.all,
-                                onPeriodSelected: (p) {},
-                                currentCategoryId: _selectedCategoryId,
-                                onCategorySelected: (c) =>
-                                    setState(() => _selectedCategoryId = c),
-                                spaceId: space.id,
-                                categoryType: 'income',
-                                onClearAll: () => setState(() {
-                                  _filter = 'open';
-                                  _periodSelection =
-                                      FinancialPeriodSelection.currentMonth();
-                                  _selectedCategoryId = null;
-                                }),
-                              ),
+                              onOpenFilters: desktopFilters
+                                  ? null
+                                  : () => showFinancialFiltersSheet(
+                                      context: context,
+                                      currentStatus: _filter,
+                                      statusOptions: _filters,
+                                      onStatusSelected: _selectFilter,
+                                      currentCategoryId: _selectedCategoryId,
+                                      onCategorySelected: (c) => setState(
+                                        () => _selectedCategoryId = c,
+                                      ),
+                                      spaceId: space.id,
+                                      categoryType: 'income',
+                                    ),
                               activeFilterChips: [
                                 if (_filter != 'open')
                                   InputChip(

@@ -172,7 +172,9 @@ void main() {
       // Estado vazio com totalCount > 0: orienta outro filtro e oferece "Ver todas"
       expect(find.text('Nenhuma conta a receber neste filtro'), findsOneWidget);
       expect(
-        find.text('Tente outro filtro ou consulte Todas.'),
+        find.text(
+          'Ajuste o período, a situação ou a categoria para consultar outras contas.',
+        ),
         findsOneWidget,
       );
       expect(find.widgetWithText(OutlinedButton, 'Ver todas'), findsOneWidget);
@@ -190,7 +192,7 @@ void main() {
       expect(find.text('Você ainda não tem contas a receber'), findsOneWidget);
       expect(
         find.textContaining(
-          'Cadastre sua primeira venda parcelada ou valor a receber',
+          'Cadastre uma receita avulsa, parcelada ou recorrente',
         ),
         findsOneWidget,
       );

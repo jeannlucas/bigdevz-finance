@@ -12,6 +12,7 @@ class SpaceSummary {
     required this.accountsCount,
     required this.agreementsCount,
     required this.overdueInstallments,
+    this.receivableDueNext30DaysTotal,
     this.archivedAccountsCount = 0,
     this.payables = PayablesSummary.empty,
     this.categories = CategoriesSummary.empty,
@@ -21,6 +22,11 @@ class SpaceSummary {
     balance: Money.parse(json['balance'] as String),
     receivableRemaining: Money.parse(json['receivable_remaining'] as String),
     receivedTotal: Money.parse(json['received_total'] as String),
+    receivableDueNext30DaysTotal:
+        switch (json['receivable_due_next_30_days_total']) {
+          final String value => Money.parse(value),
+          _ => null,
+        },
     accountsCount: json['accounts_count'] as int,
     agreementsCount: json['agreements_count'] as int,
     overdueInstallments: json['overdue_installments'] as int,
@@ -37,6 +43,7 @@ class SpaceSummary {
 
   final Money balance;
   final Money receivableRemaining;
+  final Money? receivableDueNext30DaysTotal;
   final Money receivedTotal;
   final int accountsCount;
   final int agreementsCount;

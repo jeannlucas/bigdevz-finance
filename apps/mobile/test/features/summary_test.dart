@@ -255,9 +255,19 @@ void main() {
         findsNothing,
       ); // Prova de ausência de dados PJ
 
+      await tester.scrollUntilVisible(
+        find.text('A receber (previsto)'),
+        140,
+        scrollable: find.byType(Scrollable).first,
+      );
       // Métricas exclusivas de PF no topo
       expect(find.text(r'R$ 300,00'), findsOneWidget); // A receber
-      expect(find.text(r'R$ 50,00'), findsOneWidget); // Já recebido (topo)
+      expect(find.text(r'R$ 50,00'), findsWidgets); // Já recebido e vencidos
+      await tester.scrollUntilVisible(
+        find.text('1 parcela vencida a receber'),
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('1 parcela vencida a receber'), findsOneWidget);
 
       // Contas a pagar exclusivas de PF
@@ -269,8 +279,8 @@ void main() {
       expect(find.text(r'R$ 150,00'), findsOneWidget); // Em aberto PF
       expect(
         find.text(r'R$ 50,00'),
-        findsNWidgets(2),
-      ); // Já recebido (topo) e Vencido a pagar (card)
+        findsWidgets,
+      ); // Valores reais exibidos nos cartões
       expect(find.text(r'R$ 1.100,00'), findsNothing); // Dado PJ ausente
 
       // Confirma que o repositório foi chamado estritamente para o spaceId 1
@@ -308,9 +318,19 @@ void main() {
         findsNothing,
       ); // Prova de ausência de dados PF
 
+      await tester.scrollUntilVisible(
+        find.text('A receber (previsto)'),
+        140,
+        scrollable: find.byType(Scrollable).first,
+      );
       // Métricas exclusivas de PJ no topo
       expect(find.text(r'R$ 2.400,00'), findsOneWidget); // A receber
-      expect(find.text(r'R$ 800,00'), findsOneWidget); // Já recebido (topo)
+      expect(find.text(r'R$ 800,00'), findsWidgets); // Já recebido e a vencer
+      await tester.scrollUntilVisible(
+        find.text('4 parcelas vencidas a receber'),
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('4 parcelas vencidas a receber'), findsOneWidget);
 
       // Contas a pagar exclusivas de PJ
@@ -322,8 +342,8 @@ void main() {
       expect(find.text(r'R$ 1.100,00'), findsOneWidget); // Em aberto PJ
       expect(
         find.text(r'R$ 800,00'),
-        findsNWidgets(2),
-      ); // Já recebido (topo) e Próximos 30 dias (card)
+        findsWidgets,
+      ); // Valores reais exibidos nos cartões
       expect(find.text(r'R$ 150,00'), findsNothing); // Dado PF ausente
 
       // Confirma que o repositório foi chamado estritamente para o spaceId 2
@@ -502,7 +522,7 @@ void main() {
 
       // 1. Inicialmente visível no topo
       expect(find.text(r'R$ 1.250,00'), findsOneWidget);
-      expect(find.text(r'R$ 300,00'), findsOneWidget);
+      expect(find.text(r'R$ 100,00'), findsOneWidget);
 
       // 2. Clica para ocultar
       await tester.tap(find.byTooltip('Ocultar saldo'));
@@ -510,7 +530,7 @@ void main() {
 
       // Confirma que saldo e métricas estão mascarados no topo
       expect(find.text(r'R$ 1.250,00'), findsNothing);
-      expect(find.text(r'R$ 300,00'), findsNothing);
+      expect(find.text(r'R$ 100,00'), findsNothing);
       expect(find.text(r'R$ ••••••••'), findsOneWidget); // Saldo
       expect(find.text(r'R$ ••••'), findsWidgets); // Métricas de recebimento
 
@@ -520,7 +540,7 @@ void main() {
 
       // Valores restaurados no topo
       expect(find.text(r'R$ 1.250,00'), findsOneWidget);
-      expect(find.text(r'R$ 300,00'), findsOneWidget);
+      expect(find.text(r'R$ 100,00'), findsOneWidget);
       expect(find.text(r'R$ ••••••••'), findsNothing);
 
       // 4. Oculta novamente e rola até Obrigações para verificar a máscara lá também
@@ -723,18 +743,32 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // 1. Ação rápida 'A receber'
-      await tester.tap(find.widgetWithText(InkWell, 'A receber').first);
-      expect(openedTab, 1);
+      for (final (label, filter) in [
+        ('Vencidos', 'overdue'),
+        ('Próximos 30 dias', 'next_30_days'),
+        ('Valores a informar', 'awaiting_amount'),
+      ]) {
+        final shortcut = find.widgetWithText(InkWell, label).first;
+        await tester.ensureVisible(shortcut);
+        await tester.tap(shortcut);
+        expect(openedTab, 2);
+        expect(appliedFilter, filter);
+      }
 
-      // 2. Ação rápida 'A pagar'
-      await tester.tap(find.widgetWithText(InkWell, 'A pagar').first);
-      expect(openedTab, 2);
-
-      // 3. Ação rápida 'Contas'
-      await tester.tap(find.widgetWithText(InkWell, 'Contas').first);
+      // Cartão de Acesso à Carteira de Contas
+      await tester.scrollUntilVisible(
+        find.text('Carteira de Contas'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Carteira de Contas'));
       expect(openedTab, 3);
 
+      await tester.scrollUntilVisible(
+        find.text('A receber (previsto)'),
+        140,
+        scrollable: find.byType(Scrollable).first,
+      );
       // 4. Métrica 'A receber (previsto)' com filtro 'open'
       await tester.tap(find.text('A receber (previsto)'));
       expect(openedTab, 1);
@@ -758,15 +792,6 @@ void main() {
       );
       await tester.tap(find.text('Contas a Pagar e Faturas'));
       expect(openedTab, 2);
-
-      // 8. Cartão de Acesso à Carteira de Contas
-      await tester.scrollUntilVisible(
-        find.text('Carteira de Contas'),
-        200,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.tap(find.text('Carteira de Contas'));
-      expect(openedTab, 3);
     },
   );
 

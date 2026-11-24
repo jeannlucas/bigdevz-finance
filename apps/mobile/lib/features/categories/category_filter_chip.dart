@@ -5,6 +5,7 @@ import '../../core/text_formatters.dart';
 import '../../ui/app_tokens.dart';
 import 'categories_repository.dart';
 import 'category.dart';
+import 'category_picker_field.dart';
 
 /// Chip de filtro por categoria com seleção via PopupMenu/Dialog.
 class CategoryFilterChip extends StatefulWidget {
@@ -53,110 +54,94 @@ class _CategoryFilterChipState extends State<CategoryFilterChip> {
   }
 
   void _showPicker(BuildContext context) {
-    final theme = Theme.of(context);
+    final desktop = MediaQuery.sizeOf(context).width >= 840;
+    final categories = CategoryPickerField.organizeHierarchy(_categories);
+    var query = '';
 
-    showModalBottomSheet<void>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppTokens.r20),
-        ),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: AppTokens.p16),
+    Widget content(BuildContext pickerContext) => StatefulBuilder(
+      builder: (ctx, update) {
+        final theme = Theme.of(ctx);
+        final matches = categories
+            .where(
+              (category) => category.fullName.toLowerCase().contains(query),
+            )
+            .toList();
+        void select(int? id) {
+          Navigator.of(pickerContext).pop();
+          if (mounted) widget.onChanged(id);
+        }
+
+        return Padding(
+          padding: const EdgeInsets.all(AppTokens.p16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppTokens.p20,
-                  vertical: AppTokens.p8,
+              Text('Filtrar por Categoria', style: theme.textTheme.titleLarge),
+              const SizedBox(height: 12),
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Buscar categoria',
+                  prefixIcon: Icon(Icons.search),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Filtrar por Categoria',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    if (widget.selectedCategoryId != null)
-                      TextButton(
-                        onPressed: () {
-                          widget.onChanged(null);
-                          Navigator.of(ctx).pop();
-                        },
-                        child: const Text('Limpar filtro'),
-                      ),
-                  ],
-                ),
+                onChanged: (text) =>
+                    update(() => query = text.trim().toLowerCase()),
               ),
-              const Divider(height: 1),
+              const SizedBox(height: 8),
               Flexible(
                 child: ListView(
                   shrinkWrap: true,
                   children: [
                     ListTile(
-                      leading: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          Icons.apps_rounded,
-                          size: 18,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
                       title: const Text('Todas as categorias'),
-                      trailing: widget.selectedCategoryId == null
-                          ? Icon(Icons.check, color: theme.colorScheme.primary)
-                          : null,
-                      onTap: () {
-                        widget.onChanged(null);
-                        Navigator.of(ctx).pop();
-                      },
+                      selected: widget.selectedCategoryId == null,
+                      onTap: () => select(null),
                     ),
-                    for (final cat in _categories)
+                    for (final cat in matches)
                       ListTile(
-                        leading: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: cat.colorValue.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            cat.iconData,
-                            size: 18,
-                            color: cat.colorValue,
-                          ),
+                        contentPadding: EdgeInsets.only(
+                          left: cat.isSubcategory ? 32 : 16,
+                          right: 16,
                         ),
+                        leading: Icon(cat.iconData, color: cat.colorValue),
                         title: Text(toFinancialUpper(cat.name)),
-                        trailing: widget.selectedCategoryId == cat.id
-                            ? Icon(
-                                Icons.check,
-                                color: theme.colorScheme.primary,
-                              )
-                            : null,
-                        onTap: () {
-                          widget.onChanged(cat.id);
-                          Navigator.of(ctx).pop();
-                        },
+                        subtitle: cat.isSubcategory ? Text(cat.fullName) : null,
+                        selected: widget.selectedCategoryId == cat.id,
+                        onTap: () => select(cat.id),
+                      ),
+                    if (matches.isEmpty && query.isNotEmpty)
+                      const ListTile(
+                        title: Text('Nenhuma categoria corresponde à busca.'),
                       ),
                   ],
                 ),
               ),
             ],
           ),
-        ),
-      ),
+        );
+      },
     );
+
+    if (desktop) {
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => Dialog(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520, maxHeight: 520),
+            child: content(ctx),
+          ),
+        ),
+      );
+    } else {
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (ctx) => SafeArea(
+          child: FractionallySizedBox(heightFactor: 0.75, child: content(ctx)),
+        ),
+      );
+    }
   }
 
   @override

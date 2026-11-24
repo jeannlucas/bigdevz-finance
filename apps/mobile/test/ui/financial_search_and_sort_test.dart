@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:bigdevz_finance/core/money.dart';
 import 'package:bigdevz_finance/features/categories/category.dart';
@@ -6,6 +7,31 @@ import 'package:bigdevz_finance/ui/financial/financial_item_view.dart';
 import 'package:bigdevz_finance/ui/financial/financial_search_bar.dart';
 
 void main() {
+  testWidgets('AC-UI-014: período do Extrato oferece últimos sete dias', (
+    tester,
+  ) async {
+    final today = DateTime(2026, 11, 23);
+    FinancialPeriodSelection? selected;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: FinancialPeriodBar(
+            selection: FinancialPeriodSelection.currentMonth(today),
+            now: today,
+            showOverdue: false,
+            onChanged: (value) => selected = value,
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Últimos 7 dias'));
+    await tester.pumpAndSettle();
+    expect(selected?.startDate, DateTime(2026, 11, 17));
+    expect(selected?.endDate, today);
+  });
+
   group('filterAndSortFinancialItems', () {
     final catInfra = const Category(
       id: 10,

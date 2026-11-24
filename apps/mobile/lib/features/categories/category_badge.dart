@@ -46,7 +46,7 @@ class CategoryBadge extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 10.5,
                   fontWeight: FontWeight.w600,
-                  color: isDark ? catColor.withValues(alpha: 0.95) : catColor,
+                  color: theme.colorScheme.onSurface,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

@@ -19,6 +19,8 @@ class ExecutiveDashboardCharts extends StatelessWidget {
     required this.summary,
     required this.accounts,
     required this.obscure,
+    this.accountsAccess,
+    this.showCategories = true,
     this.onOpenAccounts,
     this.onOpenReceivables,
     this.onOpenPayables,
@@ -27,6 +29,8 @@ class ExecutiveDashboardCharts extends StatelessWidget {
   final SpaceSummary summary;
   final List<Account> accounts;
   final bool obscure;
+  final Widget? accountsAccess;
+  final bool showCategories;
   final VoidCallback? onOpenAccounts;
   final VoidCallback? onOpenReceivables;
   final VoidCallback? onOpenPayables;
@@ -37,10 +41,15 @@ class ExecutiveDashboardCharts extends StatelessWidget {
       builder: (context, constraints) {
         final isWidescreen = constraints.maxWidth >= 760;
 
-        final bankCard = BankDistributionDonutCard(
-          accounts: accounts,
-          obscure: obscure,
-          onTapDetails: onOpenAccounts,
+        final bankCard = Column(
+          children: [
+            ?accountsAccess,
+            BankDistributionDonutCard(
+              accounts: accounts,
+              obscure: obscure,
+              onTapDetails: accountsAccess == null ? onOpenAccounts : null,
+            ),
+          ],
         );
 
         final cashFlowCard = CashFlowThermometerCard(
@@ -66,19 +75,23 @@ class ExecutiveDashboardCharts extends StatelessWidget {
                   Expanded(child: cashFlowCard),
                 ],
               ),
-              const SizedBox(height: AppTokens.p16),
-              categoryCard,
+              if (showCategories) ...[
+                const SizedBox(height: AppTokens.p16),
+                categoryCard,
+              ],
             ],
           );
         }
 
         return Column(
           children: [
-            bankCard,
-            const SizedBox(height: AppTokens.p16),
             cashFlowCard,
             const SizedBox(height: AppTokens.p16),
-            categoryCard,
+            bankCard,
+            if (showCategories) ...[
+              const SizedBox(height: AppTokens.p16),
+              categoryCard,
+            ],
           ],
         );
       },
@@ -357,7 +370,7 @@ class _DonutChartPainter extends CustomPainter {
   }
 }
 
-/// Card de Termômetro de Fluxo de Caixa (Entradas vs Saídas & Margem Projetada).
+/// Saldo no fim da janela, calculado a partir do caixa disponível e dos valores em aberto.
 class CashFlowThermometerCard extends StatelessWidget {
   const CashFlowThermometerCard({
     super.key,
@@ -375,258 +388,111 @@ class CashFlowThermometerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final incoming = summary.receivableDueNext30DaysTotal;
+    final outgoing = summary.payables.dueNext30DaysTotal;
+    final projection = incoming == null
+        ? null
+        : Money(summary.balance.cents + incoming.cents - outgoing.cents);
+    String format(Money amount) => obscure ? 'R\$ ••••' : amount.brl;
 
-    final totalInflowCents =
-        summary.receivedTotal.cents + summary.receivableRemaining.cents;
-    final totalOutflowCents =
-        summary.payables.paidTotal.cents + summary.payables.openTotal.cents;
-
-    final netMarginCents = totalInflowCents - totalOutflowCents;
-    final isSurplus = netMarginCents >= 0;
-
-    final maxVolume = math.max(
-      1,
-      math.max(totalInflowCents, totalOutflowCents),
-    );
-    final inflowFactor = totalInflowCents / maxVolume;
-    final outflowFactor = totalOutflowCents / maxVolume;
-
-    return Container(
-      padding: const EdgeInsets.all(AppTokens.p16),
-      decoration: BoxDecoration(
-        color: isDark ? AppTokens.darkSurface : AppTokens.lightSurface,
-        borderRadius: BorderRadius.circular(AppTokens.r16),
-        border: Border.all(
-          color: isDark ? AppTokens.darkBorder : AppTokens.lightBorder,
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: AppTokens.income.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(AppTokens.r8),
-                ),
-                alignment: Alignment.center,
-                child: AppIcon(
-                  AppIcons.receipt,
-                  size: 18,
-                  color: AppTokens.income,
-                ),
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppTokens.p16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Fluxo de Caixa', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text(
+              'De hoje até daqui a 30 dias',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
-              const SizedBox(width: AppTokens.p8),
-              Expanded(
-                child: Text(
-                  'Fluxo de Caixa',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: isDark
-                        ? AppTokens.darkTextPrimary
-                        : AppTokens.lightTextPrimary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 12),
+            if (projection == null)
+              const Text('Projeção indisponível.')
+            else ...[
+              _CashFlowLine(
+                label: 'Saldo disponível hoje',
+                value: format(summary.balance),
+              ),
+              _CashFlowLine(
+                label: 'Entradas previstas',
+                value: format(incoming!),
+                onTap: onTapReceivables,
+              ),
+              _CashFlowLine(
+                label: 'Saídas previstas',
+                value: format(outgoing),
+                onTap: onTapPayables,
+              ),
+              const Divider(),
+              _CashFlowLine(
+                label: 'Saldo projetado ao fim do período',
+                value: format(projection),
+                color: !obscure && projection.cents < 0
+                    ? theme.colorScheme.error
+                    : null,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Considera valores informados. Vencidos ficam fora da projeção.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: AppTokens.p16),
-
-          // Barra 1: Entradas (Recebidos + A Receber)
-          InkWell(
-            onTap: onTapReceivables,
-            borderRadius: BorderRadius.circular(AppTokens.r8),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: const BoxDecoration(
-                          color: AppTokens.income,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: AppTokens.p4),
-                      Expanded(
-                        child: Text(
-                          'Entradas',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: isDark
-                                ? AppTokens.darkTextPrimary
-                                : AppTokens.lightTextPrimary,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: AppTokens.p8),
-                      Text(
-                        obscure ? '••••' : Money(totalInflowCents).brl,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: AppTokens.income,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppTokens.p4),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4.0),
-                    child: SizedBox(
-                      height: 8,
-                      child: LinearProgressIndicator(
-                        value: inflowFactor.clamp(0.0, 1.0),
-                        backgroundColor: isDark
-                            ? AppTokens.darkBorder
-                            : AppTokens.lightBorder,
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                          AppTokens.income,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: AppTokens.p12),
-
-          // Barra 2: Saídas & Compromissos (Pago + Aberto)
-          InkWell(
-            onTap: onTapPayables,
-            borderRadius: BorderRadius.circular(AppTokens.r8),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: const BoxDecoration(
-                          color: AppTokens.expense,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: AppTokens.p4),
-                      Expanded(
-                        child: Text(
-                          'Saídas & Compromissos',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: isDark
-                                ? AppTokens.darkTextPrimary
-                                : AppTokens.lightTextPrimary,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: AppTokens.p8),
-                      Text(
-                        obscure ? '••••' : Money(totalOutflowCents).brl,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: AppTokens.expense,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppTokens.p4),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4.0),
-                    child: SizedBox(
-                      height: 8,
-                      child: LinearProgressIndicator(
-                        value: outflowFactor.clamp(0.0, 1.0),
-                        backgroundColor: isDark
-                            ? AppTokens.darkBorder
-                            : AppTokens.lightBorder,
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                          AppTokens.expense,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: AppTokens.p14),
-
-          // Badge de Saldo Projetado Líquido (Superávit / Déficit)
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppTokens.p12,
-              vertical: AppTokens.p8,
-            ),
-            decoration: BoxDecoration(
-              color: isSurplus
-                  ? AppTokens.income.withValues(alpha: isDark ? 0.15 : 0.08)
-                  : AppTokens.expense.withValues(alpha: isDark ? 0.15 : 0.08),
-              borderRadius: BorderRadius.circular(AppTokens.r8),
-              border: Border.all(
-                color: isSurplus
-                    ? AppTokens.income.withValues(alpha: 0.3)
-                    : AppTokens.expense.withValues(alpha: 0.3),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                AppIcon(
-                  isSurplus ? AppIcons.check : AppIcons.alert,
-                  size: 16,
-                  color: isSurplus ? AppTokens.income : AppTokens.expense,
-                ),
-                const SizedBox(width: AppTokens.p8),
-                Expanded(
-                  child: Text(
-                    isSurplus
-                        ? 'Previsão de sobra: ${obscure ? '••••' : Money(netMarginCents).brl}'
-                        : 'Atenção: vai faltar ${obscure ? '••••' : Money(-netMarginCents).brl}',
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: isSurplus ? AppTokens.income : AppTokens.expense,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-/// Card de gráfico Donut exibindo a distribuição por categoria (Despesas e Receitas).
+class _CashFlowLine extends StatelessWidget {
+  const _CashFlowLine({
+    required this.label,
+    required this.value,
+    this.onTap,
+    this.color,
+  });
+
+  final String label;
+  final String value;
+  final VoidCallback? onTap;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Expanded(child: Text(label)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          if (onTap != null)
+            const Icon(Icons.chevron_right, size: 16)
+          else
+            const SizedBox(width: 16),
+        ],
+      ),
+    );
+    return onTap == null ? content : InkWell(onTap: onTap, child: content);
+  }
+}
+
 class CategoryDistributionDonutCard extends StatefulWidget {
   const CategoryDistributionDonutCard({
     super.key,
