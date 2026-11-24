@@ -21,6 +21,7 @@ class AccountMovement extends Model
         'transfer_reversal_id',
         'loan_disbursement_id',
         'category_id',
+        'wise_conversion_id',
         'amount_cents',
         'effective_date',
     ];

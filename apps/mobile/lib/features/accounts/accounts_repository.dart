@@ -33,6 +33,47 @@ class AccountsRepository {
         as Map<String, dynamic>,
   );
 
+  Future<void> saveWiseOperation(
+    int spaceId,
+    int accountId,
+    String route,
+    Map<String, Object?> payload,
+    String key,
+  ) async {
+    await _api.post(
+      '/spaces/$spaceId/accounts/$accountId/wise/$route',
+      payload,
+      idempotencyKey: key,
+    );
+  }
+
+  Future<void> saveWiseQuote(
+    int spaceId,
+    int accountId,
+    String currency,
+    String rate,
+    String date,
+  ) async {
+    await _api.patch(
+      '/spaces/$spaceId/accounts/$accountId/wise/currencies/$currency/quote',
+      {'brl_rate': rate, 'quoted_on': date},
+    );
+  }
+
+  Future<({List<Map<String, dynamic>> entries, bool hasNext})> wiseHistory(
+    int spaceId,
+    int accountId,
+    int page,
+  ) async {
+    final json = await _api.get(
+      '/spaces/$spaceId/accounts/$accountId/wise/conversions?page=$page',
+    );
+    return (
+      entries: (json['data'] as List).cast<Map<String, dynamic>>(),
+      hasNext: json['next_page_url'] != null,
+    );
+  }
+
   /// Só identificação: a abertura tem fluxo próprio ([adjustOpening]).
   Future<Account> rename(
     int spaceId,
