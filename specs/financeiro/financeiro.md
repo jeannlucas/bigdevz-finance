@@ -378,6 +378,7 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
 - **AC-UI-013 [Prioridades do Dashboard]:** A primeira seção após o saldo apresenta vencidos, próximos 30 dias e valores a informar, com navegação para as listas correspondentes. A carteira e a distribuição por bancos ficam agrupadas. A ação de despesa paga usa o estilo tonal do tema. A interface mantém o modo de privacidade e a leitura em desktop e mobile.
 
 - **AC-UI-014 [Filtros e Estados de Consulta das Operações Web]:** Extrato, A Pagar e A Receber agrupam os filtros de período e de seleção em uma área visível no desktop, inclusive com resultados vazios. O Extrato oferece intervalos dos últimos 7 e 30 dias, incluindo hoje. A agenda oferece próximos 7 e 30 dias e mantém intervalo personalizado. O seletor de categorias apresenta a hierarquia e permite pesquisar pelo nome e pelo caminho. Os estados vazios orientam a próxima ação. O mobile mantém controles compactos e só aplica mudanças do painel ao confirmar. As tabelas mantêm valores, datas e categorias legíveis, com situação identificada em coluna própria.
+- **AC-UI-015 [Entrada Monetária no Cronograma]:** Os campos de valor das parcelas descartam caracteres não numéricos, exibem centavos no formato brasileiro e mantêm o total exato durante a edição no desktop e no mobile.
 
 ## 3. Matriz de Rastreabilidade (Spec ↔ Código ↔ Testes)
 
@@ -437,3 +438,4 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
 | **AC-UI-014** | `financial_search_bar.dart`, `statement_tab.dart`, `payables_tab.dart`, `agreements_tab.dart` | `financial_search_and_sort_test.dart`, `statement_tab_test.dart`, `financial_agenda_test.dart` |
 | **AC-FIN-037** | `SpaceController.php`, `dashboard_charts.dart` | `PayablesTest.php`, `dashboard_charts_test.dart` |
 | **AC-UI-013** | `summary_tab.dart`, `PayableController.php`, `payables_tab.dart` | `summary_test.dart`, `home_shell_test.dart`, `PayablesTest.php` |
+| **AC-UI-015** | `payable_form_screen.dart` | `editable_installment_schedule_test.dart` |

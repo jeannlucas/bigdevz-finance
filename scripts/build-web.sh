@@ -78,6 +78,24 @@ flutter build web --release \
     --dart-define="APP_ENV=${ENV}" \
     --dart-define="API_BASE_URL=${API_URL}"
 
+# O Caddy mantém /assets/ imutável. A fonte Material pode mudar com o subset
+# gerado pelo compilador, por isso cada conjunto recebe uma URL por conteúdo.
+(
+    cd build/web
+    asset_hash="$(find assets -path assets/releases -prune -o -type f -exec shasum -a 256 {} + | LC_ALL=C sort | shasum -a 256 | cut -d ' ' -f 1)"
+    test "${#asset_hash}" -eq 64
+    asset_base="assets/releases/$asset_hash"
+    temp_assets="$(mktemp -d)"
+    trap 'rm -rf "$temp_assets"' EXIT
+    rm -rf assets/releases
+    cp -R assets "$temp_assets/assets"
+    mkdir -p "$asset_base"
+    mv "$temp_assets/assets" "$asset_base/assets"
+    sed "s|<head>|<head><meta name=\"finance-assets-base\" content=\"$asset_base/\">|" index.html > index.versioned.html
+    grep -q 'name="finance-assets-base"' index.versioned.html
+    mv index.versioned.html index.html
+)
+
 echo "=============================================================================="
 echo " OK: Bundle Flutter Web compilado com sucesso para ambiente '$ENV'!"
 echo " Diretório: apps/mobile/build/web"
