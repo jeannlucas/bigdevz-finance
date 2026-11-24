@@ -1186,6 +1186,7 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
                     child: TextFormField(
                       key: ValueKey('schedule-amount-${item.number}'),
                       controller: controller,
+                      inputFormatters: [MoneyInputFormatter()],
                       decoration: const InputDecoration(
                         isDense: true,
                         labelText: 'Valor',
@@ -1235,6 +1236,7 @@ class _PayableFormScreenState extends State<PayableFormScreen> {
                   TextFormField(
                     key: ValueKey('schedule-amount-${item.number}'),
                     controller: controller,
+                    inputFormatters: [MoneyInputFormatter()],
                     decoration: const InputDecoration(
                       isDense: true,
                       labelText: 'Valor da parcela',

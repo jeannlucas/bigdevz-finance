@@ -172,3 +172,10 @@ A branch `fix/entrega-frontend-web-pipeline-deploy` implementa a solução de en
 
 - `feature/release-melhorias-web` reúne dashboard e filtros sobre `origin/dev` em `37930cf`. O atalho do dashboard continua abrindo A Pagar com o filtro selecionado.
 - `make check` e `./scripts/build-web.sh --env=local` passaram na árvore integrada. Evidências em `../evidencias-release-web/`.
+
+## Cronograma e fonte Web
+
+- Branch local `feature/wise-e-pendencias`, baseada em `origin/dev` no commit `be8839a`.
+- PEND-011 / AC-UI-015: a falha foi reproduzida com `flutter test test/features/editable_installment_schedule_test.dart`. O formatador monetário aplicado aos campos mobile e desktop tornou o teste verde.
+- PEND-012 / AC-CAT-013: `./scripts/build-web.sh --env=local` gerou uma URL de recursos por conteúdo. O Chrome local carregou o manifesto e a fonte versionados com HTTP 200. A reprodução no perfil que apresentou o problema em produção continua pendente.
+- `make check` passou sem falhas. Logs e captura em `../evidencias-wise-pendencias/`. Correções preparadas para a release v1.5.1.

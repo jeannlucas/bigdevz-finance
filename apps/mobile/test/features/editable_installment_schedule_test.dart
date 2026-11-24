@@ -128,8 +128,12 @@ void main() {
       // Parcela 3: 137,73
       await tester.enterText(
         find.byKey(const ValueKey('schedule-amount-1')),
-        '135,17',
+        'abc135,17',
       );
+      final amountField = tester.widget<TextFormField>(
+        find.byKey(const ValueKey('schedule-amount-1')),
+      );
+      expect(amountField.controller?.text, '135,17');
       await tester.enterText(
         find.byKey(const ValueKey('schedule-amount-2')),
         '136,44',

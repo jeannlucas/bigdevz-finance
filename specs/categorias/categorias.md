@@ -95,6 +95,11 @@ A capability **Categorias Financeiras** permite a classificação semântica de 
   - **Destaque do Nome Próprio no Campo Fechado:** Ao fechar o seletor com uma subcategoria selecionada, o nome dela recebe destaque visual prioritário no campo fechado e o nome da categoria pai aparece como informação contextual secundária (`NOME DA FILHA • Nome do Pai`), evitando o truncamento precoce com reticências em nomes longos e telas estreitas.
   - **Preservação de Registros Existentes e Filtros:** Ao reabrir formulários financeiros com categoria preexistente selecionada, o valor selecionado é preservado e exibido corretamente. A opção "Sem categoria" permanece no topo da lista. O filtro de tipo (`income`/`expense`) permanece estritamente isolado.
 
+- **AC-CAT-013 [Fonte Web Vinculada ao Build]:** O bootstrap do build web
+  carrega o manifesto de fontes e a fonte de ícones de uma URL que inclui
+  o hash do conjunto de recursos. Se os recursos mudarem, o navegador
+  consulta uma URL nova mesmo quando a anterior estiver em cache.
+
 ---
 
 ## 3. Matriz de Rastreabilidade (Spec ↔ Código ↔ Testes)
@@ -113,3 +118,4 @@ A capability **Categorias Financeiras** permite a classificação semântica de 
 | **AC-CAT-010** | `category_style_catalog.dart`, `CategoryIconColorPicker` | `categories_and_subcategories_test.dart`, `category_icon_color_picker_test.dart` |
 | **AC-CAT-011** | `category_style_catalog.dart`, `CategoryIconColorPicker` | `category_style_catalog_web_test.dart` |
 | **AC-CAT-012** | `category_picker_field.dart` | `category_picker_hierarchy_test.dart` |
+| **AC-CAT-013** | `build-web.sh`, `flutter_bootstrap.js` | Build release e inspeção de rede no Chrome |
