@@ -48,6 +48,11 @@ As operações são registros manuais de eventos já efetivados.
   valores respeitam o controle de privacidade do Dashboard e permanecem
   separados do saldo disponível em BRL.
 
+- **AC-WISE-009 — Identificação visual.** A carteira e o Dashboard
+  exibem bandeiras locais ao lado da moeda. O cadastro permite pesquisar
+  por nome em português ou código ISO, inclusive sem acentos. A lista
+  permanece contida no formulário em desktop e mobile.
+
 ## Matriz de rastreabilidade
 
 | Critério | Área | Verificação esperada |
@@ -58,3 +63,4 @@ As operações são registros manuais de eventos já efetivados.
 | AC-WISE-006 | Apresentação de patrimônio | Cotação ausente e datada, arredondamento exato, saldo BRL preservado |
 | AC-WISE-007 | Interface web e mobile | Fluxos completos com teclado e por toque |
 | AC-WISE-008 | `WiseDashboardCard`, `SummaryTab` | `wise_dashboard_test.dart` |
+| AC-WISE-009 | `WiseCurrencyPicker`, `WiseCurrencyFlag` | `wise_currency_picker_test.dart` |

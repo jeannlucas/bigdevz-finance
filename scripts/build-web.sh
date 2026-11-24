@@ -10,10 +10,14 @@ set -euo pipefail
 
 ENV="local"
 CUSTOM_API_URL=""
+RELEASE_TAG=""
+BUILD_NUMBER=""
 
 for arg in "$@"; do
     case "$arg" in
         --env=*) ENV="${arg#*=}" ;;
+        --release-tag=*) RELEASE_TAG="${arg#*=}" ;;
+        --build-number=*) BUILD_NUMBER="${arg#*=}" ;;
         --api-url=*) CUSTOM_API_URL="${arg#*=}" ;;
     esac
 done
@@ -66,6 +70,25 @@ case "$ENV" in
         ;;
 esac
 
+PACKAGE_VERSION="$(awk '/^version: / {print $2; exit}' "$MOBILE_DIR/pubspec.yaml")"
+APP_VERSION="${PACKAGE_VERSION%%+*}"
+BUILD_NUMBER="${BUILD_NUMBER:-${PACKAGE_VERSION#*+}}"
+
+if [[ "$ENV" == "production" && -z "$RELEASE_TAG" ]]; then
+    RELEASE_TAG="$(git -C "$PROJECT_ROOT" describe --tags --exact-match --match 'v[0-9]*' HEAD 2>/dev/null || true)"
+fi
+if [[ -n "$RELEASE_TAG" || "$ENV" == "production" ]]; then
+    if ! [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+        echo "Informe uma tag SemVer válida em --release-tag=vX.Y.Z."
+        exit 1
+    fi
+    APP_VERSION="${RELEASE_TAG#v}"
+fi
+if ! [[ "$BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
+    echo "O número do build precisa ser um inteiro positivo."
+    exit 1
+fi
+
 echo "Configuração validada:"
 echo " - APP_ENV: $ENV"
 echo " - API_BASE_URL: $API_URL"
@@ -75,6 +98,10 @@ flutter pub get --enforce-lockfile
 
 echo "Compilando Flutter Web em modo release..."
 flutter build web --release \
+    --build-name="$APP_VERSION" \
+    --build-number="$BUILD_NUMBER" \
+    --dart-define="APP_VERSION=$APP_VERSION" \
+    --dart-define="APP_BUILD=$BUILD_NUMBER" \
     --dart-define="APP_ENV=${ENV}" \
     --dart-define="API_BASE_URL=${API_URL}"
 

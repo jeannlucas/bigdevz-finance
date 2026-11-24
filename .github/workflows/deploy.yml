@@ -87,7 +87,9 @@ jobs:
       - name: Compilar Frontend Flutter Web de Produção
         shell: bash
         run: |
-          ./scripts/build-web.sh --env=production
+          ./scripts/build-web.sh --env=production --release-tag="$GITHUB_REF_NAME" --build-number="$GITHUB_RUN_NUMBER"
+          jq -e --arg version "${GITHUB_REF_NAME#v}" --arg build "$GITHUB_RUN_NUMBER" \
+            '.version == $version and .build_number == $build' apps/mobile/build/web/version.json >/dev/null
           test -f apps/mobile/build/web/main.dart.js
           EXPECTED_HASH=$(sha256sum apps/mobile/build/web/main.dart.js | awk '{print $1}')
           echo "EXPECTED_WEB_HASH=$EXPECTED_HASH" >> "$GITHUB_ENV"
