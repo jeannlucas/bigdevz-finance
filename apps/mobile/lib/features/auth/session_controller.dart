@@ -68,6 +68,21 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> requestPasswordLink(String email) =>
+      _auth.requestPasswordLink(email);
+
+  Future<void> resetPassword({
+    required String email,
+    required String token,
+    required String password,
+    required String confirmation,
+  }) => _auth.resetPassword(
+    email: email,
+    token: token,
+    password: password,
+    confirmation: confirmation,
+  );
+
   Future<void> updateProfile({required String name}) async {
     final updated = await _auth.updateProfile(name.trim());
     user = updated;

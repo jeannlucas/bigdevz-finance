@@ -4,17 +4,28 @@ import 'package:provider/provider.dart';
 
 import 'features/auth/login_screen.dart';
 import 'features/auth/session_controller.dart';
+import 'features/auth/password_recovery_dialog.dart';
 import 'features/home/home_shell.dart';
 import 'features/settings/preferences_controller.dart';
 import 'ui/theme.dart';
 import 'ui/widgets.dart';
 
-class FinanceApp extends StatelessWidget {
-  const FinanceApp({super.key});
+class FinanceApp extends StatefulWidget {
+  const FinanceApp({super.key, this.recoveryLink});
+
+  final ({String email, String token})? recoveryLink;
+
+  @override
+  State<FinanceApp> createState() => _FinanceAppState();
+}
+
+class _FinanceAppState extends State<FinanceApp> {
+  late var _recoveryLink = widget.recoveryLink;
 
   @override
   Widget build(BuildContext context) {
     final preferences = context.watch<PreferencesController?>();
+    final link = _recoveryLink;
     return MaterialApp(
       title: 'BigDev.Z Finance',
       debugShowCheckedModeBanner: false,
@@ -24,7 +35,20 @@ class FinanceApp extends StatelessWidget {
       locale: const Locale('pt', 'BR'),
       supportedLocales: const [Locale('pt', 'BR')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      home: const _SessionGate(),
+      home: link != null
+          ? Scaffold(
+              body: SafeArea(
+                child: PasswordRecoveryDialog(
+                  initialEmail: link.email,
+                  token: link.token,
+                  onClose: (changed) {
+                    if (changed) context.read<SessionController>().restore();
+                    setState(() => _recoveryLink = null);
+                  },
+                ),
+              ),
+            )
+          : const _SessionGate(),
     );
   }
 }

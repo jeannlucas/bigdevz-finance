@@ -19,6 +19,21 @@ class AuthRepository {
     );
   }
 
+  Future<void> requestPasswordLink(String email) =>
+      _api.post('/auth/forgot-password', {'email': email});
+
+  Future<void> resetPassword({
+    required String email,
+    required String token,
+    required String password,
+    required String confirmation,
+  }) => _api.post('/auth/reset-password', {
+    'email': email,
+    'token': token,
+    'password': password,
+    'password_confirmation': confirmation,
+  });
+
   Future<void> logout() => _api.post('/auth/logout', {});
 
   Future<AppUser> me() async =>

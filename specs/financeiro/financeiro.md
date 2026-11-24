@@ -380,6 +380,9 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
 - **AC-UI-014 [Filtros e Estados de Consulta das Operações Web]:** Extrato, A Pagar e A Receber agrupam os filtros de período e de seleção em uma área visível no desktop, inclusive com resultados vazios. O Extrato oferece intervalos dos últimos 7 e 30 dias, incluindo hoje. A agenda oferece próximos 7 e 30 dias e mantém intervalo personalizado. O seletor de categorias apresenta a hierarquia e permite pesquisar pelo nome e pelo caminho. Os estados vazios orientam a próxima ação. O mobile mantém controles compactos e só aplica mudanças do painel ao confirmar. As tabelas mantêm valores, datas e categorias legíveis, com situação identificada em coluna própria.
 - **AC-UI-015 [Entrada Monetária no Cronograma]:** Os campos de valor das parcelas descartam caracteres não numéricos, exibem centavos no formato brasileiro e mantêm o total exato durante a edição no desktop e no mobile.
 - **AC-UI-016 [Configurações Responsivas e Identificação da Release]:** Configurações limita a largura e agrupa preferências e atalhos em duas colunas no desktop e uma no mobile. Ferramentas financeiras e governança preservam as permissões e o espaço ativo. A versão exibida e `version.json` devem corresponder à tag e ao número do build publicados pelo pipeline web.
+- **AC-UI-017 [Login Responsivo e Crédito Institucional]:** O login apresenta painel de marca e formulário lado a lado no desktop, uma coluna no mobile e o crédito com link para a BigDev.Z no rodapé Web. Autopreenchimento, validações, envio e mensagens de erro são preservados.
+- **AC-AUTH-001 [Recuperação de senha]:** O login permite solicitar um link por e-mail sem revelar o cadastro. O link abre a redefinição no Web, expira em 60 minutos e só pode ser usado uma vez. A nova senha deve ter pelo menos 8 caracteres e conter pelo menos uma letra. A troca revoga as sessões existentes.
+- **AC-AUTH-002 [E-mail de recuperação]:** O e-mail identifica o BigDev.Z Finance, mostra a validade do link e oferece a ação de redefinição em HTML e em texto simples.
 
 ## 3. Matriz de Rastreabilidade (Spec ↔ Código ↔ Testes)
 
@@ -441,3 +444,6 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
 | **AC-UI-013** | `summary_tab.dart`, `PayableController.php`, `payables_tab.dart` | `summary_test.dart`, `home_shell_test.dart`, `PayablesTest.php` |
 | **AC-UI-015** | `payable_form_screen.dart` | `editable_installment_schedule_test.dart` |
 | **AC-UI-016** | `settings_screen.dart`, `build-web.sh`, `deploy.yml` | `preferences_test.dart`, verificação de `version.json` no build |
+| **AC-UI-017** | `login_screen.dart` | `login_screen_test.dart`, homologação Web |
+| **AC-AUTH-001** | `PasswordRecoveryController.php`, `login_screen.dart`, `password_recovery_dialog.dart` | `PasswordRecoveryTest.php`, `login_screen_test.dart` |
+| **AC-AUTH-002** | `AppServiceProvider.php`, `resources/views/mail/password-recovery*.blade.php` | `PasswordRecoveryTest.php` |

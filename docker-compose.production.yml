@@ -57,6 +57,11 @@ services:
       FINANCE_TIMEZONE: America/Sao_Paulo
       PHP_CLI_SERVER_WORKERS: ${PHP_CLI_SERVER_WORKERS:-4}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://finance.bigdevz.com}
+      MAIL_MAILER: ${MAIL_MAILER:-smtp}
+      MAIL_HOST: ${MAIL_HOST:-172.20.0.1}
+      MAIL_PORT: ${MAIL_PORT:-25}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-recuperacao@mail.finance.bigdevz.com}
+      MAIL_FROM_NAME: "${MAIL_FROM_NAME:-BigDev.Z Finance}"
     ports:
       - "${BIGDEVZ_API_BIND:-127.0.0.1}:${BIGDEVZ_API_PORT:-8510}:8000"
     volumes:
