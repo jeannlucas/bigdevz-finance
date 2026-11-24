@@ -176,38 +176,6 @@ class FinancialTextNormalizationTest extends TestCase
         ]);
     }
 
-    public function test_loan_normalizes_title_and_counterparty_to_uppercase(): void
-    {
-        $account = $this->pf->accounts()->create([
-            'name' => 'CONTA CORRENTE',
-            'opening_balance_cents' => 1000000,
-            'opening_balance_date' => '2026-01-01',
-        ]);
-
-        $response = $this->postJson("/api/spaces/{$this->pf->id}/loans", [
-            'kind' => 'taken',
-            'title' => 'empréstimo de veículo',
-            'counterparty' => 'banco santander s.a.',
-            'principal' => '1000.00',
-            'total' => '1200.00',
-            'installment_count' => 12,
-            'first_due_date' => '2026-04-10',
-            'disbursement_account_id' => $account->id,
-            'disbursed_at' => '2026-03-15',
-            'notes' => 'observação detalhada em minúsculas que não deve mudar',
-        ], $this->headers('loan-norm-1'));
-
-        $response->assertCreated();
-        $loanId = $response->json('data.id');
-
-        $this->assertDatabaseHas('loans', [
-            'id' => $loanId,
-            'title' => 'EMPRÉSTIMO DE VEÍCULO',
-            'counterparty' => 'BANCO SANTANDER S.A.',
-            'notes' => 'observação detalhada em minúsculas que não deve mudar',
-        ]);
-    }
-
     public function test_sensitive_and_technical_fields_are_never_transformed_to_uppercase(): void
     {
         // 1. E-mail do usuário permanece em minúsculas

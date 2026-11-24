@@ -43,7 +43,6 @@ class AppIcons {
       HugeIcons.strokeRoundedPackageProcess;
   static const List<List<dynamic>> reverse = HugeIcons.strokeRoundedExchange01;
   static const List<List<dynamic>> transfer = HugeIcons.strokeRoundedExchange01;
-  static const List<List<dynamic>> loan = HugeIcons.strokeRoundedCoins01;
   static const List<List<dynamic>> correction =
       HugeIcons.strokeRoundedArrowTurnBackward;
   static const List<List<dynamic>> lock = HugeIcons.strokeRoundedLockPassword;

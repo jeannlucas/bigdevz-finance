@@ -10,6 +10,7 @@ import '../auth/session_controller.dart';
 import 'account.dart';
 import 'accounts_repository.dart';
 import 'wise_currency.dart';
+import 'wise_currency_picker.dart';
 
 class WiseDashboardCard extends StatelessWidget {
   const WiseDashboardCard({
@@ -57,8 +58,19 @@ class WiseDashboardCard extends StatelessWidget {
                           horizontal: 12,
                           vertical: 8,
                         ),
-                        child: Text(
-                          obscure ? '${currency.code} ••••' : currency.label,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            WiseCurrencyFlag(currency.code, size: 20),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                obscure
+                                    ? '${currency.code} ••••'
+                                    : currency.label,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -112,12 +124,14 @@ class WiseWalletPanel extends StatelessWidget {
             const SizedBox(height: 8),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('BRL'),
+              leading: const WiseCurrencyFlag('BRL'),
+              title: const Text('Real brasileiro · BRL'),
               trailing: Text(account.balance.brl),
             ),
             for (final currency in foreign)
               ListTile(
                 contentPadding: EdgeInsets.zero,
+                leading: WiseCurrencyFlag(currency.code),
                 title: Text(currency.label),
                 subtitle: Text(
                   currency.quotedOn == null
@@ -393,14 +407,31 @@ class _WiseEditorState extends State<_WiseEditor> {
                       '1 ${widget.codes.single} = BRL ${_pending!['brl_rate']}',
                   })
                 else ...[
-                  if (kind == _EditKind.currency ||
-                      kind == _EditKind.conversion)
+                  if (kind == _EditKind.currency)
+                    if (_currency case final code?)
+                      ListTile(
+                        leading: WiseCurrencyFlag(code),
+                        title: Text(wiseCurrencyName(code)),
+                        subtitle: Text(code),
+                        trailing: const Text('Trocar'),
+                        onTap: () => setState(() {
+                          _currency = null;
+                          _value.clear();
+                        }),
+                      )
+                    else
+                      WiseCurrencyPicker(
+                        codes: widget.codes,
+                        onSelected: (code) => setState(() => _currency = code),
+                      ),
+                  if (kind == _EditKind.conversion)
                     _selector(
-                      kind == _EditKind.currency ? 'Moeda' : 'Moeda debitada',
+                      'Moeda debitada',
                       _currency,
                       (code) => setState(() => _currency = code),
                     ),
-                  if (kind != _EditKind.reversal)
+                  if (kind != _EditKind.reversal &&
+                      (kind != _EditKind.currency || _currency != null))
                     _amount(_value, switch (kind) {
                       _EditKind.currency => 'Saldo inicial (opcional)',
                       _EditKind.conversion => 'Valor debitado antes da tarifa',
@@ -458,7 +489,10 @@ class _WiseEditorState extends State<_WiseEditor> {
             child: const Text('Cancelar'),
           ),
           FilledButton(
-            onPressed: _saving ? null : (_reviewing ? _submit : _review),
+            onPressed:
+                _saving || (kind == _EditKind.currency && _currency == null)
+                ? null
+                : (_reviewing ? _submit : _review),
             child: Text(
               _saving ? 'Salvando…' : (_reviewing ? 'Confirmar' : 'Revisar'),
             ),
@@ -474,10 +508,26 @@ class _WiseEditorState extends State<_WiseEditor> {
     ValueChanged<String?> changed,
   ) => DropdownButtonFormField<String>(
     initialValue: current,
+    isExpanded: true,
+    menuMaxHeight: 320,
     decoration: InputDecoration(labelText: label),
     items: [
       for (final code in widget.codes)
-        DropdownMenuItem(value: code, child: Text(code)),
+        DropdownMenuItem(
+          value: code,
+          child: Row(
+            children: [
+              WiseCurrencyFlag(code, size: 20),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  '$code · ${wiseCurrencyName(code)}',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
     ],
     onChanged: changed,
   );

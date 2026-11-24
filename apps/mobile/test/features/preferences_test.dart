@@ -162,6 +162,24 @@ void main() {
       );
     }
 
+    testWidgets('AC-UI-016 limita e centraliza as configurações no desktop', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1866, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(createTestApp());
+      await tester.pumpAndSettle();
+      final cards = tester.widgetList<Card>(find.byType(Card));
+      expect(cards, isNotEmpty);
+      for (final card in cards) {
+        final rect = tester.getRect(find.byWidget(card));
+        expect(rect.width, lessThanOrEqualTo(580));
+        expect(rect.left, greaterThan(300));
+      }
+    });
+
     testWidgets(
       'A8, A9: Exibe opções de tema e reflete alterações imediatamente',
       (tester) async {
@@ -896,7 +914,7 @@ void main() {
 
         expect(find.text('Salvando preferência...'), findsNothing);
         expect(
-          find.text('Iniciar com os valores financeiros ocultos.'),
+          find.text('Iniciar com os valores ocultos nas telas compatíveis.'),
           findsOneWidget,
         );
         final updatedSwitch = tester.widget<Switch>(find.byType(Switch));

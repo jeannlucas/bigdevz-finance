@@ -50,7 +50,6 @@ class StatementController extends Controller
                 'transferReversal.destinationAccount',
                 'transferReversal.space',
                 'transferReversal.destinationSpace',
-                'loanDisbursement',
             ]);
 
         if ($request->filled('account_id')) {

@@ -53,9 +53,6 @@ class StatementResource extends JsonResource
         if ($this->transfer_reversal_id) {
             return 'transfer_reversal';
         }
-        if ($this->loan_disbursement_id) {
-            return 'loan_disbursement';
-        }
 
         if ($this->wise_conversion_id) {
             return 'wise_conversion';
@@ -85,9 +82,6 @@ class StatementResource extends JsonResource
             'transfer_reversal' => $this->amount_cents > 0
                 ? 'Estorno de transferência para '.($this->transferReversal?->destinationAccount?->name ?? 'conta').($this->transferReversal?->destinationSpace && $this->transferReversal?->destination_space_id !== $this->transferReversal?->space_id ? ' ('.$this->transferReversal->destinationSpace->name.')' : '').': '.$this->transferReversal?->reason
                 : 'Estorno de transferência de '.($this->transferReversal?->sourceAccount?->name ?? 'conta').($this->transferReversal?->space && $this->transferReversal?->destination_space_id !== $this->transferReversal?->space_id ? ' ('.$this->transferReversal->space->name.')' : '').': '.$this->transferReversal?->reason,
-            'loan_disbursement' => $this->loanDisbursement?->kind === 'granted'
-                ? 'Empréstimo concedido: '.($this->loanDisbursement->title ?? '')
-                : 'Empréstimo tomado: '.($this->loanDisbursement?->title ?? ''),
             'wise_conversion' => 'Conversão de moeda Wise',
             default => 'Movimentação financeira',
         };

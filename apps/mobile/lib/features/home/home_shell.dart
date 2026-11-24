@@ -12,7 +12,6 @@ import '../auth/auth_models.dart';
 import '../auth/profile_edit_dialog.dart';
 import '../auth/session_controller.dart';
 import '../categories/categories_screen.dart';
-import '../loans/loans_screen.dart';
 import '../payables/payables_tab.dart';
 import '../settings/preferences_controller.dart';
 import '../settings/settings_screen.dart';
@@ -176,12 +175,6 @@ class _HomeShellState extends State<HomeShell> {
                     },
                     onOpenCategories: () =>
                         showCategoriesManagementModal(context, space: space),
-                    onOpenLoans: () => Navigator.of(context).push(
-                      spaceRoute(
-                        isPf: space.isPf,
-                        child: LoansScreen(space: space),
-                      ),
-                    ),
                     onEditProfile: () => showProfileEditDialog(context),
                     onOpenSettings: () {
                       Navigator.of(context).push(
@@ -244,13 +237,6 @@ class _HomeShellState extends State<HomeShell> {
                         showProfileEditDialog(context);
                       } else if (action == 'categories') {
                         showCategoriesManagementModal(context, space: space);
-                      } else if (action == 'loans') {
-                        Navigator.of(context).push(
-                          spaceRoute(
-                            isPf: space.isPf,
-                            child: LoansScreen(space: space),
-                          ),
-                        );
                       } else if (action == 'settings') {
                         Navigator.of(context).push(
                           spaceRoute(
@@ -307,16 +293,6 @@ class _HomeShellState extends State<HomeShell> {
                             Icon(Icons.category_outlined, size: 18),
                             SizedBox(width: 8),
                             Text('Categorias'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'loans',
-                        child: Row(
-                          children: [
-                            Icon(Icons.account_balance_outlined, size: 18),
-                            SizedBox(width: 8),
-                            Text('Empréstimos'),
                           ],
                         ),
                       ),
@@ -421,7 +397,6 @@ class _DesktopTopBar extends StatelessWidget {
     required this.onDestinationSelected,
     required this.onOpenNotifications,
     required this.onOpenCategories,
-    required this.onOpenLoans,
     required this.onEditProfile,
     required this.onOpenSettings,
     required this.onLogout,
@@ -434,7 +409,6 @@ class _DesktopTopBar extends StatelessWidget {
   final ValueChanged<int> onDestinationSelected;
   final VoidCallback onOpenNotifications;
   final VoidCallback onOpenCategories;
-  final VoidCallback onOpenLoans;
   final VoidCallback onEditProfile;
   final VoidCallback onOpenSettings;
   final VoidCallback onLogout;
@@ -522,12 +496,6 @@ class _DesktopTopBar extends StatelessWidget {
               tooltip: 'Categorias',
               icon: const Icon(Icons.category_outlined, size: 20),
               onPressed: onOpenCategories,
-            ),
-            const SizedBox(width: AppTokens.p4),
-            IconButton(
-              tooltip: 'Empréstimos',
-              icon: const Icon(Icons.account_balance_outlined, size: 20),
-              onPressed: onOpenLoans,
             ),
             const SizedBox(width: AppTokens.p4),
             IconButton(

@@ -272,3 +272,9 @@ Para testar as principais funcionalidades no aplicativo:
 O código-fonte deste projeto é distribuído sob os termos da licença **MIT**. Consulte o arquivo [LICENSE](LICENSE) para obter o texto integral e as condições de uso do software.
 
 Os nomes "BigDev.Z", "BigDev.Z Finance" e os logotipos oficiais (símbolo do gorila) são marcas e identidade visual protegidas de Jeann Lucas. Para diretrizes de uso da marca e orientações sobre forks e projetos derivados, consulte [TRADEMARK.md](TRADEMARK.md).
+
+### Créditos das bandeiras
+
+As imagens de bandeiras da carteira usam [Twemoji](https://github.com/twitter/twemoji/tree/v14.0.2),
+da Twitter, Inc. e outros colaboradores, sob [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+Os arquivos PNG foram renomeados por região e são exibidos com recorte circular.

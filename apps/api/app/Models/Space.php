@@ -99,7 +99,6 @@ class Space extends Model
             'edit_agreement',
             'receive_installment',
             'transfer_funds',
-            'create_loan',
             'archive_account',
             'manage_categories' => $role === self::ROLE_ACCOUNTANT,
 
