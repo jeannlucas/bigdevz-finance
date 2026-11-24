@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/dates.dart';
 import '../../core/money.dart';
 import '../../core/text_formatters.dart';
+import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
 import '../../ui/financial/financial_search_bar.dart';
 import '../accounts/account.dart';
@@ -28,6 +29,7 @@ class StatementTab extends StatefulWidget {
 
 class _StatementTabState extends State<StatementTab> {
   bool _loading = true;
+  int _loadVersion = 0;
   String? _error;
   List<StatementEntry> _entries = [];
   List<Account> _accounts = [];
@@ -59,6 +61,7 @@ class _StatementTabState extends State<StatementTab> {
   }
 
   Future<void> _load() async {
+    final version = ++_loadVersion;
     setState(() {
       _loading = true;
       _error = null;
@@ -83,7 +86,7 @@ class _StatementTabState extends State<StatementTab> {
       );
 
       final results = await Future.wait([accountsFuture, statementFuture]);
-      if (!mounted) return;
+      if (!mounted || version != _loadVersion) return;
 
       setState(() {
         _accounts = results[0] as List<Account>;
@@ -91,7 +94,7 @@ class _StatementTabState extends State<StatementTab> {
         _loading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || version != _loadVersion) return;
       setState(() {
         _error = 'Não foi possível carregar o extrato.';
         _loading = false;
@@ -145,46 +148,24 @@ class _StatementTabState extends State<StatementTab> {
                               ),
                             ),
                             const Spacer(),
-                            Material(
-                              color: AppTokens.expense,
-                              borderRadius: BorderRadius.circular(AppTokens.r8),
-                              child: InkWell(
-                                onTap: () async {
+                            Flexible(
+                              child: FilledButton.tonalIcon(
+                                style: FilledButton.styleFrom(
+                                  minimumSize: const Size(0, 38),
+                                ),
+                                onPressed: () async {
                                   await showDirectExpenseModal(
                                     context,
                                     space: widget.space,
                                     preselectedAccountId: _selectedAccountId,
                                   );
-                                  _load();
+                                  if (mounted) _load();
                                 },
-                                borderRadius: BorderRadius.circular(
-                                  AppTokens.r8,
+                                icon: const Icon(
+                                  Icons.receipt_long_outlined,
+                                  size: 18,
                                 ),
-                                child: const Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 7,
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.shopping_bag_outlined,
-                                        size: 15,
-                                        color: Colors.white,
-                                      ),
-                                      SizedBox(width: 6),
-                                      Text(
-                                        'Registrar despesa',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                                label: const Text('Registrar despesa'),
                               ),
                             ),
                             if (_loading) ...[
@@ -230,48 +211,21 @@ class _StatementTabState extends State<StatementTab> {
                     ),
                   )
                 else if (_entries.isEmpty)
-                  SliverFillRemaining(
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _hasActiveFilters
-                                ? Icons.filter_list_off_rounded
-                                : Icons.receipt_long_rounded,
-                            size: 48,
-                            color: theme.colorScheme.outline,
-                          ),
-                          const SizedBox(height: AppTokens.p12),
-                          Text(
-                            _hasActiveFilters
-                                ? 'Nenhuma movimentação neste filtro'
-                                : 'Nenhuma movimentação encontrada',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          if (_hasActiveFilters) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              'Tente outro período ou limpe os filtros ativos.',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            OutlinedButton.icon(
+                  SliverToBoxAdapter(
+                    child: FinancialEmptyPanel(
+                      icon: AppIcons.receipt,
+                      title: _hasActiveFilters
+                          ? 'Nenhuma movimentação neste filtro'
+                          : 'Nenhuma movimentação encontrada',
+                      message: _hasActiveFilters
+                          ? 'Ajuste o período, a direção, a categoria ou a conta.'
+                          : 'Ainda não há lançamentos efetivados neste período.',
+                      action: _hasActiveFilters
+                          ? OutlinedButton(
                               onPressed: _clearFilters,
-                              icon: const Icon(
-                                Icons.clear_all_rounded,
-                                size: 16,
-                              ),
-                              label: const Text('Limpar filtros'),
-                            ),
-                          ],
-                        ],
-                      ),
+                              child: const Text('Limpar filtros'),
+                            )
+                          : null,
                     ),
                   )
                 else
@@ -306,110 +260,125 @@ class _StatementTabState extends State<StatementTab> {
       }
     }
 
+    final period = FinancialPeriodBar(
+      selection: _periodSelection,
+      showOverdue: false,
+      onChanged: (selection) {
+        setState(() => _periodSelection = selection);
+        _load();
+      },
+    );
+    final controls = Wrap(
+      spacing: AppTokens.p8,
+      runSpacing: AppTokens.p8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text('Movimentação', style: theme.textTheme.labelLarge),
+        ChoiceChip(
+          label: const Text('Todos'),
+          selected: _selectedDirection == 'all',
+          onSelected: (selected) {
+            if (selected) {
+              setState(() => _selectedDirection = 'all');
+              _load();
+            }
+          },
+        ),
+        ChoiceChip(
+          avatar: const Icon(
+            Icons.arrow_downward,
+            size: 14,
+            color: AppTokens.income,
+          ),
+          label: const Text('Entradas'),
+          selected: _selectedDirection == 'credit',
+          onSelected: (selected) {
+            if (selected) {
+              setState(() => _selectedDirection = 'credit');
+              _load();
+            }
+          },
+        ),
+        ChoiceChip(
+          avatar: const Icon(
+            Icons.arrow_upward,
+            size: 14,
+            color: AppTokens.expense,
+          ),
+          label: const Text('Saídas'),
+          selected: _selectedDirection == 'debit',
+          onSelected: (selected) {
+            if (selected) {
+              setState(() => _selectedDirection = 'debit');
+              _load();
+            }
+          },
+        ),
+        CategoryFilterChip(
+          spaceId: widget.space.id,
+          selectedCategoryId: _selectedCategoryId,
+          onChanged: (catId) {
+            setState(() => _selectedCategoryId = catId);
+            _load();
+          },
+        ),
+        if (_accounts.isNotEmpty)
+          SizedBox(
+            width: 256,
+            child: DropdownButtonHideUnderline(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  border: Border.all(color: theme.colorScheme.outlineVariant),
+                  borderRadius: BorderRadius.circular(AppTokens.r8),
+                ),
+                child: DropdownButton<int?>(
+                  value: _selectedAccountId,
+                  hint: const Text('Todas as contas'),
+                  isDense: true,
+                  isExpanded: true,
+                  items: [
+                    const DropdownMenuItem<int?>(
+                      value: null,
+                      child: Text('Todas as contas'),
+                    ),
+                    for (final acc in _accounts)
+                      DropdownMenuItem<int?>(
+                        value: acc.id,
+                        child: Text(
+                          toFinancialUpper(acc.name),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: (accId) {
+                    setState(() => _selectedAccountId = accId);
+                    _load();
+                  },
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+    final desktop = MediaQuery.sizeOf(context).width >= 840;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Barra de Período Mensal / Personalizado
-        Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: FinancialPeriodBar(
-            selection: _periodSelection,
-            onChanged: (sel) {
-              setState(() => _periodSelection = sel);
-              _load();
-            },
-          ),
-        ),
-        // Linha de seletores rápidos
-        Wrap(
-          spacing: AppTokens.p8,
-          runSpacing: AppTokens.p8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            // Filtro de Direção (Segmented ou Chips)
-            ChoiceChip(
-              label: const Text('Todos'),
-              selected: _selectedDirection == 'all',
-              onSelected: (selected) {
-                if (selected) {
-                  setState(() => _selectedDirection = 'all');
-                  _load();
-                }
-              },
-            ),
-            ChoiceChip(
-              avatar: const Icon(
-                Icons.arrow_downward,
-                size: 14,
-                color: AppTokens.income,
-              ),
-              label: const Text('Entradas'),
-              selected: _selectedDirection == 'credit',
-              onSelected: (selected) {
-                if (selected) {
-                  setState(() => _selectedDirection = 'credit');
-                  _load();
-                }
-              },
-            ),
-            ChoiceChip(
-              avatar: const Icon(
-                Icons.arrow_upward,
-                size: 14,
-                color: AppTokens.expense,
-              ),
-              label: const Text('Saídas'),
-              selected: _selectedDirection == 'debit',
-              onSelected: (selected) {
-                if (selected) {
-                  setState(() => _selectedDirection = 'debit');
-                  _load();
-                }
-              },
-            ),
-            CategoryFilterChip(
-              spaceId: widget.space.id,
-              selectedCategoryId: _selectedCategoryId,
-              onChanged: (catId) {
-                setState(() => _selectedCategoryId = catId);
-                _load();
-              },
-            ),
-            if (_accounts.isNotEmpty)
-              DropdownButtonHideUnderline(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: theme.colorScheme.outlineVariant),
-                    borderRadius: BorderRadius.circular(AppTokens.r8),
-                  ),
-                  child: DropdownButton<int?>(
-                    value: _selectedAccountId,
-                    hint: const Text('Todas as contas'),
-                    isDense: true,
-                    items: [
-                      const DropdownMenuItem<int?>(
-                        value: null,
-                        child: Text('Todas as contas'),
-                      ),
-                      for (final acc in _accounts)
-                        DropdownMenuItem<int?>(
-                          value: acc.id,
-                          child: Text(toFinancialUpper(acc.name)),
-                        ),
-                    ],
-                    onChanged: (accId) {
-                      setState(() => _selectedAccountId = accId);
-                      _load();
-                    },
-                  ),
-                ),
-              ),
-          ],
-        ),
+        if (desktop)
+          FinancialFilterPanel(
+            period: period,
+            controls: controls,
+            onClear: _hasActiveFilters ? _clearFilters : null,
+          )
+        else ...[
+          period,
+          const SizedBox(height: AppTokens.p8),
+          controls,
+        ],
         // Chips de filtros ativos e botão de limpar
         if (_hasActiveFilters) ...[
           const SizedBox(height: 10),
@@ -539,7 +508,7 @@ class _StatementTabState extends State<StatementTab> {
                     obscure ? 'R\$ ••••••••' : Money(totalCreditCents).brl,
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
-                      color: AppTokens.income,
+                      color: theme.colorScheme.onSurface,
                     ),
                   ),
                 ],
@@ -566,7 +535,7 @@ class _StatementTabState extends State<StatementTab> {
                     obscure ? 'R\$ ••••••••' : Money(totalDebitCents).brl,
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
-                      color: AppTokens.expense,
+                      color: theme.colorScheme.onSurface,
                     ),
                   ),
                 ],
@@ -596,8 +565,8 @@ class _StatementTabState extends State<StatementTab> {
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                       color: netCents < 0
-                          ? AppTokens.expense
-                          : AppTokens.income,
+                          ? theme.colorScheme.error
+                          : theme.colorScheme.onSurface,
                     ),
                   ),
                 ],
@@ -687,7 +656,6 @@ class _StatementTile extends StatelessWidget {
               formattedValue,
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w700,
-                color: color,
               ),
             ),
           ),

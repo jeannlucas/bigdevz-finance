@@ -347,20 +347,17 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
     - Campo de data de início (`DateField`) e campo de data de término opcional.
     - Botão de prévia interativa com modal demonstrando o cronograma projetado de ocorrências, quantidade de ocorrências passadas/vencidas e checkbox mandatório de confirmação de ocorrências passadas quando aplicável.
     - No `AgreementsTab` e no `AgreementModal`, ocorrências com `amount == null` exibem rótulo destacado `"Aguardando valor"` com tom neutro e botão de baixa/definição de valor inline.
-- **AC-FIN-030 [Termômetro de Fluxo de Caixa no Dashboard Sem Dupla Contagem]:**
-  - O card de Fluxo de Caixa (`CashFlowThermometerCard`) consolida Entradas Projetadas (recebido + a receber) e Saídas & Compromissos Projetados (pago + aberto).
-  - O contrato da API (`SpaceController::payables`) estabelece que o campo `open_total` já computa a totalidade das contas a pagar em aberto com valor definido (tanto vencidas quanto a vencer).
-  - O total de Saídas & Compromissos calcula estritamente a soma de pagamentos liquidados com o saldo total em aberto (`paid_total + open_total`) em centavos inteiros (`int`). É expressamente vedada a soma adicional de `overdue_total`, evitando dupla contagem de obrigações em atraso.
-  - A margem líquida projetada (`netMarginCents = totalInflowCents - totalOutflowCents`) governa o estado visual do card: quando negativa (`netMarginCents < 0`), o card exibe o alerta de insuficiência ("Atenção: vai faltar R$ X,XX") calculado exatamente pela diferença em centavos inteiros, sem distorções causadas por duplicidade de parcelas vencidas.
+- **AC-FIN-030 [Compromissos em Aberto sem Dupla Contagem]:**
+  - O campo `open_total` já inclui as contas em aberto vencidas e a vencer com valor definido. O dashboard exibe o total em aberto e as fatias temporais separadamente, sem somar vencidos novamente ao total. A projeção temporal segue o AC-FIN-037.
 - **AC-UI-008 [Ergonomia Widescreen e Grid Multi-Colunas nas Telas Principais]:**
   - Aplica contenção de largura máxima padronizada de 1280px (`maxWidth: 1280`) nas cinco telas principais da aplicação: Dashboard (`SummaryTab`), Extrato (`StatementTab`), A Pagar (`PayablesTab`), A Receber (`AgreementsTab`) e Contas (`AccountsTab`), com margens responsivas centralizadas e padding de 24px em desktop (>= 840px) e 16px em mobile (< 840px).
-  - No Dashboard (`SummaryTab`), em desktop widescreen (`isDesktop`), os blocos de Contas a Pagar (`_ModernPayablesCard`) e Acesso às Contas (`_AccountsAccessCard`) são organizados lado a lado em duas colunas equivalentes, equilibrando a altura visual em conjunto com os cards executivos de saldos bancários e fluxo de caixa.
+  - No Dashboard (`SummaryTab`), em desktop widescreen (`isDesktop`), a carteira agrupada à distribuição por bancos e o Fluxo de Caixa ficam lado a lado em duas colunas equivalentes.
   - Na tela de Contas (`AccountsTab`), em desktop widescreen com mais de uma conta ativa cadastrada, a listagem adota visualização em grade multi-colunas (`Wrap` com largura flexível para cada card), eliminando estiramento excessivo em monitores ultrawide.
   - Na tabela executiva desktop compartilhada (`FinancialDesktopTable`), as proporções de colunas de texto são expandidas para `flex: 5` na Descrição, `flex: 3` na Categoria e `flex: 2` no Tipo/Parcela, preservando as larguras mínimas fixas de Vencimento (96px), Situação (110px), Valor (120px) e Ações (90px), eliminando truncamento precoce de nomes e subcategorias sem prejudicar a leitura numérica.
   - Mantém a ergonomia touch original em telas compactas e smartphones (< 840px), preservando listas verticais de coluna única, bottom sheets e padding de 16px.
 
 - **AC-UI-009 [Botão Integrado de Despesa Paga no Dashboard]:**
-  - Na seção de Ações Rápidas do Dashboard (`_QuickActionsSection`), o botão de registro direto de despesa utiliza o rótulo objetivo e conciso `"Registrar despesa paga"`.
+  - Na seção de Ações Rápidas do Dashboard (`_DashboardPriorities`), o botão de registro direto de despesa utiliza o rótulo objetivo e conciso `"Registrar despesa paga"`.
   - Em telas desktop (>= 840px), o botão possui largura controlada com `maxWidth: 320` alinhado à esquerda na seção de ações, evitando estiramento horizontal desproporcional. Em telas mobile (< 840px), ocupa 100% da largura útil com altura mínima de toque de 44px (`minHeight: 44`).
   - Adota estilo visual tonal (`FilledButton.tonalIcon`) com ícone representativo (`Icons.receipt_long_rounded` ou `Icons.payment_rounded`), mantendo consistência com o tema visual do sistema em PF e PJ.
   - O acionamento abre o modal unificado de despesa rápida (`showDirectExpenseModal`) preservando a integridade do lançamento financeiro em conta e no extrato.
@@ -377,7 +374,10 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
     - Em modo Valor Fixo (`!_isVariable`): o rótulo do campo de valor exibe `"Valor mensal"`.
     - Em modo Valor Variável (`_isVariable`): o rótulo do campo de valor exibe `"Valor da 1ª ocorrência (opcional)"`, formulado de forma concisa e legível, sem sofrer truncamento por reticências em viewports estreitos (mobile 375pt) nem na disposição em colunas lado a lado no desktop widescreen.
 
----
+- **AC-FIN-037 [Saldo Projetado de Curto Prazo]:** O dashboard mostra o saldo disponível hoje mais entradas previstas e menos saídas previstas com valor informado, com vencimentos de hoje até hoje + 30 dias no fuso financeiro. A projeção exclui vencidos, realizados e registros cancelados. A interface informa a janela, a exclusão de vencidos e a limitação aos valores conhecidos. Se a API não fornecer entradas do período, a projeção fica indisponível.
+- **AC-UI-013 [Prioridades do Dashboard]:** A primeira seção após o saldo apresenta vencidos, próximos 30 dias e valores a informar, com navegação para as listas correspondentes. A carteira e a distribuição por bancos ficam agrupadas. A ação de despesa paga usa o estilo tonal do tema. A interface mantém o modo de privacidade e a leitura em desktop e mobile.
+
+- **AC-UI-014 [Filtros e Estados de Consulta das Operações Web]:** Extrato, A Pagar e A Receber agrupam os filtros de período e de seleção em uma área visível no desktop, inclusive com resultados vazios. O Extrato oferece intervalos dos últimos 7 e 30 dias, incluindo hoje. A agenda oferece próximos 7 e 30 dias e mantém intervalo personalizado. O seletor de categorias apresenta a hierarquia e permite pesquisar pelo nome e pelo caminho. Os estados vazios orientam a próxima ação. O mobile mantém controles compactos e só aplica mudanças do painel ao confirmar. As tabelas mantêm valores, datas e categorias legíveis, com situação identificada em coluna própria.
 
 ## 3. Matriz de Rastreabilidade (Spec ↔ Código ↔ Testes)
 
@@ -434,3 +434,6 @@ A capability **Financeiro** é o núcleo de integridade patrimonial do BigDev.Z 
 | **AC-UI-009** | `summary_tab.dart`, `direct_expense_modal.dart` | `widescreen_and_direct_expense_test.dart`, `six_features_homologation_test.dart` |
 | **AC-UI-007** | `payable_form_screen.dart` | `payable_form_modal_test.dart` |
 | **AC-UI-010** | `payable_form_screen.dart`, `payable_edit_screen.dart`, `agreement_form_screen.dart`, `account_form_screen.dart`, `account_edit_screen.dart`, `widgets.dart` | `form_validation_and_required_indicators_test.dart` |
+| **AC-UI-014** | `financial_search_bar.dart`, `statement_tab.dart`, `payables_tab.dart`, `agreements_tab.dart` | `financial_search_and_sort_test.dart`, `statement_tab_test.dart`, `financial_agenda_test.dart` |
+| **AC-FIN-037** | `SpaceController.php`, `dashboard_charts.dart` | `PayablesTest.php`, `dashboard_charts_test.dart` |
+| **AC-UI-013** | `summary_tab.dart`, `PayableController.php`, `payables_tab.dart` | `summary_test.dart`, `home_shell_test.dart`, `PayablesTest.php` |

@@ -189,54 +189,16 @@ void main() {
   );
 
   testWidgets(
-    'HomeShell: atalhos rápidos do Dashboard navegam para abas correspondentes',
+    'HomeShell: prioridade do Dashboard abre contas a pagar no período de 30 dias',
     (tester) async {
       await launchApp(tester);
-
-      // Botão 'A pagar' no grid de ações rápidas navega para a aba 'A pagar'
-      final payShortcut = find.descendant(
-        of: find.byType(InkWell),
-        matching: find.text('A pagar'),
-      );
-      expect(payShortcut, findsWidgets);
-      await tester.tap(payShortcut.first);
+      final shortcut = find.widgetWithText(InkWell, 'Próximos 30 dias');
+      await tester.ensureVisible(shortcut.first);
+      await tester.tap(shortcut.first);
       await tester.pumpAndSettle();
 
       expect(find.text('Nova conta a pagar'), findsOneWidget);
-
-      // Retorna para o Dashboard
-      final resumoTab = find.descendant(
-        of: find.byType(NavigationBar),
-        matching: find.text('Dashboard'),
-      );
-      await tester.tap(resumoTab);
-      await tester.pumpAndSettle();
-
-      // Botão 'A receber' navega para 'Contas a receber'
-      final receiveShortcut = find.descendant(
-        of: find.byType(InkWell),
-        matching: find.text('A receber'),
-      );
-      expect(receiveShortcut, findsWidgets);
-      await tester.tap(receiveShortcut.first);
-      await tester.pumpAndSettle();
-
-      expect(find.text('Contas a receber'), findsOneWidget);
-
-      // Retorna para o Dashboard
-      await tester.tap(resumoTab);
-      await tester.pumpAndSettle();
-
-      // Botão 'Contas' no Dashboard navega para a aba de 'Contas' (onde accounts está vazio)
-      final accountsShortcut = find.descendant(
-        of: find.byType(InkWell),
-        matching: find.text('Contas'),
-      );
-      expect(accountsShortcut, findsWidgets);
-      await tester.tap(accountsShortcut.first);
-      await tester.pumpAndSettle();
-
-      expect(find.text('Nenhuma conta neste espaço'), findsOneWidget);
+      expect(find.text('Próximos 30 dias'), findsWidgets);
     },
   );
 

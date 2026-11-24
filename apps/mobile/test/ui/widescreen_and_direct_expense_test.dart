@@ -282,7 +282,7 @@ void main() {
     );
 
     testWidgets(
-      'Dashboard adota maxWidth 1280 e organiza Payables e Accounts lado a lado em Widescreen (1280px)',
+      'Dashboard adota maxWidth 1280 e organiza Carteira e Fluxo de Caixa lado a lado em Widescreen (1280px)',
       (tester) async {
         tester.view.physicalSize = const Size(1280, 900);
         tester.view.devicePixelRatio = 1.0;
@@ -323,10 +323,7 @@ void main() {
         );
         expect(mainConstraint.constraints.maxWidth, equals(1280.0));
 
-        // Em widescreen desktop (1280px), _ModernPayablesCard e _AccountsAccessCard devem estar alinhados horizontalmente
-        final payablesFinder = find.byKey(
-          const ValueKey('summary_modern_payables_card'),
-        );
+        final payablesFinder = find.text('Fluxo de Caixa');
         final accountsAccessFinder = find.byKey(
           const ValueKey('summary_accounts_access_card'),
         );
@@ -337,9 +334,9 @@ void main() {
         final accountsPos = tester.getTopLeft(accountsAccessFinder);
 
         expect(
-          payablesPos.dy,
-          equals(accountsPos.dy),
-          reason: 'Em widescreen desktop, os cards de contas a pagar e carteira de contas devem estar lado a lado',
+          payablesPos.dx,
+          greaterThan(accountsPos.dx),
+          reason: 'Fluxo e carteira devem ficar lado a lado no desktop',
         );
       },
     );

@@ -384,7 +384,17 @@ class PayablesTest extends TestCase
         $this->single('400.00', '2026-04-15');   // fora dos 30 dias
         $this->api('GET', $this->payableUrl($partial))->assertJsonPath('data.status', 'partial')->assertJsonPath('data.overdue', true);
 
+        foreach (['2026-03-14', '2026-03-15', '2026-04-14', '2026-04-15'] as $due) {
+            $this->api('POST', "/api/spaces/{$this->pf->id}/agreements", [
+                'description' => 'Receita para projeção '.$due,
+                'total' => '125.00',
+                'installment_count' => 1,
+                'first_due_date' => $due,
+            ])->assertCreated();
+        }
+
         $this->summary()
+            ->assertJsonPath('data.receivable_due_next_30_days_total', '250.00')
             ->assertJsonPath('data.payables.open_total', '950.00')
             ->assertJsonPath('data.payables.overdue_total', '250.00')
             ->assertJsonPath('data.payables.overdue_count', 2)
@@ -393,6 +403,7 @@ class PayablesTest extends TestCase
             ->assertJsonPath('data.payables.today', '2026-03-15')
             ->assertJsonPath('data.balance', '1000.00');
         $this->api('GET', "/api/spaces/{$this->pf->id}/payables?status=overdue")->assertJsonCount(2, 'data');
+        $this->api('GET', "/api/spaces/{$this->pf->id}/payables?status=next_30_days")->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.due_date', '2026-04-14');
         $this->api('GET', "/api/spaces/{$this->pf->id}/payables?status=open")->assertJsonCount(4, 'data');
     }
 
