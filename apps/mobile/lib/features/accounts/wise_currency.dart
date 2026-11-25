@@ -75,3 +75,24 @@ class WiseCurrency {
     return '${sum.isNegative && cents != BigInt.zero ? '-' : ''}R\$ ${digits.substring(0, digits.length - 2)},${digits.substring(digits.length - 2)}';
   }
 }
+
+class WiseMarketRate {
+  const WiseMarketRate({
+    required this.currency,
+    required this.target,
+    required this.rate,
+    required this.quotedOn,
+  });
+
+  factory WiseMarketRate.fromJson(Map<String, dynamic> json) => WiseMarketRate(
+    currency: json['currency'] as String,
+    target: json['target'] as String,
+    rate: json['rate'] as String,
+    quotedOn: DateTime.parse(json['quoted_on'] as String),
+  );
+
+  final String currency;
+  final String target;
+  final String rate;
+  final DateTime quotedOn;
+}

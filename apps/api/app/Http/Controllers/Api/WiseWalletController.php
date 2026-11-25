@@ -12,7 +12,9 @@ use App\Models\WiseConversion;
 use App\Models\WiseCurrency;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -81,6 +83,53 @@ class WiseWalletController extends Controller
 
             return new WiseCurrencyResource($row);
         });
+    }
+
+    public function marketRate(Request $request, string $space, string $account, string $currency): JsonResponse
+    {
+        $space = $this->space($request, $space);
+        $space->ensureCan($request->user(), 'adjust_opening_balance');
+        $space->accounts()->where('bank_id', 'wise')->findOrFail($account);
+
+        $currency = strtoupper($currency);
+        if ($currency === 'BRL' || ! array_key_exists($currency, Currency::SCALES)) {
+            throw ValidationException::withMessages(['currency' => 'Moeda inválida ou não suportada para cotação.']);
+        }
+
+        $cacheKey = "wise:market_rate:{$currency}";
+        $rateData = Cache::remember($cacheKey, now()->addMinutes(15), function () use ($currency) {
+            try {
+                $response = Http::timeout(5)->get("https://economia.awesomeapi.com.br/last/{$currency}-BRL");
+                if (! $response->successful()) {
+                    return null;
+                }
+                $json = $response->json();
+                $pair = "{$currency}BRL";
+                if (! isset($json[$pair]['bid'])) {
+                    return null;
+                }
+                $bid = (string) $json[$pair]['bid'];
+                if (! preg_match('/^(?:0|[1-9][0-9]{0,11})(?:\.[0-9]{1,8})?$/D', $bid) || trim($bid, '0.') === '') {
+                    return null;
+                }
+
+                return [
+                    'currency' => $currency,
+                    'target' => 'BRL',
+                    'rate' => $bid,
+                    'quoted_on' => today()->toDateString(),
+                ];
+            } catch (\Throwable) {
+                return null;
+            }
+        });
+
+        if ($rateData === null) {
+            Cache::forget($cacheKey);
+            throw ValidationException::withMessages(['message' => 'Cotação de mercado não disponível para esta moeda no momento.']);
+        }
+
+        return response()->json(['data' => $rateData]);
     }
 
     public function history(Request $request, string $space, string $account): JsonResponse

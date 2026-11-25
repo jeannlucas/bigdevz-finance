@@ -96,6 +96,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/accounts/{account}/wise/conversions', [WiseWalletController::class, 'convert']);
         Route::post('/accounts/{account}/wise/conversions/{conversion}/reversal', [WiseWalletController::class, 'reverse']);
         Route::patch('/accounts/{account}/wise/currencies/{currency}/quote', [WiseWalletController::class, 'quote']);
+        Route::get('/accounts/{account}/wise/currencies/{currency}/market-rate', [WiseWalletController::class, 'marketRate']);
         Route::post('/accounts/{account}/wise/currencies', [WiseWalletController::class, 'storeCurrency']);
         Route::post('/accounts/{account}/archive', [AccountController::class, 'archive']);
         Route::post('/accounts/{account}/unarchive', [AccountController::class, 'unarchive']);

@@ -44,4 +44,17 @@ void main() {
       r'R$ 1,01',
     );
   });
+
+  test('AC-WISE-010 decodifica WiseMarketRate a partir do JSON da API', () {
+    final rate = WiseMarketRate.fromJson({
+      'currency': 'EUR',
+      'target': 'BRL',
+      'rate': '6.4457',
+      'quoted_on': '2026-11-25',
+    });
+    expect(rate.currency, 'EUR');
+    expect(rate.target, 'BRL');
+    expect(rate.rate, '6.4457');
+    expect(rate.quotedOn, DateTime(2026, 11, 25));
+  });
 }
