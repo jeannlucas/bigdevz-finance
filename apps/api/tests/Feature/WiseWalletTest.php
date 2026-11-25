@@ -157,13 +157,44 @@ class WiseWalletTest extends TestCase
         $this->getJson("/api/spaces/{$pf->id}/accounts/{$wise->id}/wise/currencies/BRL/market-rate")->assertUnprocessable();
         $this->getJson("/api/spaces/{$pf->id}/accounts/{$wise->id}/wise/currencies/INVALID/market-rate")->assertUnprocessable();
 
-        // Falha na API externa retorna 422 com mensagem amigável
+        // Falha em todos os provedores retorna 422 com mensagem amigável
         Http::fake([
             'https://economia.awesomeapi.com.br/last/USD-BRL' => Http::response(null, 500),
+            'https://api.frankfurter.dev/v1/latest*' => Http::response(null, 500),
         ]);
 
         $this->getJson("/api/spaces/{$pf->id}/accounts/{$wise->id}/wise/currencies/USD/market-rate")
             ->assertUnprocessable()
             ->assertJsonPath('message', 'Cotação de mercado não disponível para esta moeda no momento.');
+    }
+
+    public function test_market_rate_falls_back_to_frankfurter_when_awesomeapi_fails(): void
+    {
+        [$user, $pf] = $this->userWithSpaces();
+        $this->actingAs($user, 'sanctum');
+        $wise = $pf->accounts()->create([
+            'name' => 'Wise',
+            'bank_id' => 'wise',
+            'opening_balance_cents' => 36000,
+            'opening_balance_date' => '2026-01-01',
+        ]);
+        $url = "/api/spaces/{$pf->id}/accounts/{$wise->id}/wise/currencies/EUR/market-rate";
+
+        Http::fake([
+            'https://economia.awesomeapi.com.br/last/EUR-BRL' => Http::response(['status' => 429], 429),
+            'https://api.frankfurter.dev/v1/latest*' => Http::response([
+                'amount' => 1.0,
+                'base' => 'EUR',
+                'date' => '2026-11-25',
+                'rates' => ['BRL' => 6.4531],
+            ], 200),
+        ]);
+
+        $this->getJson($url)
+            ->assertOk()
+            ->assertJsonPath('data.currency', 'EUR')
+            ->assertJsonPath('data.target', 'BRL')
+            ->assertJsonPath('data.rate', '6.4531')
+            ->assertJsonPath('data.quoted_on', today()->toDateString());
     }
 }

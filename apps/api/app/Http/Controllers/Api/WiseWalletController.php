@@ -98,30 +98,17 @@ class WiseWalletController extends Controller
 
         $cacheKey = "wise:market_rate:{$currency}";
         $rateData = Cache::remember($cacheKey, now()->addMinutes(15), function () use ($currency) {
-            try {
-                $response = Http::timeout(5)->get("https://economia.awesomeapi.com.br/last/{$currency}-BRL");
-                if (! $response->successful()) {
-                    return null;
-                }
-                $json = $response->json();
-                $pair = "{$currency}BRL";
-                if (! isset($json[$pair]['bid'])) {
-                    return null;
-                }
-                $bid = (string) $json[$pair]['bid'];
-                if (! preg_match('/^(?:0|[1-9][0-9]{0,11})(?:\.[0-9]{1,8})?$/D', $bid) || trim($bid, '0.') === '') {
-                    return null;
-                }
-
-                return [
-                    'currency' => $currency,
-                    'target' => 'BRL',
-                    'rate' => $bid,
-                    'quoted_on' => today()->toDateString(),
-                ];
-            } catch (\Throwable) {
+            $bid = $this->fetchMarketRate($currency);
+            if ($bid === null) {
                 return null;
             }
+
+            return [
+                'currency' => $currency,
+                'target' => 'BRL',
+                'rate' => $bid,
+                'quoted_on' => today()->toDateString(),
+            ];
         });
 
         if ($rateData === null) {
@@ -201,5 +188,58 @@ class WiseWalletController extends Controller
         $row = WiseConversion::query()->where('account_id', $account->id)->where('space_id', $space->id)->findOrFail($result->ref('wise_conversion_id'));
 
         return response()->json(['data' => $row, 'idempotency' => $this->idempotency($key, $result)], $result->replayed ? 200 : 201);
+    }
+
+    private function fetchMarketRate(string $currency): ?string
+    {
+        return $this->fetchFromAwesomeApi($currency) ?? $this->fetchFromFrankfurter($currency);
+    }
+
+    private function fetchFromAwesomeApi(string $currency): ?string
+    {
+        try {
+            $response = Http::timeout(5)->get("https://economia.awesomeapi.com.br/last/{$currency}-BRL");
+            if (! $response->successful()) {
+                return null;
+            }
+            $json = $response->json();
+            $pair = "{$currency}BRL";
+            if (! isset($json[$pair]['bid'])) {
+                return null;
+            }
+            $bid = (string) $json[$pair]['bid'];
+
+            return $this->isValidRate($bid) ? $bid : null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function fetchFromFrankfurter(string $currency): ?string
+    {
+        try {
+            $response = Http::timeout(5)->get('https://api.frankfurter.dev/v1/latest', [
+                'base' => $currency,
+                'symbols' => 'BRL',
+            ]);
+            if (! $response->successful()) {
+                return null;
+            }
+            $json = $response->json();
+            if (! isset($json['rates']['BRL'])) {
+                return null;
+            }
+            $rate = (string) $json['rates']['BRL'];
+
+            return $this->isValidRate($rate) ? $rate : null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function isValidRate(string $rate): bool
+    {
+        return preg_match('/^(?:0|[1-9][0-9]{0,11})(?:\.[0-9]{1,8})?$/D', $rate) === 1
+            && trim($rate, '0.') !== '';
     }
 }
