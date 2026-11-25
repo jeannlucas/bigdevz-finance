@@ -153,6 +153,12 @@ class WiseWalletPanel extends StatelessWidget {
                               payload['brl_rate']! as String,
                               payload['effective_date']! as String,
                             ),
+                            fetchMarketRate: () =>
+                                repository.fetchWiseMarketRate(
+                                  spaceId,
+                                  account.id,
+                                  currency.code,
+                                ),
                           );
                           if (saved && context.mounted) await _changed(context);
                         },
@@ -236,17 +242,24 @@ class WiseWalletPanel extends StatelessWidget {
 enum _EditKind { currency, conversion, reversal, quote }
 
 typedef _Save = Future<void> Function(Map<String, Object?> payload, String key);
+typedef _FetchRate = Future<WiseMarketRate> Function();
 
 Future<bool> _showEditor(
   BuildContext context,
   _EditKind kind,
   List<String> codes,
-  _Save save,
-) async =>
+  _Save save, {
+  _FetchRate? fetchMarketRate,
+}) async =>
     await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _WiseEditor(kind: kind, codes: codes, save: save),
+      builder: (_) => _WiseEditor(
+        kind: kind,
+        codes: codes,
+        save: save,
+        fetchMarketRate: fetchMarketRate,
+      ),
     ) ??
     false;
 
@@ -255,11 +268,13 @@ class _WiseEditor extends StatefulWidget {
     required this.kind,
     required this.codes,
     required this.save,
+    this.fetchMarketRate,
   });
 
   final _EditKind kind;
   final List<String> codes;
   final _Save save;
+  final _FetchRate? fetchMarketRate;
 
   @override
   State<_WiseEditor> createState() => _WiseEditorState();
@@ -279,6 +294,7 @@ class _WiseEditorState extends State<_WiseEditor> {
   Map<String, Object?>? _pending;
   bool _saving = false;
   bool _reviewing = false;
+  bool _fetchingRate = false;
 
   @override
   void dispose() {
@@ -385,7 +401,7 @@ class _WiseEditorState extends State<_WiseEditor> {
       _EditKind.quote => 'Cotação de ${widget.codes.single}',
     };
     return PopScope(
-      canPop: !_saving,
+      canPop: !_saving && !_fetchingRate,
       child: AlertDialog(
         title: Text(title),
         content: SizedBox(
@@ -437,6 +453,58 @@ class _WiseEditorState extends State<_WiseEditor> {
                       _EditKind.conversion => 'Valor debitado antes da tarifa',
                       _ => 'Reais por unidade de ${widget.codes.single}',
                     }),
+                  if (kind == _EditKind.quote &&
+                      widget.fetchMarketRate != null) ...[
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        icon: _fetchingRate
+                            ? const SizedBox.square(
+                                dimension: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.trending_up, size: 18),
+                        label: const Text('Buscar cotação de mercado'),
+                        onPressed: _fetchingRate || _saving
+                            ? null
+                            : () async {
+                                setState(() {
+                                  _fetchingRate = true;
+                                  _error = null;
+                                });
+                                try {
+                                  final marketRate =
+                                      await widget.fetchMarketRate!();
+                                  if (mounted) {
+                                    setState(() {
+                                      _value.text = marketRate.rate
+                                          .replaceFirst('.', ',');
+                                      _date = marketRate.quotedOn;
+                                      _fetchingRate = false;
+                                    });
+                                  }
+                                } on ApiException catch (e) {
+                                  if (mounted) {
+                                    setState(() {
+                                      _error = e.message;
+                                      _fetchingRate = false;
+                                    });
+                                  }
+                                } catch (_) {
+                                  if (mounted) {
+                                    setState(() {
+                                      _error = 'Cotação de mercado não disponível para esta moeda no momento.';
+                                      _fetchingRate = false;
+                                    });
+                                  }
+                                }
+                              },
+                      ),
+                    ),
+                  ],
                   if (kind == _EditKind.conversion) ...[
                     _selector(
                       'Moeda creditada',
@@ -485,12 +553,16 @@ class _WiseEditorState extends State<_WiseEditor> {
         ),
         actions: [
           TextButton(
-            onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+            onPressed: _saving || _fetchingRate
+                ? null
+                : () => Navigator.of(context).pop(false),
             child: const Text('Cancelar'),
           ),
           FilledButton(
             onPressed:
-                _saving || (kind == _EditKind.currency && _currency == null)
+                _saving ||
+                    _fetchingRate ||
+                    (kind == _EditKind.currency && _currency == null)
                 ? null
                 : (_reviewing ? _submit : _review),
             child: Text(

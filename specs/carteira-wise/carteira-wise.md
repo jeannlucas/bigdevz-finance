@@ -53,6 +53,14 @@ As operações são registros manuais de eventos já efetivados.
   por nome em português ou código ISO, inclusive sem acentos. A lista
   permanece contida no formulário em desktop e mobile.
 
+- **AC-WISE-010 — Consulta de cotação de mercado.** O modal de cotação
+  disponibiliza consulta assistida da cotação comercial do dia via endpoint
+  autenticado do backend (`GET /api/spaces/{space}/accounts/{account}/wise/currencies/{currency}/market-rate`),
+  com cache local para evitar sobrecarga de requisições externas. Ao obter a taxa,
+  o campo de valor e a data de referência são preenchidos automaticamente, mantendo
+  a possibilidade de ajuste manual antes de revisar e confirmar. Falhas na consulta
+  externa exibem aviso claro e não bloqueiam a digitação manual.
+
 ## Matriz de rastreabilidade
 
 | Critério | Área | Verificação esperada |
@@ -64,3 +72,4 @@ As operações são registros manuais de eventos já efetivados.
 | AC-WISE-007 | Interface web e mobile | Fluxos completos com teclado e por toque |
 | AC-WISE-008 | `WiseDashboardCard`, `SummaryTab` | `wise_dashboard_test.dart` |
 | AC-WISE-009 | `WiseCurrencyPicker`, `WiseCurrencyFlag` | `wise_currency_picker_test.dart` |
+| AC-WISE-010 | API de cotação e modal de cotação | `WiseWalletTest.php`, `wise_wallet_panel_test.dart` |

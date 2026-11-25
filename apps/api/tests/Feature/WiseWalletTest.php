@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class WiseWalletTest extends TestCase
@@ -103,5 +104,66 @@ class WiseWalletTest extends TestCase
         $this->getJson("$root/accounts/{$bank->id}")->assertJsonPath('data.balance', '140.00');
         $this->getJson($account)->assertJsonPath('data.balance', '360.00')
             ->assertJsonPath('data.wise_currencies.0.balance', '53.27');
+    }
+
+    public function test_market_rate_returns_quoted_rate_and_caches_response(): void
+    {
+        [$user, $pf] = $this->userWithSpaces();
+        $this->actingAs($user, 'sanctum');
+        $wise = $pf->accounts()->create([
+            'name' => 'Wise',
+            'bank_id' => 'wise',
+            'opening_balance_cents' => 36000,
+            'opening_balance_date' => '2026-01-01',
+        ]);
+        $url = "/api/spaces/{$pf->id}/accounts/{$wise->id}/wise/currencies/EUR/market-rate";
+
+        Http::fake([
+            'https://economia.awesomeapi.com.br/last/EUR-BRL' => Http::response([
+                'EURBRL' => [
+                    'code' => 'EUR',
+                    'codein' => 'BRL',
+                    'name' => 'Euro/Real Brasileiro',
+                    'bid' => '6.4457',
+                    'ask' => '6.4477',
+                    'create_date' => '2026-11-25 10:41:49',
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->getJson($url)->assertOk();
+        $response->assertJsonPath('data.currency', 'EUR')
+            ->assertJsonPath('data.target', 'BRL')
+            ->assertJsonPath('data.rate', '6.4457')
+            ->assertJsonPath('data.quoted_on', today()->toDateString());
+
+        // Segunda chamada utiliza cache e não dispara nova requisição HTTP
+        $this->getJson($url)->assertOk();
+        Http::assertSentCount(1);
+    }
+
+    public function test_market_rate_validates_currency_and_handles_api_failure(): void
+    {
+        [$user, $pf] = $this->userWithSpaces();
+        $this->actingAs($user, 'sanctum');
+        $wise = $pf->accounts()->create([
+            'name' => 'Wise',
+            'bank_id' => 'wise',
+            'opening_balance_cents' => 36000,
+            'opening_balance_date' => '2026-01-01',
+        ]);
+
+        // Moeda BRL ou inválida responde 422
+        $this->getJson("/api/spaces/{$pf->id}/accounts/{$wise->id}/wise/currencies/BRL/market-rate")->assertUnprocessable();
+        $this->getJson("/api/spaces/{$pf->id}/accounts/{$wise->id}/wise/currencies/INVALID/market-rate")->assertUnprocessable();
+
+        // Falha na API externa retorna 422 com mensagem amigável
+        Http::fake([
+            'https://economia.awesomeapi.com.br/last/USD-BRL' => Http::response(null, 500),
+        ]);
+
+        $this->getJson("/api/spaces/{$pf->id}/accounts/{$wise->id}/wise/currencies/USD/market-rate")
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Cotação de mercado não disponível para esta moeda no momento.');
     }
 }

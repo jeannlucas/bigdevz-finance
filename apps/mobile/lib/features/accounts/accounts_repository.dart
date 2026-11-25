@@ -1,6 +1,7 @@
 import '../../core/api_client.dart';
 import '../../core/money.dart';
 import 'account.dart';
+import 'wise_currency.dart';
 
 class AccountsRepository {
   const AccountsRepository(this._api);
@@ -58,6 +59,17 @@ class AccountsRepository {
       '/spaces/$spaceId/accounts/$accountId/wise/currencies/$currency/quote',
       {'brl_rate': rate, 'quoted_on': date},
     );
+  }
+
+  Future<WiseMarketRate> fetchWiseMarketRate(
+    int spaceId,
+    int accountId,
+    String currency,
+  ) async {
+    final response = await _api.get(
+      '/spaces/$spaceId/accounts/$accountId/wise/currencies/$currency/market-rate',
+    );
+    return WiseMarketRate.fromJson(response['data'] as Map<String, dynamic>);
   }
 
   Future<({List<Map<String, dynamic>> entries, bool hasNext})> wiseHistory(
