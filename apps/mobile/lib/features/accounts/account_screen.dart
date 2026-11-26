@@ -8,6 +8,7 @@ import '../../ui/app_icons.dart';
 import '../../ui/app_tokens.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
+import '../audit/audit_timeline_section.dart';
 import '../auth/auth_models.dart';
 import '../auth/session_controller.dart';
 import 'account.dart';
@@ -29,6 +30,14 @@ class AccountScreen extends StatelessWidget {
 
   final Space space;
   final int accountId;
+
+  ApiClient? _optionalApi(BuildContext context) {
+    try {
+      return context.read<ApiClient>();
+    } on ProviderNotFoundException {
+      return null;
+    }
+  }
 
   Future<(Account, OpeningAttempt?)> _load(BuildContext context) async {
     final userId = context.read<SessionController>().user?.id;
@@ -178,6 +187,15 @@ class AccountScreen extends StatelessWidget {
                             _buildActionsColumn(context, account, pending),
                             const SizedBox(height: 24),
                             _buildHistorySection(theme, account),
+                            if (_optionalApi(context) case final api?) ...[
+                              const SizedBox(height: 16),
+                              AuditTimelineSection(
+                                api: api,
+                                space: space,
+                                subject: 'account',
+                                subjectId: account.id,
+                              ),
+                            ],
                           ],
                         ],
                       ),

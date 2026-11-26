@@ -42,4 +42,5 @@ scripts/run-mobile.sh
 # Evidências temporárias de testes e design (preservando prints/*.png oficiais)
 prints/qa-*/
 prints/ux-*/
+prints/homologacao/
 design/screenshots/
